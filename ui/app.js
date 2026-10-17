@@ -674,21 +674,74 @@ for (const b of addMenu.querySelectorAll("button")) {
 }
 
 /** Dialog: Name (und evtl. Version), EULA-Häkchen. Liefert {name, version, eula} oder null. */
-async function askServerDetails(title, name, { needEula = false, versions = null } = {}) {
+const KINDS = [["fabric", "Fabric (Mods)"], ["paper", "Paper (Plugins)"], ["neoforge", "NeoForge (Mods)"], ["vanilla", "Vanilla (ohne Mods)"]];
+
+/** Dialog: Name, evtl. Server-Typ + Version, evtl. Ordner, EULA-Häkchen.
+ *  Liefert {name, kind, version, target, eula} oder null. */
+async function askServerDetails(title, name, { needEula = false, kinds = false, folder = false } = {}) {
   let html = `<label for="f-name">Name in der Server-Liste</label><input id="f-name" value="${esc(name)}">`;
-  if (versions) {
-    html += `<label for="f-version">Minecraft-Version</label><select id="f-version">` +
-      versions.map((v) => `<option>${esc(v)}</option>`).join("") + `</select>`;
+  if (kinds) {
+    html += `<label for="f-kind">Server-Typ</label><select id="f-kind">` +
+      KINDS.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("") + `</select>` +
+      `<label for="f-version">Minecraft-Version</label><select id="f-version"><option value="">lädt …</option></select>`;
+  }
+  if (folder) {
+    html += `<label>Ordner</label><div class="row" style="margin:0"><code id="f-dir" class="grow" style="word-break:break-all"></code>` +
+      `<button id="f-dir-btn" type="button">Anderer Ordner …</button></div><div id="f-dir-hint" class="dim small"></div>`;
   }
   if (needEula) {
     html += `<label class="check"><input type="checkbox" id="f-eula"> Ich akzeptiere die
       <a href="#" id="f-eula-link">Minecraft-EULA</a> (ohne startet kein Server)</label>`;
   }
+  let customDir = null; // vom Nutzer gewählter Ordner (sonst Vorschlag aus dem Namen)
   const ok = await ask(title, html, [{ label: "Abbrechen", value: false }, { label: "Weiter", value: true, kind: "primary", id: "f-ok" }], {
     html: true, noFocus: true, onOpen: () => {
       const okBtn = $("f-ok");
-      const check = () => { okBtn.disabled = !$("f-name").value.trim() || (needEula && !$("f-eula").checked); };
-      $("f-name").oninput = check;
+      const check = () => {
+        okBtn.disabled = !$("f-name").value.trim() || (needEula && !$("f-eula").checked) ||
+          (kinds && !$("f-version").value) || (folder && !$("f-dir").textContent);
+      };
+      const suggest = async () => {
+        if (!folder || customDir) return;
+        $("f-dir").textContent = await invoke("suggest_dir", { name: $("f-name").value.trim() || "Server" }).catch(() => "");
+        check();
+      };
+      $("f-name").oninput = () => { check(); suggest(); };
+      if (kinds) {
+        const loadVersions = async () => {
+          const sel = $("f-version");
+          sel.innerHTML = `<option value="">lädt …</option>`;
+          check();
+          try {
+            const v = await invoke("server_versions", { kind: $("f-kind").value });
+            sel.innerHTML = v.slice(0, 40).map((x) => `<option>${esc(x)}</option>`).join("");
+          } catch (e) { sel.innerHTML = `<option value="">Keine Verbindung: ${esc(e)}</option>`; }
+          check();
+        };
+        $("f-kind").onchange = loadVersions;
+        $("f-version").onchange = check;
+        loadVersions();
+      }
+      if (folder) {
+        suggest();
+        $("f-dir-btn").onclick = async () => {
+          const picked = await invoke("pick_folder", { title: "Ordner für den Server wählen" });
+          if (!picked) return;
+          const c = await invoke("check_dir", { path: picked, name: $("f-name").value.trim() || "Server" });
+          if (c.state === "nonempty") {
+            customDir = c.suggestion;
+            $("f-dir-hint").textContent = "Der gewählte Ordner ist nicht leer – der Server kommt in einen neuen Unterordner.";
+          } else if (c.state === "invalid") {
+            $("f-dir-hint").textContent = "Dieser Ordner lässt sich nicht verwenden.";
+            return;
+          } else {
+            customDir = picked;
+            $("f-dir-hint").textContent = "";
+          }
+          $("f-dir").textContent = customDir;
+          check();
+        };
+      }
       if (needEula) { $("f-eula").onchange = check; $("f-eula-link").onclick = (e) => { e.preventDefault(); invoke("open_eula").catch(() => {}); }; }
       $("f-name").onkeydown = (e) => { if (e.key === "Enter" && !okBtn.disabled) okBtn.click(); };
       check();
@@ -697,7 +750,13 @@ async function askServerDetails(title, name, { needEula = false, versions = null
   });
   if (ok !== true) return null;
   // Der Dialog ist nur versteckt, die Felder sind noch da
-  return { name: $("f-name").value.trim(), version: versions ? $("f-version").value : null, eula: needEula ? $("f-eula").checked : false };
+  return {
+    name: $("f-name").value.trim(),
+    kind: kinds ? $("f-kind").value : null,
+    version: kinds ? $("f-version").value : null,
+    target: folder ? $("f-dir").textContent : null,
+    eula: needEula ? $("f-eula").checked : false,
+  };
 }
 
 async function afterAdded(r, name) {
@@ -724,10 +783,10 @@ async function addArchive() {
   if (!archive) return;
   let base = archive.split(/[\\/]/).pop().replace(/(\.tar)?\.(zip|gz|tgz|zst|tar)$/i, "");
   base = base.replace(/_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?$/, "");
-  const d = await askServerDetails("Server importieren", base);
+  const d = await askServerDetails("Server importieren", base, { folder: true });
   if (!d) return;
   let r;
-  try { r = await task("import_server", { archive, name: d.name }); } catch (e) { return error("Import fehlgeschlagen", e); }
+  try { r = await task("import_server", { archive, name: d.name, target: d.target }); } catch (e) { return error("Import fehlgeschlagen", e); }
   let eula = r.eula;
   if (!eula) eula = await askEula(d.name);
   try { afterAdded(await invoke("add_server", { path: r.path, name: d.name, eula }), d.name); }
@@ -735,12 +794,11 @@ async function addArchive() {
 }
 
 async function addNew() {
-  let versions;
-  try { versions = await invoke("fabric_versions"); } catch (e) { return error("Keine Verbindung", `Versionsliste konnte nicht geladen werden: ${e}`); }
-  const d = await askServerDetails("Neuen Fabric-Server erstellen", "Neuer_Server", { needEula: true, versions: versions.slice(0, 30) });
+  const d = await askServerDetails("Neuen Server erstellen", "Neuer_Server", { needEula: true, kinds: true, folder: true });
   if (!d) return;
   let r;
-  try { r = await task("create_fabric_server", { name: d.name, version: d.version }); } catch (e) { return error("Erstellen fehlgeschlagen", e); }
+  try { r = await task("create_server", { kind: d.kind, name: d.name, version: d.version, target: d.target }); }
+  catch (e) { return error("Erstellen fehlgeschlagen", e); }
   try { afterAdded(await invoke("add_server", { path: r.path, name: d.name, eula: true }), d.name); }
   catch (e) { error("Hinzufügen fehlgeschlagen", e); }
 }
@@ -878,9 +936,10 @@ function modRow(m) {
 async function refreshMods() {
   let l;
   try { l = await invoke("mods_list"); } catch (_) { $("mods-list").innerHTML = ""; $("packs-list").innerHTML = ""; return; }
-  const on = l.mods.filter((m) => m.enabled).length;
-  $("mods-count").textContent = `${on} von ${l.mods.length} Mods eingeschaltet` + (l.datapacks.length ? ` · ${l.datapacks.length} Datapacks` : "");
-  for (const [id, items, empty] of [["mods-list", l.mods, "Keine Mods im Ordner „mods“."], ["packs-list", l.datapacks, "Keine Datapacks in der Welt."]]) {
+  const word = l.mod_dir === "plugins" ? "Plugins" : "Mods";
+  $("mods-heading").textContent = word;
+  $("mods-count").textContent = `${l.mods.filter((m) => m.enabled).length} von ${l.mods.length} ${word} eingeschaltet` + (l.datapacks.length ? ` · ${l.datapacks.length} Datapacks` : "");
+  for (const [id, items, empty] of [["mods-list", l.mods, `Keine ${word} im Ordner „${l.mod_dir}“.`], ["packs-list", l.datapacks, "Keine Datapacks in der Welt."]]) {
     const box = $(id);
     box.innerHTML = items.length ? "" : `<div class="empty">${empty}</div>`;
     for (const m of items) box.appendChild(modRow(m));
@@ -922,16 +981,19 @@ let plan = null;
 async function refreshUpdateTab() {
   try { updInfo = await invoke("upd_info"); } catch (e) { $("upd-current").textContent = String(e); return; }
   const i = updInfo.info;
-  $("upd-current").innerHTML = `<b>Jetzt:</b> Minecraft ${esc(i.version || "?")}` + (i.loader ? ` · Fabric ${esc(i.loader)}` : "") +
-    (updInfo.mods ? ` · ${updInfo.mods} Mods` : "") + (updInfo.datapacks ? ` · ${updInfo.datapacks} Datapacks` : "") + `  <span class="dim">(${esc(i.type)})</span>`;
-  const fabric = i.type === "fabric";
-  for (const id of ["upd-target", "btn-upd-versions", "btn-upd-check", "btn-mrpack"]) $(id).disabled = !fabric;
-  if (!fabric) $("upd-summary").textContent = "Den Update-Assistenten gibt es bisher nur für Fabric-Server.";
+  const loaderText = !i.loader ? "" : i.type === "paper" ? ` · Paper Build ${esc(i.loader)}` : i.type === "neoforge" ? ` · NeoForge ${esc(i.loader)}` : i.type === "fabric" ? ` · Fabric ${esc(i.loader)}` : "";
+  $("upd-current").innerHTML = `<b>Jetzt:</b> Minecraft ${esc(i.version || "?")}` + loaderText +
+    (updInfo.mods ? ` · ${updInfo.mods} ${updInfo.mod_dir === "plugins" ? "Plugins" : "Mods"}` : "") + (updInfo.datapacks ? ` · ${updInfo.datapacks} Datapacks` : "") + `  <span class="dim">(${esc(i.type)})</span>`;
+  const supported = ["fabric", "paper", "neoforge", "vanilla"].includes(i.type);
+  for (const id of ["upd-target", "btn-upd-versions", "btn-upd-check"]) $(id).disabled = !supported;
+  $("btn-mrpack").disabled = !["fabric", "neoforge"].includes(i.type);
+  $("btn-mrpack").title = $("btn-mrpack").disabled ? "Nur für Fabric- und NeoForge-Server (Mods, die auch die Freunde brauchen)" : "";
+  if (!supported) $("upd-summary").textContent = "Den Update-Assistenten gibt es für Fabric, Paper, NeoForge und Vanilla.";
   $("btn-upd-rollback").classList.toggle("hidden", !updInfo.rollback);
   const sel = $("upd-target");
   if (!sel.options.length || sel.dataset.server !== serverPath) {
     sel.dataset.server = serverPath;
-    sel.innerHTML = i.version ? `<option value="${esc(i.version)}">${esc(i.version)} (nur Mods aktualisieren)</option>` : "";
+    sel.innerHTML = i.version ? `<option value="${esc(i.version)}">${esc(i.version)} (nur Mods/Plugins aktualisieren)</option>` : "";
     clearPlan();
   }
 }
@@ -950,7 +1012,7 @@ $("btn-upd-versions").onclick = async () => {
   const cur = updInfo.info.version;
   const sel = $("upd-target");
   sel.innerHTML = versions.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("") +
-    (cur ? `<option value="${esc(cur)}">${esc(cur)} (nur Mods aktualisieren)</option>` : "");
+    (cur ? `<option value="${esc(cur)}">${esc(cur)} (nur Mods/Plugins aktualisieren)</option>` : "");
   if (!versions.length) $("upd-summary").textContent = "Es gibt keine neuere stabile Minecraft-Version mit Fabric.";
 };
 $("upd-target").onchange = clearPlan;
@@ -971,7 +1033,7 @@ function showPlan(hasWork) {
   const rows = [...plan.mods, ...plan.extra, ...plan.datapacks];
   for (const m of rows) {
     const tr = document.createElement("tr");
-    const title = (m.kind === "datapack" ? "Datapack: " : "") + (m.title || m.file || m.project_id || "?");
+    const title = (m.kind === "datapack" ? "Datapack: " : plan.mod_dir === "plugins" ? "Plugin: " : "") + (m.title || m.file || m.project_id || "?");
     const st = m.disabled && m.status === "update" ? "✓ passt wieder – wird eingeschaltet" : ST_TEXT[m.status] || m.status;
     tr.innerHTML = `<td class="st-${m.status}">${st}</td><td>${esc(title)}</td>` +
       `<td>${esc(m.current_version || (m.status === "new" ? "–" : m.file))}</td><td>${esc(m.new_version || "")}</td>`;
@@ -981,8 +1043,10 @@ function showPlan(hasWork) {
   const newDeps = plan.extra.filter((e) => e.status === "new").length;
   const lines = [`${count("update")} Updates, ${count("current")} schon aktuell, ${count("missing")} ohne passende Version, ${count("unknown")} unbekannt` +
     (newDeps ? `, ${newDeps} werden neu gebraucht` : "") + (count("reenable") ? `, ${count("reenable")} passen wieder` : "") + (count("duplicate") ? `, ${count("duplicate")} doppelt (wird beiseitegelegt)` : "")];
+  if (plan.server && !plan.change_version) lines.push(`Neuer Server-Stand für Minecraft ${plan.target}: ${plan.server.label}.`);
+  if (plan.server && plan.server.beta) lines.push("Hinweis: Dafür gibt es bisher nur eine Test-/Beta-Version.");
   if (plan.change_version) {
-    lines.push(`Server: Minecraft ${plan.current} → ${plan.target} mit Fabric ${plan.loader}.`);
+    lines.push(`Server: Minecraft ${plan.current} → ${plan.target} (${plan.server ? plan.server.label : "?"}).`);
     lines.push("Achtung: Eine Welt, die einmal mit der neuen Version lief, kann man nicht zurückstufen. Zurück geht nur über das Backup, das automatisch gemacht wird.");
   }
   if (plan.java_required) {

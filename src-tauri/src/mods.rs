@@ -71,28 +71,57 @@ pub fn disable(dir: &Path, rel: &str, reason: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- Liste
 
-/// Name und Version aus fabric.mod.json in der Jar.
+fn read_entry(z: &mut zip::ZipArchive<fs::File>, name: &str) -> Option<String> {
+    let mut e = z.by_name(name).ok()?;
+    let mut s = String::new();
+    e.read_to_string(&mut s).ok()?;
+    Some(s)
+}
+
+/// Wert aus `key: wert` (plugin.yml) oder `key="wert"` (mods.toml).
+fn simple_value(text: &str, key: &str, sep: char) -> Option<String> {
+    text.lines().find_map(|l| {
+        let l = l.trim();
+        let (k, v) = l.split_once(sep)?;
+        (k.trim() == key)
+            .then(|| v.trim().trim_matches(['"', '\'']).to_string())
+            .filter(|v| !v.is_empty())
+    })
+}
+
+/// Name, Version und „nur Client?“ aus der Jar (Fabric, NeoForge oder Paper/Bukkit-Plugin).
 fn mod_info(jar: &Path) -> (Option<String>, Option<String>, Option<String>) {
-    let read = || -> Option<Value> {
-        let mut z = zip::ZipArchive::new(fs::File::open(jar).ok()?).ok()?;
-        let mut e = z.by_name("fabric.mod.json").ok()?;
-        let mut s = String::new();
-        e.read_to_string(&mut s).ok()?;
+    let Some(mut z) = fs::File::open(jar).ok().and_then(|f| zip::ZipArchive::new(f).ok()) else {
+        return (None, None, None);
+    };
+    if let Some(s) = read_entry(&mut z, "fabric.mod.json") {
         // Manche Mods haben Steuerzeichen in Beschreibungen – grob säubern
         let s: String = s
             .chars()
             .map(|c| if c.is_control() && c != '\n' { ' ' } else { c })
             .collect();
-        serde_json::from_str(&s).ok()
-    };
-    match read() {
-        Some(v) => (
-            v.get("name").and_then(|n| n.as_str()).map(str::to_string),
-            v.get("version").and_then(|n| n.as_str()).map(str::to_string),
-            v.get("environment").and_then(|n| n.as_str()).map(str::to_string),
-        ),
-        None => (None, None, None),
+        if let Ok(v) = serde_json::from_str::<Value>(&s) {
+            return (
+                v.get("name").and_then(|n| n.as_str()).map(str::to_string),
+                v.get("version").and_then(|n| n.as_str()).map(str::to_string),
+                v.get("environment").and_then(|n| n.as_str()).map(str::to_string),
+            );
+        }
     }
+    for f in ["paper-plugin.yml", "plugin.yml"] {
+        if let Some(t) = read_entry(&mut z, f) {
+            return (simple_value(&t, "name", ':'), simple_value(&t, "version", ':'), None);
+        }
+    }
+    if let Some(t) = read_entry(&mut z, "META-INF/neoforge.mods.toml") {
+        let mut version = simple_value(&t, "version", '=');
+        if version.as_deref().map(|v| v.contains("${")).unwrap_or(true) {
+            version = read_entry(&mut z, "META-INF/MANIFEST.MF")
+                .and_then(|m| simple_value(&m, "Implementation-Version", ':'));
+        }
+        return (simple_value(&t, "displayName", '='), version, None);
+    }
+    (None, None, None)
 }
 
 fn level_name(dir: &Path) -> String {
@@ -106,8 +135,9 @@ fn level_name(dir: &Path) -> String {
 /// Alle Mods und Datapacks, ein- und ausgeschaltet.
 pub fn list(dir: &Path) -> Value {
     let notes = read_meta(dir).get("mod_notes").cloned().unwrap_or(json!({}));
+    let sub = crate::flavor::mod_dir_of(dir);
     let mut mods = vec![];
-    if let Ok(rd) = fs::read_dir(dir.join("mods")) {
+    if let Ok(rd) = fs::read_dir(dir.join(sub)) {
         for e in rd.filter_map(|e| e.ok()).filter(|e| e.path().is_file()) {
             let name = e.file_name().to_string_lossy().into_owned();
             let (base, enabled) = match name.strip_suffix(DISABLED) {
@@ -115,7 +145,7 @@ pub fn list(dir: &Path) -> Value {
                 _ if name.ends_with(".jar") => (name.clone(), true),
                 _ => continue,
             };
-            let rel = format!("mods/{base}");
+            let rel = format!("{sub}/{base}");
             let (title, version, env) = mod_info(&e.path());
             mods.push(json!({
                 "kind": "mod",
@@ -156,12 +186,12 @@ pub fn list(dir: &Path) -> Value {
     let key = |v: &Value| v["title"].as_str().unwrap_or("").to_lowercase();
     mods.sort_by_key(key);
     packs.sort_by_key(key);
-    json!({"mods": mods, "datapacks": packs})
+    json!({"mods": mods, "datapacks": packs, "mod_dir": sub})
 }
 
 /// Schalter umlegen. `rel` ist der Pfad ohne `.disabled`.
 pub fn set_enabled(dir: &Path, rel: &str, on: bool) -> Result<()> {
-    let ok_prefix = rel.starts_with("mods/") || rel.contains("/datapacks/");
+    let ok_prefix = rel.starts_with("mods/") || rel.starts_with("plugins/") || rel.contains("/datapacks/");
     if !ok_prefix || rel.contains("..") || rel.contains('\\') {
         return err("Ungültiger Pfad");
     }
@@ -183,9 +213,9 @@ pub fn set_enabled(dir: &Path, rel: &str, on: bool) -> Result<()> {
     Ok(())
 }
 
-/// Ausgeschaltete Mod-Jars (für den Update-Assistenten).
-pub fn disabled_mods(dir: &Path) -> Vec<(String, PathBuf)> {
-    let Ok(rd) = fs::read_dir(dir.join("mods")) else {
+/// Ausgeschaltete Jars in `sub` ("mods" oder "plugins") für den Update-Assistenten.
+pub fn disabled_in(dir: &Path, sub: &str) -> Vec<(String, PathBuf)> {
+    let Ok(rd) = fs::read_dir(dir.join(sub)) else {
         return vec![];
     };
     rd.filter_map(|e| e.ok())

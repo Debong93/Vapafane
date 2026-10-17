@@ -75,7 +75,10 @@ pub async fn upd_versions() -> Cmd<Vec<String>> {
     blocking(|| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
-        updater::target_versions(&server::detect_server(&dir).version)
+        let info = server::detect_server(&dir);
+        let kind = crate::flavor::Kind::parse(&info.kind)
+            .ok_or_else(|| Error("Den Update-Assistenten gibt es für diesen Server-Typ nicht.".into()))?;
+        updater::target_versions(kind, &info.version)
     })
     .await
 }
@@ -199,7 +202,11 @@ pub fn do_update(
     let mut cleaned = json!(null);
     if res.is_ok() {
         progress(0.98, "Räume alte Dateien auf …");
-        let loader = plan.loader.clone().unwrap_or_else(|| server::detect_server(dir).loader);
+        let loader = plan
+            .server
+            .as_ref()
+            .map(|a| a.build.clone())
+            .unwrap_or_else(|| server::detect_server(dir).loader);
         let items = cleanup::after_update(dir, &alt, &plan.target, &loader);
         let (freed, failed) = cleanup::delete(dir, &items);
         cleaned = json!({"count": items.len() - failed.len(), "freed": freed, "failed": failed});
@@ -520,7 +527,10 @@ fn trial_inner(
         .iter()
         .find(|l| l.contains("Loading ") && l.contains(" mods:"))
         .cloned();
-    let version_line = all.iter().find(|l| l.contains("Loading Minecraft ")).cloned();
+    let version_line = all
+        .iter()
+        .find(|l| l.contains("Loading Minecraft ") || l.contains("Starting minecraft server version"))
+        .cloned();
     Ok(json!({
         "ok": ready.is_some(),
         "seconds": ready,

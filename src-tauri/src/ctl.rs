@@ -17,6 +17,7 @@ const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
   wait-stopped [S.] warten, bis der Server aus ist
   backup            ganzen Server-Ordner als ZIP sichern
   cmd <BEFEHL …>    Befehl per RCON schicken
+  neu TYP NAME VER [ORDNER]  neuen Server anlegen (fabric, paper, neoforge, vanilla) und aktiv machen
   update-check VER  Mods/Datapacks für Minecraft VER über Modrinth prüfen
   trial VER         Probelauf: Kopie aktualisieren, auf anderem Port testen, löschen
   update VER        Update: stoppen, Backup, tauschen, starten (nur wenn Prüfung ok)
@@ -109,6 +110,24 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .active_path()
                 .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
             println!("{}", crate::rcon::once(&dir, &args[1..].join(" "))?);
+        }
+        "neu" => {
+            let (Some(kind), Some(name), Some(version)) = (args.get(1), args.get(2), args.get(3)) else {
+                return err("Benutzung: --ctl neu TYP NAME VERSION [ORDNER]");
+            };
+            let kind = crate::flavor::Kind::parse(kind).ok_or_else(|| crate::util::Error("Unbekannter Typ".into()))?;
+            let target = match args.get(4) {
+                Some(t) => std::path::PathBuf::from(t),
+                None => crate::util::unique_dir(&crate::config::servers_dir(), &crate::util::safe_name(name)),
+            };
+            let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
+            let path = crate::flavor::create_server(kind, name, version, &target, &print)?;
+            let mut cfg = Config::load();
+            cfg.add_server(name, &path)?;
+            if matches!(state().as_str(), "stopped" | "failed" | "none") {
+                cfg.set_active(Some(&path))?;
+            }
+            println!("{}", path.display());
         }
         "update-check" | "trial" | "update" => {
             let cfg = Config::load();

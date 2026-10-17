@@ -64,15 +64,16 @@ pub fn post_json(url: &str, body: &Value) -> Result<Value> {
         .map_err(net_err)
 }
 
-/// Lädt eine Datei; prüft SHA512 bzw. SHA1, wenn angegeben. Erst nach erfolgreicher
-/// Prüfung liegt die Datei unter `dest`.
-pub fn download(
-    url: &str,
-    dest: &Path,
-    sha512: Option<&str>,
-    sha1: Option<&str>,
-    progress: &dyn Fn(f64),
-) -> Result<()> {
+/// Erwartete Prüfsummen einer Datei (Hex). Was fehlt, wird nicht geprüft.
+#[derive(Clone, Debug, Default)]
+pub struct Expect<'a> {
+    pub sha1: Option<&'a str>,
+    pub sha256: Option<&'a str>,
+    pub sha512: Option<&'a str>,
+}
+
+/// Lädt eine Datei und prüft die Prüfsummen. Erst danach liegt die Datei unter `dest`.
+pub fn download(url: &str, dest: &Path, expect: Expect, progress: &dyn Fn(f64)) -> Result<()> {
     if !url.starts_with("https://") {
         return err(format!("Unsichere Download-Adresse: {url}"));
     }
@@ -87,8 +88,9 @@ pub fn download(
     if let Some(dir) = dest.parent() {
         fs::create_dir_all(dir)?;
     }
-    let mut h512 = sha2::Sha512::new();
     let mut h1 = sha1::Sha1::new();
+    let mut h256 = sha2::Sha256::new();
+    let mut h512 = sha2::Sha512::new();
     let res = (|| -> Result<()> {
         let mut out = fs::File::create(&tmp)?;
         let mut reader = resp.body_mut().with_config().limit(4 * 1024 * 1024 * 1024).reader();
@@ -100,8 +102,9 @@ pub fn download(
                 break;
             }
             out.write_all(&buf[..n])?;
-            h512.update(&buf[..n]);
             h1.update(&buf[..n]);
+            h256.update(&buf[..n]);
+            h512.update(&buf[..n]);
             done += n as u64;
             if total > 0 {
                 progress(done as f64 / total as f64);
@@ -114,13 +117,11 @@ pub fn download(
         let _ = fs::remove_file(&tmp);
         return Err(e);
     }
-    let ok512 = sha512
-        .map(|h| hex::encode(h512.finalize()) == h.to_lowercase())
-        .unwrap_or(true);
-    let ok1 = sha1
-        .map(|h| hex::encode(h1.finalize()) == h.to_lowercase())
-        .unwrap_or(true);
-    if !ok512 || !ok1 {
+    let ok = |want: Option<&str>, got: String| want.map(|w| w.eq_ignore_ascii_case(&got)).unwrap_or(true);
+    if !ok(expect.sha1, hex::encode(h1.finalize()))
+        || !ok(expect.sha256, hex::encode(h256.finalize()))
+        || !ok(expect.sha512, hex::encode(h512.finalize()))
+    {
         let _ = fs::remove_file(&tmp);
         return err(format!(
             "Prüfsumme stimmt nicht: {}",
@@ -129,6 +130,16 @@ pub fn download(
     }
     fs::rename(&tmp, dest)?;
     Ok(())
+}
+
+/// Text-Datei laden (z. B. eine .sha1-Datei von Maven).
+pub fn get_text(url: &str) -> Result<String> {
+    let mut resp = AGENT.get(url).call().map_err(net_err)?;
+    resp.body_mut()
+        .with_config()
+        .limit(16 * 1024 * 1024)
+        .read_to_string()
+        .map_err(net_err)
 }
 
 pub fn sha1_file(path: &Path) -> Result<String> {

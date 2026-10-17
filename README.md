@@ -13,18 +13,21 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 - **Konsole:** das Server-Log live, farbig (Warnungen, Fehler, Beitritte, Chat),
   Befehle eingeben (mit Verlauf über ↑/↓) und Schnellknöpfe.
 - **Spieler:** wer online ist (Spielmodus, OP, rauswerfen) und die Whitelist.
-- **Mods:** Liste aller Mods und Datapacks mit An/Aus-Schalter. Ausgeschaltet heißt
+- **Mods/Plugins:** Liste aller Mods (bzw. Paper-Plugins) und Datapacks mit An/Aus-Schalter. Ausgeschaltet heißt
   umbenannt in `….jar.disabled` (wie bei der Modrinth-App) – die Datei bleibt da, wird
   aber nicht geladen. Ausgeschaltete stehen ausgegraut mit Grund in der Liste
   (z. B. „gibt es nicht für Minecraft 26.3“). Knopf **Aufräumen** zeigt Reste alter
   Versionen (z. B. `mods/.old`, alte `versions/`, ältere Bibliotheken, alte Fabric-
   Zwischenspeicher) mit Größe an und löscht sie nach Bestätigung (nur bei gestopptem Server).
 - **Mehrere Server:** Liste mit beliebig vielen Servern, es läuft immer nur einer.
-  Hinzufügen per Ordner, Import aus ZIP/tar oder neuen Fabric-Server erstellen.
+  Hinzufügen per Ordner, Import aus ZIP/tar oder neu erstellen als **Fabric**, **Paper**,
+  **NeoForge** oder **Vanilla** – wahlweise in `MC_Servers/<Name>` oder einem anderen Ordner.
+  Server-Dateien werden immer mit Prüfsumme geladen (Mojang, PaperMC, NeoForged, Fabric).
 - **Backups:** immer der komplette Server-Ordner als ZIP mit Datum im Namen
   (`<Backups>/<Name>/<Name>_JJJJ-MM-TT_HH-MM.zip`), auch während der Server läuft.
   Wiederherstellen behält den alten Stand als `…_vor_Wiederherstellung_<Datum>`.
-- **Updates (Fabric):** prüft über Modrinth, ob es alle Mods und Datapacks für die
+- **Updates (Fabric, Paper, NeoForge, Vanilla):** prüft über Modrinth, ob es alle Mods
+  bzw. Paper-Plugins und Datapacks für die
   gewünschte Version gibt, lädt nötige Abhängigkeiten nach, erkennt doppelte Datapacks,
   prüft Java und Speicherplatz. Das Update macht vorher ein Backup und bietet bei
   Problemen den Rückweg an. Mods ohne passende Version werden ausgeschaltet (und beim

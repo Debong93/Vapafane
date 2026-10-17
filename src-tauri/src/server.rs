@@ -265,8 +265,12 @@ pub fn detect_server(dir: &Path) -> ServerInfo {
             info.version = c[1].to_string();
         }
     }
-    if let Some(v) = read_env(dir).get("MC_VERSION").filter(|v| !v.is_empty()) {
+    let env = read_env(dir);
+    if let Some(v) = env.get("MC_VERSION").filter(|v| !v.is_empty()) {
         info.version = v.clone();
+    }
+    if info.loader.is_empty() && info.kind != "vanilla" {
+        info.loader = env.get("MC_LOADER_VERSION").cloned().unwrap_or_default();
     }
     if info.version.is_empty() && info.kind == "fabric" && !info.jar.is_empty() {
         static INTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"intermediary/([^/\s]+)/").unwrap());
@@ -300,9 +304,19 @@ pub fn forge_args_file(dir: &Path) -> Option<PathBuf> {
         for b in base {
             p.push(b);
         }
+        // Zuerst die Version, die laut .mcpanel.env installiert ist
+        let installed = read_env(dir).get("MC_LOADER_VERSION").cloned().unwrap_or_default();
+        if !installed.is_empty() && p.join(&installed).join(want).is_file() {
+            return Some(p.join(&installed).join(want));
+        }
         if let Ok(rd) = fs::read_dir(&p) {
             let mut versions: Vec<PathBuf> = rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
-            versions.sort();
+            let name = |v: &PathBuf| {
+                v.file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            };
+            versions.sort_by(|a, b| util::cmp_versions(&name(a), &name(b)));
             if let Some(f) = versions.iter().rev().map(|v| v.join(want)).find(|f| f.is_file()) {
                 return Some(f);
             }

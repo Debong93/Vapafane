@@ -1,15 +1,16 @@
-//! Update-Assistent (nur Fabric): prüft Mods und Datapacks über Modrinth und
-//! stellt einen Server auf eine neue Minecraft-Version um.
+//! Update-Assistent für Fabric, Paper, NeoForge und Vanilla: prüft Mods bzw. Plugins
+//! und Datapacks über Modrinth und stellt einen Server auf eine neue Version um.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::archive::Progress;
 use crate::config::{ALT_DIR_NAME, STAGING_NAME};
+use crate::flavor::{self, Artifact, Kind};
 use crate::java;
 use crate::mods;
 use crate::net;
@@ -17,7 +18,6 @@ use crate::server;
 use crate::util::{self, Result, err};
 
 const API: &str = "https://api.modrinth.com/v2";
-const LOADER: &str = "fabric";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NewFile {
@@ -53,11 +53,15 @@ pub struct Item {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Plan {
     pub dir: PathBuf,
+    /// fabric, vanilla, paper, neoforge
+    pub kind: String,
+    /// "mods" oder "plugins" (leer bei Vanilla)
+    pub mod_dir: String,
     pub target: String,
     pub current: String,
     pub change_version: bool,
-    pub loader: Option<String>,
-    pub server_jar_url: Option<String>,
+    /// Neue Server-Datei (bei neuer Version oder neuerem Paper-Build/NeoForge)
+    pub server: Option<Artifact>,
     pub mods: Vec<Item>,
     pub extra: Vec<Item>,
     pub datapacks: Vec<Item>,
@@ -82,6 +86,7 @@ impl Plan {
     /// Gibt es überhaupt etwas zu tun?
     pub fn has_work(&self) -> bool {
         self.change_version
+            || self.server.is_some()
             || self.count("update") > 0
             || self.count("duplicate") > 0
             || self.count("reenable") > 0
@@ -115,8 +120,13 @@ fn safe_filename(name: &str) -> Result<String> {
     Ok(name.to_string())
 }
 
+/// Mods bzw. Plugins (Unterordner `sub`, z. B. "mods" oder "plugins").
 pub fn installed_mods(dir: &Path) -> Vec<Item> {
-    let Ok(rd) = fs::read_dir(dir.join("mods")) else {
+    installed_in(dir, flavor::mod_dir_of(dir))
+}
+
+fn installed_in(dir: &Path, sub: &str) -> Vec<Item> {
+    let Ok(rd) = fs::read_dir(dir.join(sub)) else {
         return vec![];
     };
     let mut names: Vec<String> = rd
@@ -130,8 +140,8 @@ pub fn installed_mods(dir: &Path) -> Vec<Item> {
         .into_iter()
         .map(|n| Item {
             kind: "mod".into(),
-            sha1: net::sha1_file(&dir.join("mods").join(&n)).ok(),
-            rel: format!("mods/{n}"),
+            sha1: net::sha1_file(&dir.join(sub).join(&n)).ok(),
+            rel: format!("{sub}/{n}"),
             title: n.clone(),
             file: n,
             ..Default::default()
@@ -188,22 +198,22 @@ fn version_files(hashes: &[String]) -> Result<HashMap<String, Value>> {
     Ok(serde_json::from_value(v).unwrap_or_default())
 }
 
-fn version_updates(hashes: &[String], loader: &str, target: &str) -> Result<HashMap<String, Value>> {
+fn version_updates(hashes: &[String], loaders: &[&str], target: &str) -> Result<HashMap<String, Value>> {
     if hashes.is_empty() {
         return Ok(HashMap::new());
     }
     let v = net::post_json(
         &format!("{API}/version_files/update"),
-        &json!({"hashes": hashes, "algorithm": "sha1", "loaders": [loader], "game_versions": [target]}),
+        &json!({"hashes": hashes, "algorithm": "sha1", "loaders": loaders, "game_versions": [target]}),
     )?;
     Ok(serde_json::from_value(v).unwrap_or_default())
 }
 
-fn newest_for_project(project_id: &str, target: &str) -> Result<Option<Value>> {
+fn newest_for_project(project_id: &str, loaders: &[&str], target: &str) -> Result<Option<Value>> {
     let v = net::get_json_query(
         &format!("{API}/project/{project_id}/version"),
         &[
-            ("loaders", json!([LOADER]).to_string()),
+            ("loaders", json!(loaders).to_string()),
             ("game_versions", json!([target]).to_string()),
         ],
     )?;
@@ -252,18 +262,25 @@ fn classify(items: &mut [Item], known: &HashMap<String, Value>, updates: &HashMa
 /// Erstellt einen Update-Plan. Ändert nichts.
 pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     let info = server::detect_server(dir);
-    if info.kind != "fabric" {
-        return err("Der Update-Assistent gibt es bisher nur für Fabric-Server.");
-    }
-    progress(0.05, "Lese installierte Mods …");
-    let mut mods = installed_mods(dir);
-    // Ausgeschaltete Mods mitprüfen: gibt es jetzt eine passende Version, wird sie wieder eingeschaltet
-    let mut off: Vec<Item> = mods::disabled_mods(dir)
+    let Some(kind) = Kind::parse(&info.kind) else {
+        return err("Den Update-Assistenten gibt es für Fabric-, Paper-, NeoForge- und Vanilla-Server.");
+    };
+    let loaders = kind.loaders();
+    let sub = kind.mod_dir().unwrap_or("");
+    progress(0.05, "Lese installierte Mods und Plugins …");
+    let mut mods = if sub.is_empty() { vec![] } else { installed_in(dir, sub) };
+    // Ausgeschaltete mitprüfen: gibt es jetzt eine passende Version, wird sie wieder eingeschaltet
+    let disabled = if sub.is_empty() {
+        vec![]
+    } else {
+        mods::disabled_in(dir, sub)
+    };
+    let mut off: Vec<Item> = disabled
         .into_iter()
         .map(|(base, path)| Item {
             kind: "mod".into(),
             sha1: net::sha1_file(&path).ok(),
-            rel: format!("mods/{base}"),
+            rel: format!("{sub}/{base}"),
             title: base.clone(),
             file: base,
             disabled: true,
@@ -273,7 +290,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     let hashes: Vec<String> = mods.iter().chain(&off).filter_map(|m| m.sha1.clone()).collect();
     progress(0.2, "Frage Modrinth nach den Mods …");
     let known = version_files(&hashes)?;
-    let updates = version_updates(&hashes, LOADER, target)?;
+    let updates = version_updates(&hashes, loaders, target)?;
     classify(&mut mods, &known, &updates);
     classify(&mut off, &known, &updates);
     // Ausgeschaltete nur aufnehmen, wenn es eine passende Version gibt und das Projekt nicht schon aktiv ist
@@ -314,7 +331,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
                 if s(&dep, "dependency_type").as_deref() != Some("required") || !seen.insert(pid.clone()) {
                     continue;
                 }
-                match newest_for_project(&pid, target)? {
+                match newest_for_project(&pid, loaders, target)? {
                     Some(v) => {
                         extra.push(Item {
                             kind: "mod".into(),
@@ -347,7 +364,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     let mut packs = installed_datapacks(dir);
     let pack_hashes: Vec<String> = packs.iter().filter_map(|p| p.sha1.clone()).collect();
     let pk_known = version_files(&pack_hashes)?;
-    let pk_updates = version_updates(&pack_hashes, "datapack", target)?;
+    let pk_updates = version_updates(&pack_hashes, &["datapack"], target)?;
     classify(&mut packs, &pk_known, &pk_updates);
     let mod_projects: HashSet<String> = installed
         .iter()
@@ -394,6 +411,8 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     let change_version = target != info.version;
     let mut plan = Plan {
         dir: dir.to_path_buf(),
+        kind: kind.id().into(),
+        mod_dir: sub.into(),
         target: target.into(),
         current: info.version.clone(),
         change_version,
@@ -402,11 +421,17 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         datapacks: packs,
         ..Default::default()
     };
+    progress(0.85, &format!("Suche {}-Server für {target} …", kind.label()));
     if change_version {
-        progress(0.85, "Suche Fabric-Server für die neue Version …");
-        let (url, loader) = net::fabric_server_jar_url(target)?;
-        plan.server_jar_url = Some(url);
-        plan.loader = Some(loader);
+        plan.server = Some(flavor::server_artifact(kind, target)?);
+    } else if matches!(kind, Kind::Paper | Kind::NeoForge) {
+        // Gleiche Minecraft-Version: gibt es einen neueren Paper-Build bzw. ein neueres NeoForge?
+        let art = flavor::server_artifact(kind, target)?;
+        if flavor::newer_build(kind, dir, &art) {
+            plan.server = Some(art);
+        }
+    }
+    if plan.server.is_some() {
         plan.java_required = net::required_java(target)?;
     }
     progress(0.9, "Prüfe Java und Speicherplatz …");
@@ -451,7 +476,13 @@ pub fn apply(
         .chain(plan.extra.iter().filter(|m| m.status == "new"))
         .chain(plan.datapacks.iter().filter(|p| p.status == "update"))
         .collect();
-    let total = (downloads.len() + usize::from(plan.change_version)).max(1) as f64;
+    let kind = Kind::parse(&plan.kind).unwrap_or(Kind::Fabric);
+    let mod_sub = if plan.mod_dir.is_empty() {
+        "mods"
+    } else {
+        plan.mod_dir.as_str()
+    };
+    let total = (downloads.len() + usize::from(plan.server.is_some())).max(1) as f64;
     for (i, m) in downloads.iter().enumerate() {
         let Some(f) = &m.new_file else { continue };
         let name = safe_filename(&f.filename)?;
@@ -461,18 +492,17 @@ pub fn apply(
         net::download(
             &f.url,
             &staging.join(sub).join(&name),
-            f.sha512.as_deref(),
-            None,
+            net::Expect {
+                sha512: f.sha512.as_deref(),
+                ..Default::default()
+            },
             &|_| {},
         )?;
     }
-    if plan.change_version {
-        progress(
-            downloads.len() as f64 / total,
-            &format!("Lade Fabric-Server für {} …", plan.target),
-        );
-        let url = plan.server_jar_url.as_deref().unwrap_or_default();
-        net::download(url, &staging.join("fabric-server-launch.jar"), None, None, &|_| {})?;
+    if let Some(art) = &plan.server {
+        progress(downloads.len() as f64 / total, &format!("Lade {} …", art.label));
+        let name = safe_filename(&art.file)?;
+        art.download(&staging.join("server").join(&name), &|_| {})?;
     }
 
     // Ab hier wird getauscht – alles ist heruntergeladen und geprüft
@@ -485,7 +515,7 @@ pub fn apply(
         if m.rel.is_empty() {
             return Ok(());
         }
-        let sub = if m.kind == "datapack" { "datapacks" } else { "mods" };
+        let sub = if m.kind == "datapack" { "datapacks" } else { "mods" }; // Unterordner in .panel-alt
         let src = if m.disabled {
             PathBuf::from(format!("{}{}", dir.join(&m.rel).display(), mods::DISABLED))
         } else {
@@ -528,28 +558,56 @@ pub fn apply(
             fs::create_dir_all(&dp)?;
             fs::rename(staging.join("datapacks").join(&name), dp.join(&name))?;
         } else {
-            fs::rename(staging.join("mods").join(&name), dir.join("mods").join(&name))?;
+            fs::create_dir_all(dir.join(mod_sub))?;
+            fs::rename(staging.join("mods").join(&name), dir.join(mod_sub).join(&name))?;
         }
     }
 
     let mut env = vec![("MC_VERSION", plan.target.clone())];
-    if plan.change_version {
-        for old in [
-            "fabric-server-launch.jar",
-            "server.jar",
-            "fabric-server-launcher.properties",
-        ] {
-            let p = dir.join(old);
-            if p.exists() {
-                fs::rename(&p, alt.join(old))?;
+    if let Some(art) = &plan.server {
+        let new = staging.join("server").join(safe_filename(&art.file)?);
+        let java = if plan.java_path.is_empty() {
+            crate::java::default_java()
+        } else {
+            plan.java_path.clone()
+        };
+        let old_jar = server::read_env(dir).get("MC_JAR").cloned().unwrap_or_default();
+        let move_aside = |name: &str| -> Result<()> {
+            let p = dir.join(name);
+            if !name.is_empty() && p.is_file() {
+                fs::rename(&p, alt.join(name))?;
+            }
+            Ok(())
+        };
+        match kind {
+            Kind::Fabric => {
+                for old in [
+                    "fabric-server-launch.jar",
+                    "server.jar",
+                    "fabric-server-launcher.properties",
+                ] {
+                    move_aside(old)?;
+                }
+                fs::rename(&new, dir.join("fabric-server-launch.jar"))?;
+                env.push(("MC_JAR", "fabric-server-launch.jar".into()));
+            }
+            Kind::Vanilla | Kind::Paper => {
+                move_aside(&old_jar)?;
+                if old_jar != art.file {
+                    move_aside(&art.file)?;
+                }
+                fs::rename(&new, dir.join(&art.file))?;
+                env.push(("MC_JAR", art.file.clone()));
+            }
+            Kind::NeoForge => {
+                // Der Installer legt die neue Version zusätzlich ab; die alte räumt das Aufräumen weg
+                progress(0.98, &format!("Richte {} ein …", art.label));
+                flavor::run_neoforge_installer(&new, dir, &java, &|_, _| {})?;
+                env.push(("MC_JAR", String::new()));
             }
         }
-        fs::rename(
-            staging.join("fabric-server-launch.jar"),
-            dir.join("fabric-server-launch.jar"),
-        )?;
-        env.push(("MC_JAR", "fabric-server-launch.jar".into()));
-        env.push(("MC_TYPE", "fabric".into()));
+        env.push(("MC_TYPE", kind.id().into()));
+        env.push(("MC_LOADER_VERSION", art.build.clone()));
         if !plan.java_path.is_empty() {
             env.push(("MC_JAVA", plan.java_path.clone()));
         }
@@ -603,10 +661,11 @@ pub fn export_mrpack(dir: &Path, dest: &Path, name: &str) -> Result<(usize, usiz
             "fileSize": f.get("size"),
         }));
     }
-    let loader = if info.loader.is_empty() {
-        net::fabric_server_jar_url(&info.version)?.1
-    } else {
-        info.loader.clone()
+    let (loader_key, loader) = match info.kind.as_str() {
+        "fabric" if info.loader.is_empty() => ("fabric-loader", net::fabric_server_jar_url(&info.version)?.1),
+        "fabric" => ("fabric-loader", info.loader.clone()),
+        "neoforge" => ("neoforge", info.loader.clone()),
+        _ => return err("Ein Modpack für Freunde gibt es nur bei Fabric- und NeoForge-Servern."),
     };
     let index = json!({
         "formatVersion": 1,
@@ -615,7 +674,7 @@ pub fn export_mrpack(dir: &Path, dest: &Path, name: &str) -> Result<(usize, usiz
         "name": name,
         "summary": format!("Mods vom Server {name}"),
         "files": files,
-        "dependencies": {"minecraft": info.version, "fabric-loader": loader},
+        "dependencies": {"minecraft": info.version, loader_key: loader},
     });
     let tmp = dest.with_extension("part");
     {
@@ -638,25 +697,18 @@ pub fn current_info(dir: &Path) -> Value {
     let info = server::detect_server(dir);
     json!({
         "info": info,
+        "mod_dir": flavor::mod_dir_of(dir),
         "mods": installed_mods(dir).len(),
         "datapacks": installed_datapacks(dir).len(),
     })
 }
 
 /// Versionen zur Auswahl: neuere als die jetzige, dann die jetzige.
-pub fn target_versions(current: &str) -> Result<Vec<String>> {
-    let all = net::fabric_game_versions()?;
+pub fn target_versions(kind: Kind, current: &str) -> Result<Vec<String>> {
+    let all = flavor::game_versions(kind)?;
     let newer: Vec<String> = match all.iter().position(|v| v == current) {
         Some(i) => all[..i].to_vec(),
         None => all.iter().take(10).cloned().collect(),
     };
     Ok(newer)
-}
-
-#[allow(dead_code)]
-pub fn summary(plan: &Plan) -> BTreeMap<&'static str, usize> {
-    ["update", "current", "missing", "unknown", "duplicate"]
-        .into_iter()
-        .map(|k| (k, plan.count(k)))
-        .collect()
 }

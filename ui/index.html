@@ -15,7 +15,7 @@
       <div id="add-menu" class="menu hidden">
         <button data-add="folder">Vorhandenen Ordner hinzufügen …</button>
         <button data-add="archive">Server aus ZIP/Backup importieren …</button>
-        <button data-add="new">Neuen Fabric-Server erstellen …</button>
+        <button data-add="new">Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …</button>
         <hr>
         <button data-add="remove">Ausgewählten Server aus der Liste entfernen</button>
       </div>
@@ -24,7 +24,7 @@
       <button data-tab="overview" class="active">Übersicht</button>
       <button data-tab="console">Konsole</button>
       <button data-tab="players">Spieler</button>
-      <button data-tab="mods">Mods</button>
+      <button data-tab="mods">Mods/Plugins</button>
       <button data-tab="updates">Updates</button>
       <button data-tab="backups">Backups</button>
       <button data-tab="settings">Einstellungen</button>
@@ -100,7 +100,7 @@
 
     <!-- Mods -->
     <section id="tab-mods" class="tab">
-      <p class="dim small">Ausgeschaltete Mods bleiben im Ordner (als „.disabled“), werden aber nicht geladen.
+      <p class="dim small">Ausgeschaltete Mods und Plugins bleiben im Ordner (als „.disabled“), werden aber nicht geladen.
         Änderungen wirken beim nächsten Start des Servers.</p>
       <div class="row">
         <span id="mods-count" class="dim"></span>
@@ -109,7 +109,7 @@
         <button id="btn-cleanup" title="Reste alter Versionen löschen (Server muss gestoppt sein)">Aufräumen …</button>
       </div>
       <p id="mods-hint" class="hint hidden"></p>
-      <h3>Mods</h3>
+      <h3 id="mods-heading">Mods</h3>
       <div id="mods-list" class="list"></div>
       <h3>Datapacks in der Welt</h3>
       <div id="packs-list" class="list"></div>
@@ -118,7 +118,7 @@
     <!-- Updates -->
     <section id="tab-updates" class="tab">
       <p id="upd-current"></p>
-      <p class="dim small">Prüft über Modrinth, ob es alle Mods und Datapacks für die gewählte Version gibt.
+      <p class="dim small">Prüft über Modrinth, ob es alle Mods bzw. Plugins und Datapacks für die gewählte Version gibt.
         Vor jedem Update wird automatisch ein komplettes Backup gemacht.</p>
       <div class="row">
         <label>Ziel:</label>

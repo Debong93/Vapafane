@@ -330,19 +330,31 @@ fn extract_tar(reader: Box<dyn Read>, dest: &Path, _total: u64, progress: Progre
     Ok(())
 }
 
-/// Importiert ein Archiv als neuen Server in `MC_Servers/<Name>`.
-pub fn import_archive(archive: &Path, name: &str, progress: Progress) -> Result<PathBuf> {
-    let base = crate::config::servers_dir();
-    fs::create_dir_all(&base)?;
-    let target = util::unique_dir(&base, &util::safe_name(name));
-    let staging = PathBuf::from(format!("{}.import", target.display()));
+/// Importiert ein Archiv als neuen Server nach `target` (muss frei oder leer sein).
+pub fn import_archive_to(archive: &Path, target: &Path, progress: Progress) -> Result<PathBuf> {
+    match crate::flavor::target_state(target) {
+        "free" | "empty" => {}
+        _ => return err(format!("Der Ordner {} ist nicht leer.", target.display())),
+    }
+    let parent = target.parent().unwrap_or(Path::new("."));
+    fs::create_dir_all(parent)?;
+    let staging = parent.join(format!(
+        ".{}.import",
+        target
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    ));
     let _ = fs::remove_dir_all(&staging);
     let res = extract_archive(archive, &staging, progress).and_then(|root| {
-        fs::rename(&root, &target)?;
+        if target.exists() {
+            fs::remove_dir(target)?; // leer, siehe oben
+        }
+        fs::rename(&root, target)?;
         Ok(())
     });
     let _ = fs::remove_dir_all(&staging);
-    res.map(|_| target)
+    res.map(|_| target.to_path_buf())
 }
 
 /// Stellt ein Backup in `dir` wieder her. Der bisherige Ordner bleibt daneben als
@@ -487,6 +499,32 @@ mod tests {
         let root = extract_archive(&zpath, &dest, &noop).unwrap();
         assert_eq!(root, dest.join("MeinServer"));
         assert_eq!(fs::read_to_string(root.join("world/level.dat")).unwrap(), "daten");
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn import_into_chosen_folder() {
+        let base = std::env::temp_dir().join(format!("redcraft-target-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("src/S")).unwrap();
+        fs::write(base.join("src/S/server.properties"), "motd=z\n").unwrap();
+        let zpath = base.join("s.zip");
+        {
+            let mut z = zip::ZipWriter::new(fs::File::create(&zpath).unwrap());
+            z.start_file("S/server.properties", zip::write::SimpleFileOptions::default())
+                .unwrap();
+            io::Write::write_all(&mut z, b"motd=z\n").unwrap();
+            z.finish().unwrap();
+        }
+        let noop = |_: f64, _: &str| {};
+        fs::create_dir_all(base.join("voll")).unwrap();
+        fs::write(base.join("voll/x"), "x").unwrap();
+        assert!(import_archive_to(&zpath, &base.join("voll"), &noop).is_err());
+        fs::create_dir_all(base.join("leer")).unwrap();
+        let p = import_archive_to(&zpath, &base.join("leer"), &noop).unwrap();
+        assert_eq!(fs::read_to_string(p.join("server.properties")).unwrap(), "motd=z\n");
+        let p = import_archive_to(&zpath, &base.join("neu/Server"), &noop).unwrap();
+        assert!(p.join("server.properties").exists());
         fs::remove_dir_all(&base).unwrap();
     }
 

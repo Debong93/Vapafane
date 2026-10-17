@@ -11,6 +11,7 @@ mod autostart;
 mod cleanup;
 mod config;
 mod ctl;
+mod flavor;
 mod gui;
 mod ipc;
 mod java;

@@ -164,3 +164,46 @@ pub fn fmt_bytes(n: u64) -> String {
         format!("{v:.0} {}", units[i])
     }
 }
+
+/// Versionsnummern vergleichen: Zahlen als Zahlen, Rest als Text.
+pub fn cmp_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    fn parts(s: &str) -> Vec<std::result::Result<u64, String>> {
+        let mut out = vec![];
+        let mut cur = String::new();
+        let mut digit = None;
+        for c in s.chars() {
+            if !c.is_alphanumeric() {
+                if !cur.is_empty() {
+                    out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
+                    cur.clear();
+                }
+                digit = None;
+                continue;
+            }
+            let d = c.is_ascii_digit();
+            if digit.is_some() && digit != Some(d) && !cur.is_empty() {
+                out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
+                cur.clear();
+            }
+            digit = Some(d);
+            cur.push(c);
+        }
+        if !cur.is_empty() {
+            out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
+        }
+        out
+    }
+    let (pa, pb) = (parts(a), parts(b));
+    for (x, y) in pa.iter().zip(&pb) {
+        let o = match (x, y) {
+            (Ok(x), Ok(y)) => x.cmp(y),
+            (Err(x), Err(y)) => x.cmp(y),
+            (Ok(_), Err(_)) => std::cmp::Ordering::Greater,
+            (Err(_), Ok(_)) => std::cmp::Ordering::Less,
+        };
+        if o != std::cmp::Ordering::Equal {
+            return o;
+        }
+    }
+    pa.len().cmp(&pb.len())
+}

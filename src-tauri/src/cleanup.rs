@@ -5,14 +5,13 @@
 //! ausgeschaltete Mods (`.disabled`) bleiben immer erhalten.
 
 use serde::Serialize;
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::ALT_DIR_NAME;
 use crate::server;
-use crate::util;
+use crate::util::{self, cmp_versions};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Candidate {
@@ -55,52 +54,9 @@ fn subdirs(p: &Path) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
-/// Versionsnummern vergleichen: Zahlen als Zahlen, Rest als Text.
-pub fn cmp_versions(a: &str, b: &str) -> Ordering {
-    fn parts(s: &str) -> Vec<std::result::Result<u64, String>> {
-        let mut out = vec![];
-        let mut cur = String::new();
-        let mut digit = None;
-        for c in s.chars() {
-            if !c.is_alphanumeric() {
-                if !cur.is_empty() {
-                    out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
-                    cur.clear();
-                }
-                digit = None;
-                continue;
-            }
-            let d = c.is_ascii_digit();
-            if digit.is_some() && digit != Some(d) && !cur.is_empty() {
-                out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
-                cur.clear();
-            }
-            digit = Some(d);
-            cur.push(c);
-        }
-        if !cur.is_empty() {
-            out.push(cur.parse::<u64>().map_err(|_| cur.clone()));
-        }
-        out
-    }
-    let (pa, pb) = (parts(a), parts(b));
-    for (x, y) in pa.iter().zip(&pb) {
-        let o = match (x, y) {
-            (Ok(x), Ok(y)) => x.cmp(y),
-            (Err(x), Err(y)) => x.cmp(y),
-            (Ok(_), Err(_)) => Ordering::Greater,
-            (Err(_), Ok(_)) => Ordering::Less,
-        };
-        if o != Ordering::Equal {
-            return o;
-        }
-    }
-    pa.len().cmp(&pb.len())
-}
-
 /// Bibliotheken im Maven-Aufbau (`gruppe/artefakt/version/*.jar`): von jedem Artefakt
 /// nur die neueste Version behalten. Fehlt doch etwas, lädt der Server es beim Start nach.
-fn old_libraries(dir: &Path, mc_version: &str) -> Vec<Candidate> {
+fn old_libraries(dir: &Path, mc_version: &str, loader: &str) -> Vec<Candidate> {
     let libs = dir.join("libraries");
     let mut by_artifact: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
     for e in walkdir::WalkDir::new(&libs)
@@ -132,6 +88,13 @@ fn old_libraries(dir: &Path, mc_version: &str) -> Vec<Candidate> {
         if artifact.ends_with("net/fabricmc/intermediary") && !mc_version.is_empty() {
             for v in versions.iter().filter(|v| name(v) != mc_version) {
                 out.push(cand(dir, v.clone(), "Fabric-Mappings einer alten Minecraft-Version"));
+            }
+            continue;
+        }
+        // NeoForge: genau die installierte Version behalten
+        if artifact.ends_with("net/neoforged/neoforge") && versions.iter().any(|v| name(v) == loader) {
+            for v in versions.iter().filter(|v| name(v) != loader) {
+                out.push(cand(dir, v.clone(), "ältere NeoForge-Version"));
             }
             continue;
         }
@@ -177,7 +140,16 @@ fn old_version_files(dir: &Path, version: &str, loader: &str) -> Vec<Candidate> 
             }
         }
     }
-    out.extend(old_libraries(dir, version));
+    // Paper: von Mojang geladene Original-Jars alter Versionen
+    if let Ok(rd) = fs::read_dir(dir.join("cache")) {
+        for e in rd.filter_map(|e| e.ok()) {
+            let n = e.file_name().to_string_lossy().into_owned();
+            if n.starts_with("mojang_") && n.ends_with(".jar") && n != format!("mojang_{version}.jar") {
+                out.push(cand(dir, e.path(), "Minecraft-Datei einer alten Version"));
+            }
+        }
+    }
+    out.extend(old_libraries(dir, version, loader));
     out
 }
 
@@ -228,7 +200,10 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
             "Zwischenspeicher der Mods (wird beim nächsten Start neu erzeugt)",
         ));
     }
-    if info.kind == "fabric" || info.kind == "vanilla" || info.kind == "quilt" {
+    if matches!(
+        info.kind.as_str(),
+        "fabric" | "vanilla" | "quilt" | "paper" | "neoforge"
+    ) {
         out.extend(old_version_files(dir, &info.version, &info.loader));
     }
     out
@@ -275,6 +250,7 @@ pub fn delete(dir: &Path, items: &[Candidate]) -> (u64, Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cmp::Ordering;
 
     #[test]
     fn version_order() {

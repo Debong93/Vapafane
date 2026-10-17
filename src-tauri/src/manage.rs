@@ -10,10 +10,9 @@ use tauri::AppHandle;
 use crate::archive;
 use crate::autostart;
 use crate::config::{self, Config};
+use crate::flavor::{self, Kind};
 use crate::gui::{Cmd, blocking, run_task};
-use crate::java;
 use crate::launcher;
-use crate::net;
 use crate::ops::server_state;
 use crate::procs;
 use crate::server;
@@ -102,71 +101,66 @@ pub async fn add_server(path: String, name: String, eula: bool) -> Cmd<Value> {
 }
 
 #[tauri::command]
-pub fn import_server(app: AppHandle, archive: String, name: String) -> Cmd<()> {
+pub fn import_server(app: AppHandle, archive: String, name: String, target: Option<String>) -> Cmd<()> {
     run_task(&app, &format!("Importiere „{name}“"), move |progress| {
-        let path = archive::import_archive(Path::new(&archive), &name, progress)?;
+        let target = match target.filter(|t| !t.trim().is_empty()) {
+            Some(t) => PathBuf::from(t),
+            None => default_dir(&name)?,
+        };
+        let path = archive::import_archive_to(Path::new(&archive), &target, progress)?;
         Ok(json!({"path": path, "eula": server::eula_accepted(&path)}))
     })
     .map_err(|e| e.0)
 }
 
+fn default_dir(name: &str) -> Result<PathBuf> {
+    let base = config::servers_dir();
+    fs::create_dir_all(&base)?;
+    Ok(util::unique_dir(&base, &util::safe_name(name)))
+}
+
+/// Vorschlag für den Server-Ordner: `MC_Servers/<Name>` im Benutzerordner.
 #[tauri::command]
-pub async fn fabric_versions() -> Cmd<Vec<String>> {
-    blocking(net::fabric_game_versions).await
+pub fn suggest_dir(name: String) -> Cmd<String> {
+    let base = config::servers_dir();
+    Ok(util::unique_dir(&base, &util::safe_name(&name))
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// Ist der gewählte Ordner frei oder leer? Sonst Vorschlag für einen Unterordner.
+#[tauri::command]
+pub fn check_dir(path: String, name: String) -> Cmd<Value> {
+    let p = PathBuf::from(&path);
+    let state = flavor::target_state(&p);
+    let suggestion = (state == "nonempty").then(|| util::unique_dir(&p, &util::safe_name(&name)));
+    Ok(json!({"state": state, "suggestion": suggestion}))
 }
 
 #[tauri::command]
-pub fn create_fabric_server(app: AppHandle, name: String, version: String) -> Cmd<()> {
-    run_task(&app, &format!("Erstelle „{name}“"), move |progress| {
-        let base = config::servers_dir();
-        fs::create_dir_all(&base)?;
-        let path = util::unique_dir(&base, &util::safe_name(&name));
-        fs::create_dir_all(path.join("mods"))?;
-        let res = (|| -> Result<()> {
-            progress(0.05, "Suche passenden Fabric-Loader …");
-            let (url, loader) = net::fabric_server_jar_url(&version)?;
-            progress(0.1, &format!("Lade Fabric {loader} für Minecraft {version} …"));
-            net::download(&url, &path.join("fabric-server-launch.jar"), None, None, &|f| {
-                progress(0.1 + f * 0.8, "Lade Fabric-Server …")
-            })?;
-            let props: BTreeMap<String, String> = [
-                ("motd", name.as_str()),
-                ("enable-rcon", "true"),
-                ("rcon.port", "25575"),
-                ("rcon.password", &util::random_hex(12)),
-                ("white-list", "true"),
-                ("server-port", "25565"),
-            ]
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
-            server::write_properties(&path, &props)?;
-            let mut env = vec![("MC_VERSION", version.clone())];
-            progress(0.95, "Prüfe Java …");
-            if let Ok(Some(need)) = net::required_java(&version) {
-                let have = java::java_major(&java::default_java());
-                if have < need {
-                    match java::java_at_least(need) {
-                        Some(j) => env.push(("MC_JAVA", j)),
-                        None => {
-                            return err(format!(
-                                "Minecraft {version} braucht Java {need}, das ist nicht installiert. {}",
-                                java_hint(need)
-                            ));
-                        }
-                    }
-                }
-            }
-            server::write_env(&path, &env)?;
-            server::prepare_server(&path, true)?;
-            Ok(())
-        })();
-        if let Err(e) = res {
-            let _ = fs::remove_dir_all(&path);
-            return Err(e);
-        }
-        Ok(json!({"path": path}))
+pub async fn server_versions(kind: String) -> Cmd<Vec<String>> {
+    blocking(move || {
+        let k = Kind::parse(&kind).ok_or_else(|| Error("Unbekannter Server-Typ".into()))?;
+        flavor::game_versions(k)
     })
+    .await
+}
+
+#[tauri::command]
+pub fn create_server(app: AppHandle, kind: String, name: String, version: String, target: Option<String>) -> Cmd<()> {
+    let k = Kind::parse(&kind).ok_or_else(|| "Unbekannter Server-Typ".to_string())?;
+    run_task(
+        &app,
+        &format!("Erstelle {}-Server „{name}“", k.label()),
+        move |progress| {
+            let target = match target.filter(|t| !t.trim().is_empty()) {
+                Some(t) => PathBuf::from(t),
+                None => default_dir(&name)?,
+            };
+            let path = flavor::create_server(k, &name, &version, &target, progress)?;
+            Ok(json!({"path": path}))
+        },
+    )
     .map_err(|e| e.0)
 }
 
