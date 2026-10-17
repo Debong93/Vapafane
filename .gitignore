@@ -1,0 +1,16 @@
+# Rust / Tauri
+/target/
+**/target/
+/src-tauri/gen/
+
+# Editor / System
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Niemals Server-Daten oder Zugangsdaten einchecken
+server.properties
+*.env
+.mcpanel.env
