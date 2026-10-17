@@ -1,4 +1,4 @@
-//! Hintergrund-Modus (`redcraftserver --service`).
+//! Hintergrund-Modus (`vapafane --service`).
 //!
 //! Startet den aktiven Server als Kindprozess, merkt, wann er bereit ist,
 //! startet ihn nach einem Absturz neu, stoppt ihn sauber per RCON „stop“ und
@@ -379,7 +379,7 @@ fn start(sup: &Sup) -> Result<()> {
     }
     if let Some(pid) = procs::java_in_dir(&dir, None) {
         return err(format!(
-            "In diesem Ordner läuft schon ein Server (PID {pid}), der nicht von Redcraftserver gestartet wurde. \
+            "In diesem Ordner läuft schon ein Server (PID {pid}), der nicht von Vapafane gestartet wurde. \
              Bitte den zuerst beenden (z. B. altes Bedienfenster)."
         ));
     }

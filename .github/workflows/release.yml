@@ -51,11 +51,11 @@ jobs:
           tauriScript: cargo tauri
           args: --bundles ${{ matrix.bundles }}
           tagName: ${{ github.ref_name }}
-          releaseName: "Redcraftserver ${{ github.ref_name }}"
+          releaseName: "Vapafane ${{ github.ref_name }}"
           releaseBody: |
-            Redcraftserver – Minecraft-Serververwaltung für Linux und Windows.
+            Vapafane – Minecraft-Serververwaltung für Linux und Windows.
 
-            **Windows:** `Redcraftserver_…_x64-setup.exe` (empfohlen) oder `.msi` herunterladen und starten.
+            **Windows:** `Vapafane_…_x64-setup.exe` (empfohlen) oder `.msi` herunterladen und starten.
             Windows zeigt evtl. „Der Computer wurde durch Windows geschützt“ – auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken (das Programm ist nicht signiert).
 
             **Linux:** `.AppImage` herunterladen, ausführbar machen und starten – oder das `.deb` installieren.

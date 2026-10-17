@@ -4,7 +4,7 @@
 //! (`~/.config/mc-server-panel/config.json`). Unbekannte Felder bleiben beim
 //! Speichern erhalten, damit beide Programme dieselbe Datei nutzen können.
 //!
-//! Für Tests lässt sich alles mit der Umgebungsvariable `REDCRAFTSERVER_HOME`
+//! Für Tests lässt sich alles mit der Umgebungsvariable `VAPAFANE_HOME`
 //! in einen anderen Ordner umleiten (dann wird auch kein systemd benutzt).
 
 use serde::{Deserialize, Serialize};
@@ -28,8 +28,9 @@ pub fn home() -> PathBuf {
 
 /// Gesetzt, wenn im Testmodus gearbeitet wird.
 pub fn test_home() -> Option<PathBuf> {
-    std::env::var_os("REDCRAFTSERVER_HOME")
-        .filter(|v| !v.is_empty())
+    ["VAPAFANE_HOME", "REDCRAFTSERVER_HOME"] // alter Name bis 0.3.0
+        .iter()
+        .find_map(|k| std::env::var_os(k).filter(|v| !v.is_empty()))
         .map(PathBuf::from)
 }
 
@@ -48,6 +49,11 @@ pub fn config_file() -> PathBuf {
 
 /// Ordner für Laufzeit-Dateien des Hintergrund-Dienstes.
 pub fn state_dir() -> PathBuf {
+    config_dir().join("vapafane")
+}
+
+/// Laufzeit-Ordner der Vorgängerversion (hieß bis 0.3.0 „Redcraftserver“).
+pub fn old_state_dir() -> PathBuf {
     config_dir().join("redcraftserver")
 }
 

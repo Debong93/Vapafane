@@ -155,7 +155,7 @@ pub fn accept_eula(dir: &Path) -> Result<()> {
     let now = chrono::Local::now().format("%d.%m.%Y %H:%M");
     fs::write(
         dir.join("eula.txt"),
-        format!("# Akzeptiert über Redcraftserver am {now}\neula=true\n"),
+        format!("# Akzeptiert über Vapafane am {now}\neula=true\n"),
     )?;
     Ok(())
 }
@@ -332,7 +332,7 @@ pub fn prepare_server(dir: &Path, accept: bool) -> Result<(ServerInfo, Vec<Strin
     let mut updates = BTreeMap::new();
     if props.get("enable-rcon").map(String::as_str) != Some("true") {
         updates.insert("enable-rcon".into(), "true".into());
-        notes.push("RCON eingeschaltet (braucht Redcraftserver für Befehle).".into());
+        notes.push("RCON eingeschaltet (braucht Vapafane für Befehle).".into());
     }
     if props.get("rcon.password").map(|p| p.is_empty()).unwrap_or(true) {
         updates.insert("rcon.password".into(), util::random_hex(12));
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn prepare_enables_rcon_and_keeps_comments() {
-        let dir = std::env::temp_dir().join(format!("redcraft-prep-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("vapafane-prep-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(

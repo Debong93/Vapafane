@@ -1,5 +1,5 @@
 "use strict";
-// Oberfläche von Redcraftserver. Spricht über Tauri-Befehle mit dem Rust-Teil.
+// Oberfläche von Vapafane. Spricht über Tauri-Befehle mit dem Rust-Teil.
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -164,7 +164,7 @@ const STATUS = {
   restarting: ["Neustart nach Absturz …", "--amber"],
   stopped: ["Gestoppt", "--gray"],
   failed: ["Abgestürzt", "--red"],
-  external: ["Läuft außerhalb von Redcraftserver", "--amber"],
+  external: ["Läuft außerhalb von Vapafane", "--amber"],
   other: ["Ein anderer Server läuft", "--amber"],
   none: ["Kein Server ausgewählt", "--gray"],
 };
@@ -180,6 +180,10 @@ async function refreshStatus() {
   try { st = await invoke("get_status"); } catch (e) { console.error(e); return; }
   status = st;
   busy = st.busy;
+  if (st.migration) {
+    addEvent("Umstieg von Redcraftserver auf Vapafane");
+    info("Willkommen bei Vapafane", "Redcraftserver heißt jetzt Vapafane. Übernommen wurde:\n\n" + st.migration);
+  }
   const state = st.state;
   const [label, color] = STATUS[state] || [state, "--gray"];
 
@@ -219,7 +223,7 @@ async function refreshStatus() {
   dot.style.background = `var(${color})`;
   dot.classList.toggle("pulse", ["starting", "stopping", "restarting"].includes(state));
   $("status-label").textContent = label;
-  document.title = st.server ? `${st.server.name} – ${label} · Redcraftserver` : "Redcraftserver";
+  document.title = st.server ? `${st.server.name} – ${label} · Vapafane` : "Vapafane";
 
   const sub = [];
   if (st.uptime && ["running", "starting", "stopping", "external"].includes(state)) sub.push(`seit ${fmtDuration(st.uptime)}`);
@@ -259,7 +263,7 @@ async function refreshStatus() {
   // Hinweise
   const hint = $("overview-hint");
   let h = "", isErr = false;
-  if (state === "external") h = "Der Server wurde nicht über Redcraftserver gestartet (z. B. altes Bedienfenster oder Terminal). Konsole und Spieler gehen trotzdem; „Stoppen“ schickt ihm den stop-Befehl.";
+  if (state === "external") h = "Der Server wurde nicht über Vapafane gestartet (z. B. altes Bedienfenster oder Terminal). Konsole und Spieler gehen trotzdem; „Stoppen“ schickt ihm den stop-Befehl.";
   else if (state === "other") h = "Der Hintergrund-Dienst betreibt gerade einen anderen Server. Bitte den zuerst stoppen.";
   else if (state === "failed") { h = "Der Server ist abgestürzt und wurde nicht mehr neu gestartet. Schau in der Konsole nach der letzten Fehlermeldung." + (st.last_exit ? `\n\n${st.last_exit}` : ""); isErr = true; }
   else if (state === "none") h = "Füge oben über „＋“ einen Server hinzu.";
@@ -359,7 +363,7 @@ async function askStop(restart) {
   const verb = restart ? "neu starten" : "stoppen";
   const secs = (await invoke("get_config")).stop_warning || 30;
   if (status.state === "external") {
-    if (!(await confirmAsk("Server stoppen?", "Der Server läuft außerhalb von Redcraftserver. Ich schicke ihm den Befehl „stop“ – er speichert die Welt und beendet sich.", "Stoppen"))) return;
+    if (!(await confirmAsk("Server stoppen?", "Der Server läuft außerhalb von Vapafane. Ich schicke ihm den Befehl „stop“ – er speichert die Welt und beendet sich.", "Stoppen"))) return;
     return doStop(false, 0);
   }
   const players = live.players || [];
@@ -854,7 +858,7 @@ async function loadSettings() {
     const o = s.old_panel;
     box.innerHTML = `<b>Altes Bedienfenster noch eingerichtet.</b> Dienst „minecraft.service“: ${o.active ? "läuft" : "aus"}, ` +
       `beim Start ${o.enabled ? "an" : "aus"}; tägliches Backup-Zeitprogramm ${o.timer ? "an" : "aus"}. ` +
-      `Solange es läuft, kann Redcraftserver den Server nicht selbst starten (gleicher Port), und Backups würden doppelt gemacht. ` +
+      `Solange es läuft, kann Vapafane den Server nicht selbst starten (gleicher Port), und Backups würden doppelt gemacht. ` +
       `<div class="row"><button id="btn-old-off">Altes Panel abschalten …</button></div>`;
     box.classList.remove("hidden");
     $("btn-old-off").onclick = disableOldPanel;
@@ -1242,7 +1246,7 @@ $("btn-mrpack").onclick = async () => {
 
 async function init() {
   const cfg = await invoke("get_config");
-  $("about").textContent = `Redcraftserver ${cfg.version}` + (cfg.test_mode ? " · TESTMODUS" : "");
+  $("about").textContent = `Vapafane ${cfg.version}` + (cfg.test_mode ? " · TESTMODUS" : "");
   await refreshStatus();
   refreshDetails();
   setInterval(refreshStatus, 2000);

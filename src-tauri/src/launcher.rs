@@ -1,6 +1,6 @@
 //! Den Hintergrund-Dienst starten, falls er noch nicht läuft.
 //!
-//! Linux: über eine systemd-User-Unit `redcraftserver.service` (dann überlebt der
+//! Linux: über eine systemd-User-Unit `vapafane.service` (dann überlebt der
 //! Server das Schließen des Fensters und wird beim Abmelden sauber gestoppt).
 //! Windows oder ohne systemd: als eigenständiger Hintergrundprozess.
 
@@ -19,7 +19,7 @@ pub fn self_exe() -> PathBuf {
     if let Some(p) = std::env::var_os("APPIMAGE") {
         return PathBuf::from(p);
     }
-    std::env::current_exe().unwrap_or_else(|_| PathBuf::from("redcraftserver"))
+    std::env::current_exe().unwrap_or_else(|_| PathBuf::from("vapafane"))
 }
 
 pub fn ensure_service() -> Result<()> {

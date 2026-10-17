@@ -123,7 +123,7 @@ pub fn server_state(cfg: &Config) -> Value {
     st
 }
 
-/// Stopp-Befehl an den Dienst. Läuft der Server außerhalb von Redcraftserver,
+/// Stopp-Befehl an den Dienst. Läuft der Server außerhalb von Vapafane,
 /// bekommt er wenigstens sauber „stop“ per RCON.
 pub fn stop_server(warn: u64, restart: bool) -> Result<()> {
     let cfg = Config::load();
@@ -131,7 +131,7 @@ pub fn stop_server(warn: u64, restart: bool) -> Result<()> {
     if st.get("state").and_then(|s| s.as_str()) == Some("external") {
         if restart {
             return err(
-                "Dieser Server läuft außerhalb von Redcraftserver – Neustart geht nur über das Programm, das ihn gestartet hat.",
+                "Dieser Server läuft außerhalb von Vapafane – Neustart geht nur über das Programm, das ihn gestartet hat.",
             );
         }
         let dir = cfg

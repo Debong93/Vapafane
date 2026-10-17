@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn backup_and_restore_roundtrip() {
-        let base = std::env::temp_dir().join(format!("redcraft-test-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let srv = base.join("Welt Server");
         fs::create_dir_all(srv.join("world/region")).unwrap();
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn rejects_zip_slip() {
-        let base = std::env::temp_dir().join(format!("redcraft-slip-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-slip-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(&base).unwrap();
         let zpath = base.join("boese.zip");
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn imports_zip_with_top_folder() {
-        let base = std::env::temp_dir().join(format!("redcraft-imp-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-imp-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(&base).unwrap();
         let zpath = base.join("Mein Server_2026-10-01_05-00.zip");
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn import_into_chosen_folder() {
-        let base = std::env::temp_dir().join(format!("redcraft-target-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-target-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("src/S")).unwrap();
         fs::write(base.join("src/S/server.properties"), "motd=z\n").unwrap();
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn imports_tar_gz() {
-        let base = std::env::temp_dir().join(format!("redcraft-tgz-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-tgz-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("src/S")).unwrap();
         fs::write(base.join("src/S/server.properties"), "motd=y\n").unwrap();
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn finds_single_top_folder() {
-        let base = std::env::temp_dir().join(format!("redcraft-root-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("vapafane-root-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("MeinServer/world")).unwrap();
         fs::write(base.join("MeinServer/server.properties"), "").unwrap();

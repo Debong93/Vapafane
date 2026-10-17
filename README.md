@@ -1,6 +1,6 @@
-# Redcraftserver
+# Vapafane – das Minecraft-Servertool
 
-Minecraft-Serververwaltung für Linux und Windows – ein Fenster, mit dem man einen
+**Va**nilla, **Pa**per, **Fa**bric, **Ne**oForge: Minecraft-Serververwaltung für Linux und Windows – ein Fenster, mit dem man einen
 Minecraft-Server startet, stoppt, überwacht, sichert und aktualisiert.
 Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 
@@ -47,7 +47,7 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 
 Die Installer gibt es unter **Releases** auf GitHub.
 
-**Windows:** `Redcraftserver_…_x64-setup.exe` herunterladen und starten. Weil das
+**Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Weil das
 Programm nicht signiert ist, zeigt Windows evtl. „Der Computer wurde durch Windows
 geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“.
 Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
@@ -57,7 +57,7 @@ Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
 Eigenschaften → „Als Programm ausführen“) und starten – oder das `.deb` installieren:
 
 ```bash
-sudo apt install ./Redcraftserver_0.1.0_amd64.deb
+sudo apt install ./Vapafane_0.3.1_amd64.deb
 ```
 
 Java: `sudo apt install openjdk-25-jre-headless`
@@ -68,34 +68,48 @@ Eine Programmdatei mit drei Rollen:
 
 | Aufruf | Rolle |
 |---|---|
-| `redcraftserver` | das Fenster |
-| `redcraftserver --service` | Hintergrund-Dienst: startet den aktiven Server, merkt Abstürze und startet ihn neu, macht das tägliche Backup |
-| `redcraftserver --ctl …` | Befehlszeile, z. B. `--ctl status`, `--ctl backup`, `--ctl stop 30` (Liste: `--ctl help`) |
+| `vapafane` | das Fenster |
+| `vapafane --service` | Hintergrund-Dienst: startet den aktiven Server, merkt Abstürze und startet ihn neu, macht das tägliche Backup |
+| `vapafane --ctl …` | Befehlszeile, z. B. `--ctl status`, `--ctl backup`, `--ctl stop 30` (Liste: `--ctl help`) |
 
 Das Fenster zu schließen stoppt den Server **nicht** – er läuft im Hintergrund-Dienst weiter.
 Gestoppt wird immer mit dem Befehl `stop` (die Welt wird gespeichert); erst wenn der
 Server nach 3 Minuten nicht reagiert, wird er hart beendet.
 
-- **Linux:** Der Dienst läuft als systemd-Benutzerdienst `redcraftserver.service`.
-  „Beim PC-Start starten“ schaltet zusätzlich `redcraftserver-autostart.service` ein.
+- **Linux:** Der Dienst läuft als systemd-Benutzerdienst `vapafane.service`.
+  „Beim PC-Start starten“ schaltet zusätzlich `vapafane-autostart.service` ein.
   Damit das auch ohne Anmeldung klappt, fragt das Fenster einmal nach
   `loginctl enable-linger`.
 - **Windows:** Der Dienst läuft als Hintergrundprozess. „Beim PC-Start starten“ legt
-  in der Aufgabenplanung die Aufgabe „Redcraftserver“ an (Windows fragt dabei nach
+  in der Aufgabenplanung die Aufgabe „Vapafane“ an (Windows fragt dabei nach
   Administratorrechten). Hinweis: Beim Herunterfahren von Windows kann der Server
   nicht immer sauber gespeichert werden – vorher im Fenster stoppen ist sicherer.
 
+## Umstieg von Redcraftserver (bis 0.3.0)
+
+Vapafane hieß bis Version 0.3.0 „Redcraftserver“. Beim ersten Start übernimmt Vapafane
+alles automatisch: Ein noch laufender alter Hintergrund-Dienst stoppt den Server sauber
+(Welt wird gespeichert) und beendet sich, danach startet Vapafane den Server wieder. Die
+systemd-Units heißen jetzt `vapafane.service` und `vapafane-autostart.service` (der
+An/Aus-Zustand wird übernommen), der Login-Autostart `vapafane.desktop`. Die
+Konfiguration und alle Server bleiben, wie sie sind.
+
+```bash
+sudo apt install ./Vapafane_0.3.1_amd64.deb
+sudo apt remove redcraftserver
+```
+
 ## Umstieg vom alten Panel (`~/MC_Panel`)
 
-Redcraftserver liest dieselben Daten weiter:
+Vapafane liest dieselben Daten weiter:
 `~/.config/mc-server-panel/config.json` (Server-Liste, Backup-Ordner, „Aufheben: N“),
 `~/MC_Active`, die `.mcpanel.env` im Server-Ordner (wird nur gelesen, nie ausgeführt)
 und die Backups in `~/MC_Backups`.
 
-Solange der alte Dienst `minecraft.service` läuft, zeigt Redcraftserver den Server als
+Solange der alte Dienst `minecraft.service` läuft, zeigt Vapafane den Server als
 „läuft außerhalb“ an (Konsole, Spieler und Stoppen gehen trotzdem). Unter
 **Einstellungen → Altes Panel abschalten** wird der alte Dienst sauber gestoppt und
-beim Start ausgeschaltet; danach übernimmt Redcraftserver. Die Dateien des alten
+beim Start ausgeschaltet; danach übernimmt Vapafane. Die Dateien des alten
 Panels bleiben liegen.
 
 ## Selbst bauen
@@ -112,7 +126,7 @@ cd src-tauri && cargo tauri build
 ```
 
 Zum Ausprobieren ohne die echten Daten anzufassen gibt es einen Testmodus:
-`REDCRAFTSERVER_HOME=/tmp/test redcraftserver` legt Konfiguration, Server und Backups
+`VAPAFANE_HOME=/tmp/test vapafane` legt Konfiguration, Server und Backups
 dort an und benutzt kein systemd.
 
 Ein neuer Release entsteht, wenn ein Tag `v…` gepusht wird (GitHub Actions baut dann

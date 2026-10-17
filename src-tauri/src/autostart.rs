@@ -4,10 +4,10 @@
 //! starten soll oder das tägliche Backup an ist. Den Server selbst startet er nur
 //! bei „Autostart“.
 //!
-//! Linux: systemd-User-Units `redcraftserver.service` (Dienst) und
-//! `redcraftserver-autostart.service` (startet einmal den Server). Für den Start
+//! Linux: systemd-User-Units `vapafane.service` (Dienst) und
+//! `vapafane-autostart.service` (startet einmal den Server). Für den Start
 //! ohne Anmeldung braucht es `loginctl enable-linger` (nur auf Klick des Nutzers).
-//! Windows: Aufgabe „Redcraftserver“ in der Aufgabenplanung („beim Systemstart“),
+//! Windows: Aufgabe „Vapafane“ in der Aufgabenplanung („beim Systemstart“),
 //! das Fenster über den Run-Schlüssel in der Registry.
 
 #[cfg(target_os = "linux")]
@@ -24,15 +24,15 @@ mod linux {
     use crate::launcher::self_exe;
     use crate::util::{self, Result, err};
 
-    pub const UNIT: &str = "redcraftserver.service";
-    const START_UNIT: &str = "redcraftserver-autostart.service";
+    pub const UNIT: &str = "vapafane.service";
+    const START_UNIT: &str = "vapafane-autostart.service";
 
     fn unit_dir() -> PathBuf {
         config::home().join(".config/systemd/user")
     }
 
     fn desktop_autostart_path() -> PathBuf {
-        config::home().join(".config/autostart/redcraftserver.desktop")
+        config::home().join(".config/autostart/vapafane.desktop")
     }
 
     /// systemd nur im echten Betrieb nutzen, nicht im Testmodus.
@@ -60,7 +60,7 @@ mod linux {
     fn service_text() -> String {
         format!(
             "[Unit]\n\
-             Description=Redcraftserver – Hintergrund-Dienst für den Minecraft-Server\n\
+             Description=Vapafane – Hintergrund-Dienst für den Minecraft-Server\n\
              After=network-online.target\n\
              \n\
              [Service]\n\
@@ -83,7 +83,7 @@ mod linux {
     fn start_text() -> String {
         format!(
             "[Unit]\n\
-             Description=Redcraftserver – aktiven Minecraft-Server beim Start hochfahren\n\
+             Description=Vapafane – aktiven Minecraft-Server beim Start hochfahren\n\
              Wants={UNIT}\n\
              After={UNIT} network-online.target\n\
              \n\
@@ -159,8 +159,8 @@ mod linux {
         let path = desktop_autostart_path();
         if on {
             let text = format!(
-                "[Desktop Entry]\nType=Application\nName=Redcraftserver\nComment=Minecraft-Serververwaltung\n\
-                 Exec={}\nIcon=redcraftserver\nTerminal=false\nX-GNOME-Autostart-enabled=true\n\
+                "[Desktop Entry]\nType=Application\nName=Vapafane\nComment=Minecraft-Serververwaltung\n\
+                 Exec={}\nIcon=vapafane\nTerminal=false\nX-GNOME-Autostart-enabled=true\n\
                  X-GNOME-Autostart-Delay=5\n",
                 quoted_exe()
             );
@@ -189,11 +189,54 @@ mod linux {
     #[cfg(test)]
     #[test]
     fn writes_units_for_check() {
-        let dir = std::env::temp_dir().join("redcraft-units");
+        let dir = std::env::temp_dir().join("vapafane-units");
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join(UNIT), service_text()).unwrap();
         fs::write(dir.join(START_UNIT), start_text()).unwrap();
         assert!(service_text().contains("KillMode=process"));
+    }
+
+    /// Units und Login-Autostart von „Redcraftserver“ (bis 0.3.0) durch die neuen ersetzen.
+    /// Der An/Aus-Zustand wird übernommen.
+    pub fn replace_old_units() -> Result<Vec<String>> {
+        let mut done = vec![];
+        let old_service = unit_dir().join("redcraftserver.service");
+        let old_start = unit_dir().join("redcraftserver-autostart.service");
+        if systemd_usable() && (old_service.exists() || old_start.exists()) {
+            let service_on = is_enabled("redcraftserver.service");
+            let start_on = is_enabled("redcraftserver-autostart.service");
+            // Der alte Dienst hat den Server schon sauber gestoppt (siehe migrate.rs)
+            let _ = systemctl(&[
+                "disable",
+                "--now",
+                "redcraftserver-autostart.service",
+                "redcraftserver.service",
+            ]);
+            let _ = fs::remove_file(&old_service);
+            let _ = fs::remove_file(&old_start);
+            systemctl(&["daemon-reload"])?;
+            install_unit()?;
+            if service_on || start_on {
+                apply_boot(start_on, true)?;
+            }
+            done.push(format!(
+                "Hintergrund-Dienst heißt jetzt vapafane.service{}.",
+                if start_on {
+                    " (Server startet weiter beim PC-Start)"
+                } else if service_on {
+                    " (startet weiter beim PC-Start)"
+                } else {
+                    ""
+                }
+            ));
+        }
+        let old_desktop = config::home().join(".config/autostart/redcraftserver.desktop");
+        if old_desktop.exists() {
+            set_window_autostart(true)?;
+            fs::remove_file(&old_desktop)?;
+            done.push("Das Fenster öffnet sich weiter beim Anmelden (jetzt als Vapafane).".into());
+        }
+        Ok(done)
     }
 
     /// Altes Panel abschalten: Dienst und Backup-Timer stoppen und nicht mehr automatisch starten.
@@ -214,7 +257,7 @@ mod windows {
     use crate::launcher::self_exe;
     use crate::util::{self, Result, err};
 
-    const TASK: &str = "Redcraftserver";
+    const TASK: &str = "Vapafane";
     const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 
     pub fn systemd_usable() -> bool {
@@ -261,7 +304,7 @@ mod windows {
         format!(
             r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>Redcraftserver: Hintergrund-Dienst für den Minecraft-Server</Description></RegistrationInfo>
+  <RegistrationInfo><Description>Vapafane: Hintergrund-Dienst für den Minecraft-Server</Description></RegistrationInfo>
   <Triggers><BootTrigger><Enabled>true</Enabled><Delay>PT30S</Delay></BootTrigger></Triggers>
   <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>S4U</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
   <Settings>

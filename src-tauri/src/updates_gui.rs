@@ -173,7 +173,7 @@ pub fn do_update(
     };
     let st = state();
     if st == "external" {
-        return err("Der Server läuft außerhalb von Redcraftserver. Bitte zuerst dort stoppen.");
+        return err("Der Server läuft außerhalb von Vapafane. Bitte zuerst dort stoppen.");
     }
     if matches!(st.as_str(), "running" | "starting") && players_online(dir) {
         progress(0.0, "Warne Spieler (30 Sekunden) …");
@@ -372,7 +372,7 @@ pub fn do_trial(
     disable_unknown: bool,
     progress: Progress,
 ) -> Result<Value> {
-    let base = std::env::temp_dir().join(format!("redcraftserver-probelauf-{}", util::now_stamp()));
+    let base = std::env::temp_dir().join(format!("vapafane-probelauf-{}", util::now_stamp()));
     let size = util::dir_size(dir);
     fs::create_dir_all(&base)?;
     if util::free_space(&base) < size + size / 5 + 1024 * 1024 * 1024 {

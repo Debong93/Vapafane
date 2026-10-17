@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn finds_leftovers() {
-        let dir = std::env::temp_dir().join(format!("redcraft-clean-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("vapafane-clean-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         for d in [
             "mods/.old",

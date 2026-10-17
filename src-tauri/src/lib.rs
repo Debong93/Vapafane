@@ -1,4 +1,4 @@
-//! Redcraftserver – Minecraft-Serververwaltung.
+//! Vapafane – Minecraft-Serververwaltung.
 //!
 //! Eine Programmdatei mit zwei Rollen:
 //! - ohne Argumente: das Fenster
@@ -18,6 +18,7 @@ mod ipc;
 mod java;
 mod launcher;
 mod manage;
+mod migrate;
 mod mods;
 mod net;
 mod ops;
@@ -38,6 +39,9 @@ pub fn main() -> i32 {
             windows_sys::Win32::System::Console::AttachConsole(
                 windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
             );
+        }
+        if let Some(msg) = migrate::run() {
+            eprintln!("{msg}");
         }
         return ctl::run(&args[i + 1..]);
     }

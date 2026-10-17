@@ -53,13 +53,17 @@ pub fn write_service_file(sf: &ServiceFile) -> Result<()> {
     Ok(())
 }
 
-fn read_service_file() -> Option<ServiceFile> {
-    serde_json::from_str(&std::fs::read_to_string(service_file()).ok()?).ok()
-}
-
 /// Anfrage an den Dienst. Fehler, wenn er nicht läuft.
 pub fn call(cmd: &str, arg: Value) -> Result<Value> {
-    let Some(sf) = read_service_file() else {
+    call_at(&service_file(), cmd, arg)
+}
+
+/// Wie [`call`], aber über eine bestimmte service.json (z. B. die der Vorgängerversion).
+pub fn call_at(file: &std::path::Path, cmd: &str, arg: Value) -> Result<Value> {
+    let Some(sf) = std::fs::read_to_string(file)
+        .ok()
+        .and_then(|t| serde_json::from_str::<ServiceFile>(&t).ok())
+    else {
         return err("Hintergrund-Dienst läuft nicht");
     };
     let addr = SocketAddr::from(([127, 0, 0, 1], sf.port));

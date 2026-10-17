@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::util::{Error, Result, err};
 
 const USER_AGENT: &str = concat!(
-    "Debong93/Redcraftserver/",
+    "Debong93/Vapafane/",
     env!("CARGO_PKG_VERSION"),
     " (private Minecraft-Serververwaltung)"
 );

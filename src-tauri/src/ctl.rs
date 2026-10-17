@@ -1,4 +1,4 @@
-//! Befehlszeile: `redcraftserver --ctl <befehl>` – für Skripte und zum Testen.
+//! Befehlszeile: `vapafane --ctl <befehl>` – für Skripte und zum Testen.
 
 use serde_json::Value;
 use std::time::Duration;
@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::util::{Result, err};
 use crate::{ipc, launcher, ops, server};
 
-const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
+const HELP: &str = "Benutzung: vapafane --ctl <befehl>
 
   status            Zustand des aktiven Servers anzeigen
   start             Server starten (startet bei Bedarf den Hintergrund-Dienst)
