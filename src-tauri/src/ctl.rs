@@ -28,6 +28,8 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   aufraeumen [--ja] zeigt alte Reste; mit --ja werden sie gelöscht (Server muss aus sein)
   mod-suche [BEGRIFF] [--datapack]   Modrinth nach passenden Mods/Plugins (bzw. Datapacks) durchsuchen
   mod-install PROJEKT [--datapack]  Mod/Plugin/Datapack samt Pflicht-Abhängigkeiten installieren
+  curseforge-schluessel [--loeschen]  CurseForge-Schlüssel von der Eingabe lesen und speichern
+  curseforge-test   gespeicherten CurseForge-Schlüssel ausprobieren
   mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
@@ -262,7 +264,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .filter(|a| *a != "--datapack")
                 .collect();
             if cmd == "mod-suche" {
-                let r = crate::catalog::search(&dir, what, &rest.join(" "), 0)?;
+                let r = crate::catalog::search(&dir, what, &rest.join(" "), 0, Some(0))?;
                 let have = crate::catalog::installed_projects(&dir)?;
                 println!(
                     "{} Treffer für Minecraft {} ({}):",
@@ -285,6 +287,22 @@ fn run_inner(args: &[String]) -> Result<()> {
                         if have.contains(id) { "  [installiert]" } else { "" }
                     );
                 }
+                for h in r["cf_hits"].as_array().into_iter().flatten() {
+                    println!(
+                        "{:<10} {:<28} {:>11} Downloads  CurseForge{}",
+                        h["id"].as_str().unwrap_or(""),
+                        h["title"].as_str().unwrap_or(""),
+                        h["downloads"],
+                        if have.contains(h["id"].as_str().unwrap_or("")) {
+                            "  [installiert]"
+                        } else {
+                            ""
+                        }
+                    );
+                }
+                if let Some(e) = r["cf_error"].as_str() {
+                    println!("CurseForge: {e}");
+                }
             } else {
                 let project = rest
                     .first()
@@ -294,6 +312,26 @@ fn run_inner(args: &[String]) -> Result<()> {
                 let r = crate::catalog::install(&dir, what, project, &print)?;
                 println!("{}", serde_json::to_string_pretty(&r)?);
             }
+        }
+        "curseforge-schluessel" => {
+            if args.get(1).map(String::as_str) == Some("--loeschen") {
+                crate::curseforge::delete_key()?;
+                println!("CurseForge-Schlüssel gelöscht.");
+                return Ok(());
+            }
+            let mut k = String::new();
+            std::io::stdin().read_line(&mut k)?;
+            crate::curseforge::save_key(&k)?;
+            println!("Gespeichert ({}).", crate::curseforge::masked().unwrap_or_default());
+        }
+        "curseforge-test" => {
+            let k = crate::curseforge::key()
+                .ok_or_else(|| crate::util::Error("Kein CurseForge-Schlüssel hinterlegt.".into()))?;
+            crate::curseforge::test_key(&k)?;
+            println!(
+                "CurseForge-Schlüssel funktioniert ({}).",
+                crate::curseforge::masked().unwrap_or_default()
+            );
         }
         "mrpack" => {
             let cfg = Config::load();

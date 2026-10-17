@@ -24,6 +24,8 @@ pub struct NewFile {
     pub url: String,
     pub filename: String,
     pub sha512: Option<String>,
+    #[serde(default)]
+    pub sha1: Option<String>,
     pub size: u64,
 }
 
@@ -48,6 +50,12 @@ pub struct Item {
     pub disabled: bool,
     pub client_side: Option<String>,
     pub server_side: Option<String>,
+    /// "modrinth" oder "curseforge"
+    #[serde(default)]
+    pub source: Option<String>,
+    /// CurseForge: Seite für den Download im Browser (wenn der Autor kein automatisches Laden erlaubt)
+    #[serde(default)]
+    pub page: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -72,6 +80,9 @@ pub struct Plan {
     pub server_size: u64,
     pub free_space: u64,
     pub space_ok: bool,
+    /// Hinweise (z. B. CurseForge nicht erreichbar)
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 impl Plan {
@@ -104,6 +115,7 @@ pub(crate) fn primary_file(version: &Value) -> Option<NewFile> {
         url: f.get("url")?.as_str()?.to_string(),
         filename: f.get("filename")?.as_str()?.to_string(),
         sha512: f.pointer("/hashes/sha512").and_then(|h| h.as_str()).map(str::to_string),
+        sha1: f.pointer("/hashes/sha1").and_then(|h| h.as_str()).map(str::to_string),
         size: f.get("size").and_then(|s| s.as_u64()).unwrap_or(0),
     })
 }
@@ -310,6 +322,17 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         m.status = "reenable".into(); // genau diese Version passt (wieder)
     }
     mods.extend(off);
+    for m in mods.iter_mut().filter(|m| m.project_id.is_some()) {
+        m.source = Some("modrinth".into());
+    }
+    // Was Modrinth nicht kennt: bei CurseForge nachsehen (nur mit Schlüssel)
+    let mut notes = vec![];
+    if crate::curseforge::key().is_some() && !sub.is_empty() && mods.iter().any(|m| m.status == "unknown") {
+        progress(0.3, "Frage CurseForge nach den übrigen Mods …");
+        if let Err(e) = check_curseforge(dir, kind, target, &mut mods) {
+            notes.push(format!("CurseForge konnte nicht geprüft werden: {e}"));
+        }
+    }
 
     // Pflicht-Abhängigkeiten der neuen Versionen, die noch nicht installiert sind
     progress(0.4, "Prüfe Abhängigkeiten …");
@@ -425,6 +448,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         mods,
         extra,
         datapacks: packs,
+        notes,
         ..Default::default()
     };
     progress(0.85, &format!("Suche {}-Server für {target} …", kind.label()));
@@ -500,6 +524,7 @@ pub fn apply(
             &staging.join(sub).join(&name),
             net::Expect {
                 sha512: f.sha512.as_deref(),
+                sha1: f.sha1.as_deref(),
                 ..Default::default()
             },
             &|_| {},
@@ -566,6 +591,21 @@ pub fn apply(
         } else {
             fs::create_dir_all(dir.join(mod_sub))?;
             fs::rename(staging.join("mods").join(&name), dir.join(mod_sub).join(&name))?;
+            // Herkunft der neuen Datei merken (alte Zuordnung fällt weg)
+            let new_rel = format!("{mod_sub}/{name}");
+            if m.rel != new_rel && !m.rel.is_empty() {
+                mods::set_source(dir, &m.rel, None)?;
+            }
+            let src = match (m.source.as_deref(), m.project_id.as_deref()) {
+                (Some("curseforge"), Some(id)) => Some(
+                    json!({"source": "curseforge", "id": id.trim_start_matches("cf:").parse::<u64>().unwrap_or(0)}),
+                ),
+                (_, Some(id)) => Some(json!({"source": "modrinth", "id": id})),
+                _ => None,
+            };
+            if src.is_some() {
+                mods::set_source(dir, &new_rel, src)?;
+            }
         }
     }
 
@@ -717,4 +757,71 @@ pub fn target_versions(kind: Kind, current: &str) -> Result<Vec<String>> {
         None => all.iter().take(10).cloned().collect(),
     };
     Ok(newer)
+}
+
+/// Mods mit Status „unknown“ (nicht auf Modrinth) über CurseForge-Fingerprints prüfen.
+fn check_curseforge(dir: &Path, kind: Kind, target: &str, mods: &mut [Item]) -> Result<()> {
+    use crate::curseforge as cf;
+    let mut prints: Vec<(usize, u32)> = vec![];
+    for (i, m) in mods.iter().enumerate().filter(|(_, m)| m.status == "unknown") {
+        let path = if m.disabled {
+            PathBuf::from(format!("{}{}", dir.join(&m.rel).display(), mods::DISABLED))
+        } else {
+            dir.join(&m.rel)
+        };
+        if let Ok(fp) = cf::fingerprint(&path) {
+            prints.push((i, fp));
+        }
+    }
+    let matches = cf::match_fingerprints(&prints.iter().map(|(_, f)| *f).collect::<Vec<_>>())?;
+    for (i, fp) in prints {
+        let Some(hit) = matches.get(&fp) else { continue };
+        let Some(mod_id) = hit.get("id").and_then(|x| x.as_u64()) else {
+            continue;
+        };
+        let cur = &hit["file"];
+        let m = &mut mods[i];
+        m.source = Some("curseforge".into());
+        m.project_id = Some(format!("cf:{mod_id}"));
+        m.current_version = cur.get("displayName").and_then(|d| d.as_str()).map(str::to_string);
+        if let Ok(info) = cf::get_mod(mod_id) {
+            if let Some(n) = info.get("name").and_then(|n| n.as_str()) {
+                m.title = n.to_string();
+            }
+            m.page = info
+                .pointer("/links/websiteUrl")
+                .and_then(|u| u.as_str())
+                .map(str::to_string);
+        }
+        match cf::best_file(mod_id, kind, false, target)? {
+            None => m.status = "missing".into(),
+            Some(f) if f.get("id") == cur.get("id") => m.status = "current".into(),
+            Some(f) => {
+                m.new_version = f.get("displayName").and_then(|d| d.as_str()).map(str::to_string);
+                match cf::download_url(&f) {
+                    Some(url) => {
+                        m.status = "update".into();
+                        m.new_file = Some(NewFile {
+                            url,
+                            filename: f.get("fileName").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                            sha512: None,
+                            sha1: cf::file_sha1(&f),
+                            size: f.get("fileLength").and_then(|l| l.as_u64()).unwrap_or(0),
+                        });
+                    }
+                    None => {
+                        // Autor erlaubt kein automatisches Laden: Update nur im Browser
+                        m.status = "manual".into();
+                        if let Some(p) = &m.page {
+                            m.page = Some(format!(
+                                "{p}/files/{}",
+                                f.get("id").and_then(|x| x.as_u64()).unwrap_or(0)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }

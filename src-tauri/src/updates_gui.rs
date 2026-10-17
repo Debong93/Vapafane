@@ -587,11 +587,11 @@ fn what_of(datapacks: bool) -> catalog::What {
 }
 
 #[tauri::command]
-pub async fn catalog_search(query: String, offset: u32, datapacks: bool) -> Cmd<Value> {
+pub async fn catalog_search(query: String, offset: u32, cf_offset: Option<u32>, datapacks: bool) -> Cmd<Value> {
     blocking(move || {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
-        catalog::search(&dir, what_of(datapacks), &query, offset)
+        catalog::search(&dir, what_of(datapacks), &query, offset, cf_offset)
     })
     .await
 }

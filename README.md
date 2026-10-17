@@ -23,6 +23,12 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
   des aktiven Servers (Mods bei Fabric/NeoForge, Plugins bei Paper, Datapacks bei allen).
   Reine Client-Mods werden ausgeblendet, schon installierte markiert. „Installieren“ lädt
   die neueste passende Version samt Pflicht-Abhängigkeiten (mit SHA512-Prüfung).
+- **CurseForge (optional):** Mit einem eigenen CurseForge-API-Schlüssel (Einstellungen,
+  dort steht Schritt für Schritt, wie man ihn beantragt) sucht Vapafane zusätzlich auf
+  CurseForge. Modrinth hat immer Vorrang; angezeigt werden nur Projekte, die es auf
+  Modrinth nicht gibt. Erlaubt ein Autor keine Downloads über andere Programme, gibt es
+  den Knopf „Im Browser herunterladen“. Der Update-Assistent erkennt CurseForge-Mods über
+  deren Fingerprint. Der Schlüssel liegt nur lokal in einer Datei, die nur du lesen kannst.
 - **Mehrere Server:** Liste mit beliebig vielen Servern, es läuft immer nur einer.
   Hinzufügen per Ordner, Import aus ZIP/tar oder neu erstellen als **Fabric**, **Paper**,
   **NeoForge** oder **Vanilla** – wahlweise in `MC_Servers/<Name>` oder einem anderen Ordner.
@@ -57,7 +63,7 @@ Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
 Eigenschaften → „Als Programm ausführen“) und starten – oder das `.deb` installieren:
 
 ```bash
-sudo apt install ./Vapafane_0.3.1_amd64.deb
+sudo apt install ./Vapafane_0.4.0_amd64.deb
 ```
 
 Java: `sudo apt install openjdk-25-jre-headless`
@@ -95,7 +101,7 @@ An/Aus-Zustand wird übernommen), der Login-Autostart `vapafane.desktop`. Die
 Konfiguration und alle Server bleiben, wie sie sind.
 
 ```bash
-sudo apt install ./Vapafane_0.3.1_amd64.deb
+sudo apt install ./Vapafane_0.4.0_amd64.deb
 sudo apt remove redcraftserver
 ```
 
@@ -133,3 +139,4 @@ Ein neuer Release entsteht, wenn ein Tag `v…` gepusht wird (GitHub Actions bau
 die Installer für Windows und Linux).
 
 Technik: Rust + [Tauri 2](https://tauri.app), Oberfläche in schlichtem HTML/CSS/JS.
+Die Gras- und Erd-Texturen sind eigene Pixel-Grafiken (`assets/make_textures.py`), keine Originaldateien aus Minecraft.

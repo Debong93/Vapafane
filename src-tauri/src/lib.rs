@@ -12,6 +12,7 @@ mod catalog;
 mod cleanup;
 mod config;
 mod ctl;
+mod curseforge;
 mod flavor;
 mod gui;
 mod ipc;

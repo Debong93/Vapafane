@@ -63,6 +63,34 @@ pub fn set_note(dir: &Path, rel: &str, reason: Option<&str>) -> Result<()> {
     write_meta(dir, &meta)
 }
 
+/// Herkunft einer Datei merken: {"source": "modrinth"|"curseforge", "id": …}.
+pub fn set_source(dir: &Path, rel: &str, source: Option<Value>) -> Result<()> {
+    let mut meta = read_meta(dir);
+    let all = meta.entry("sources").or_insert_with(|| json!({}));
+    if !all.is_object() {
+        *all = json!({});
+    }
+    let all = all.as_object_mut().unwrap();
+    match source {
+        Some(v) => {
+            all.insert(rel.to_string(), v);
+        }
+        None => {
+            all.remove(rel);
+        }
+    }
+    write_meta(dir, &meta)
+}
+
+/// Alle gemerkten Herkünfte (Pfad → {"source", "id"}).
+pub fn sources(dir: &Path) -> Map<String, Value> {
+    read_meta(dir)
+        .get("sources")
+        .and_then(|s| s.as_object())
+        .cloned()
+        .unwrap_or_default()
+}
+
 /// Datei ausschalten (umbenennen) und den Grund merken.
 pub fn disable(dir: &Path, rel: &str, reason: &str) -> Result<()> {
     let src = dir.join(rel);
@@ -140,6 +168,8 @@ fn level_name(dir: &Path) -> String {
 /// Alle Mods und Datapacks, ein- und ausgeschaltet.
 pub fn list(dir: &Path) -> Value {
     let notes = read_meta(dir).get("mod_notes").cloned().unwrap_or(json!({}));
+    let srcs = sources(dir);
+    let source_of = |rel: &str| srcs.get(rel).and_then(|v| v.get("source")).cloned();
     let sub = crate::flavor::mod_dir_of(dir);
     let mut mods = vec![];
     if let Ok(rd) = fs::read_dir(dir.join(sub)) {
@@ -161,6 +191,7 @@ pub fn list(dir: &Path) -> Value {
                 "version": version,
                 "client_only": env.as_deref() == Some("client"),
                 "reason": notes.get(&rel),
+                "source": source_of(&rel),
                 "size": e.metadata().map(|m| m.len()).unwrap_or(0),
             }));
         }
@@ -185,6 +216,7 @@ pub fn list(dir: &Path) -> Value {
                 "folder": is_dir,
                 "title": base.trim_end_matches(".zip").to_string(),
                 "reason": notes.get(&rel),
+                "source": source_of(&rel),
             }));
         }
     }

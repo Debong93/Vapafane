@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::archive::Progress;
+use crate::curseforge;
 use crate::flavor::Kind;
 use crate::mods;
 use crate::net;
@@ -24,6 +25,8 @@ pub enum What {
 }
 
 struct Target {
+    kind: Kind,
+    datapacks: bool,
     mc: String,
     loaders: Vec<&'static str>,
     project_type: &'static str,
@@ -41,6 +44,8 @@ fn target(dir: &Path, what: What) -> Result<Target> {
     let datapacks = what == What::Datapacks || kind == Kind::Vanilla;
     Ok(if datapacks {
         Target {
+            kind,
+            datapacks: true,
             mc: info.version,
             loaders: vec!["datapack"],
             project_type: "datapack",
@@ -48,6 +53,8 @@ fn target(dir: &Path, what: What) -> Result<Target> {
         }
     } else {
         Target {
+            kind,
+            datapacks: false,
             mc: info.version,
             loaders: kind.loaders().to_vec(),
             project_type: if kind == Kind::Paper { "plugin" } else { "mod" },
@@ -73,14 +80,23 @@ pub fn installed_projects(dir: &Path) -> Result<HashSet<String>> {
     }
     let hashes: Vec<String> = files.iter().filter_map(|p| net::sha1_file(p).ok()).collect();
     let known = updater::version_files(&hashes)?;
-    Ok(known
+    let mut out: HashSet<String> = known
         .values()
         .filter_map(|v| v.get("project_id").and_then(|p| p.as_str()).map(str::to_string))
-        .collect())
+        .collect();
+    // Von CurseForge installierte (Herkunft gemerkt) als „cf:<id>“
+    for v in mods::sources(dir).values() {
+        if v.get("source").and_then(|s| s.as_str()) == Some("curseforge")
+            && let Some(id) = v.get("id").and_then(|i| i.as_u64())
+        {
+            out.insert(format!("cf:{id}"));
+        }
+    }
+    Ok(out)
 }
 
 /// Modrinth durchsuchen. Ohne Suchbegriff: die beliebtesten.
-pub fn search(dir: &Path, what: What, query: &str, offset: u32) -> Result<Value> {
+pub fn search(dir: &Path, what: What, query: &str, offset: u32, cf_offset: Option<u32>) -> Result<Value> {
     let t = target(dir, what)?;
     let mut facets = vec![
         json!([format!("project_type:{}", t.project_type)]),
@@ -124,16 +140,113 @@ pub fn search(dir: &Path, what: What, query: &str, offset: u32) -> Result<Value>
                 "author": h.get("author"),
                 // Brauchen die Spieler die Mod auch selbst?
                 "client_required": client == "required",
+                "source": "modrinth",
             })
         })
         .collect();
-    Ok(json!({
+    let mut out = json!({
         "hits": hits,
         "total": v.get("total_hits"),
         "offset": offset,
         "mc": t.mc,
         "type": t.project_type,
-    }))
+        "curseforge": curseforge::key().is_some(),
+    });
+    // Zusätzlich CurseForge – nur Projekte, die es auf Modrinth nicht gibt
+    if let (Some(cf_index), true) = (cf_offset, curseforge::key().is_some()) {
+        match cf_only(&t, query, cf_index, &out["hits"]) {
+            Ok((cf_hits, cf_total)) => {
+                out["cf_hits"] = json!(cf_hits);
+                out["cf_total"] = json!(cf_total);
+                out["cf_offset"] = json!(cf_index + 20);
+            }
+            Err(e) => out["cf_error"] = json!(e.0),
+        }
+    }
+    Ok(out)
+}
+
+fn norm(s: &str) -> String {
+    s.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+/// CurseForge-Treffer ohne die, die es (wahrscheinlich) auch auf Modrinth gibt:
+/// gleicher Slug, gleicher Name oder gleiche Datei (SHA1).
+fn cf_only(t: &Target, query: &str, index: u32, modrinth_hits: &Value) -> Result<(Vec<Value>, u64)> {
+    let (mods, total) = curseforge::search(t.kind, t.datapacks, &t.mc, query, index)?;
+    let mut seen_names: HashSet<String> = modrinth_hits
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|h| [h["slug"].as_str().map(norm), h["title"].as_str().map(norm)])
+        .flatten()
+        .collect();
+    // Slugs auf Modrinth nachschlagen (eine Anfrage für alle)
+    let slugs: Vec<String> = mods
+        .iter()
+        .filter_map(|m| m.get("slug").and_then(|s| s.as_str()).map(str::to_string))
+        .collect();
+    if !slugs.is_empty()
+        && let Ok(v) = net::get_json_query(&format!("{API}/projects"), &[("ids", serde_json::to_string(&slugs)?)])
+    {
+        for p in v.as_array().into_iter().flatten() {
+            for key in ["slug", "title"] {
+                if let Some(x) = p.get(key).and_then(|x| x.as_str()) {
+                    seen_names.insert(norm(x));
+                }
+            }
+        }
+    }
+    // Dateien per SHA1 auf Modrinth suchen
+    let mut sha_to_mod: Vec<(String, u64)> = vec![];
+    for m in &mods {
+        let id = m.get("id").and_then(|i| i.as_u64()).unwrap_or(0);
+        for f in m
+            .get("latestFiles")
+            .and_then(|f| f.as_array())
+            .into_iter()
+            .flatten()
+            .take(3)
+        {
+            if let Some(h) = curseforge::file_sha1(f) {
+                sha_to_mod.push((h, id));
+            }
+        }
+    }
+    let hashes: Vec<String> = sha_to_mod.iter().map(|(h, _)| h.clone()).collect();
+    let on_modrinth: HashSet<u64> = updater::version_files(&hashes)
+        .map(|known| {
+            sha_to_mod
+                .iter()
+                .filter(|(h, _)| known.contains_key(h))
+                .map(|(_, id)| *id)
+                .collect()
+        })
+        .unwrap_or_default();
+    let hits = mods
+        .into_iter()
+        .filter(|m| {
+            let id = m.get("id").and_then(|i| i.as_u64()).unwrap_or(0);
+            let slug = m.get("slug").and_then(|s| s.as_str()).map(norm).unwrap_or_default();
+            let name = m.get("name").and_then(|s| s.as_str()).map(norm).unwrap_or_default();
+            !on_modrinth.contains(&id) && !seen_names.contains(&slug) && !seen_names.contains(&name)
+        })
+        .map(|m| {
+            json!({
+                "id": format!("cf:{}", m.get("id").and_then(|i| i.as_u64()).unwrap_or(0)),
+                "slug": m.get("slug"),
+                "title": m.get("name"),
+                "description": m.get("summary"),
+                "icon": m.pointer("/logo/thumbnailUrl"),
+                "downloads": m.get("downloadCount"),
+                "author": m.pointer("/authors/0/name"),
+                "client_required": Value::Null,
+                "source": "curseforge",
+                "page": m.pointer("/links/websiteUrl"),
+            })
+        })
+        .collect();
+    Ok((hits, total))
 }
 
 /// Projekt-ID oder Slug → Projekt-ID und Titel.
@@ -153,6 +266,10 @@ fn project_info(id_or_slug: &str) -> Result<(String, String)> {
 /// Schon vorhandene Projekte werden übersprungen.
 pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Result<Value> {
     let t = target(dir, what)?;
+    if let Some(id) = project.strip_prefix("cf:") {
+        let id: u64 = id.parse().map_err(|_| Error("Ungültige CurseForge-ID".into()))?;
+        return install_cf(dir, &t, id, progress);
+    }
     let mut have = installed_projects(dir)?;
     let (root_id, root_title) = project_info(project)?;
     if have.contains(&root_id) {
@@ -170,6 +287,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
     let mut skipped: Vec<String> = vec![];
     let mut missing: Vec<String> = vec![];
     let mut seen: HashSet<String> = HashSet::new();
+    let mut sources: Vec<(String, Value)> = vec![];
     let res = (|| -> Result<()> {
         while let Some((pid, title, is_root)) = queue.pop() {
             if !seen.insert(pid.clone()) {
@@ -218,6 +336,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            sources.push((name.clone(), json!({"source": "modrinth", "id": pid})));
             planned.push((title, vnum, name));
             have.insert(pid);
             for dep in version
@@ -253,6 +372,9 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
         for (_, _, name) in &planned {
             fs::rename(staging.join(name), dest_dir.join(name))?;
         }
+        for (name, src) in &sources {
+            mods::set_source(dir, &format!("{}/{name}", t.sub), Some(src.clone()))?;
+        }
         Ok(())
     })();
     let _ = fs::remove_dir_all(dir.join(crate::config::STAGING_NAME));
@@ -263,5 +385,105 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
         "installed": planned.iter().map(|(t, v, f)| json!({"title": t, "version": v, "file": f})).collect::<Vec<_>>(),
         "skipped": skipped,
         "missing": missing,
+    }))
+}
+
+/// Von CurseForge installieren. Erlaubt der Autor keine Downloads über andere
+/// Programme, kommt stattdessen die Seite für den Download im Browser zurück.
+fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<Value> {
+    let have = installed_projects(dir)?;
+    if have.contains(&format!("cf:{root}")) {
+        return err("Das ist schon installiert.");
+    }
+    let dest_dir = dir.join(&t.sub);
+    fs::create_dir_all(&dest_dir)?;
+    let staging = dir.join(crate::config::STAGING_NAME).join("neu");
+    let _ = fs::remove_dir_all(&staging);
+    fs::create_dir_all(&staging)?;
+    let mut queue = vec![(root, true)];
+    let mut seen = HashSet::new();
+    // (Titel, Version, Datei, Mod-ID, Datei-ID)
+    let mut planned: Vec<(String, String, String, u64, u64)> = vec![];
+    let (mut skipped, mut missing, mut manual) = (vec![], vec![], vec![]);
+    let mut root_title = String::new();
+    let res = (|| -> Result<()> {
+        while let Some((id, is_root)) = queue.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let m = curseforge::get_mod(id)?;
+            let title = m.get("name").and_then(|n| n.as_str()).unwrap_or("?").to_string();
+            if is_root {
+                root_title = title.clone();
+            } else if have.contains(&format!("cf:{id}")) {
+                skipped.push(title);
+                continue;
+            }
+            progress(0.2, &format!("Suche {title} auf CurseForge …"));
+            let Some(file) = curseforge::best_file(id, t.kind, t.datapacks, &t.mc)? else {
+                if is_root {
+                    return err(format!(
+                        "„{title}“ gibt es auf CurseForge nicht für Minecraft {}.",
+                        t.mc
+                    ));
+                }
+                missing.push(title);
+                continue;
+            };
+            let name = updater::safe_filename(file.get("fileName").and_then(|f| f.as_str()).unwrap_or(""))?;
+            if dest_dir.join(&name).exists() || dest_dir.join(format!("{name}{}", mods::DISABLED)).exists() {
+                skipped.push(title);
+                continue;
+            }
+            let Some(url) = curseforge::download_url(&file) else {
+                // Der Autor erlaubt keine Downloads über andere Programme
+                manual.push(json!({"title": title, "page": curseforge::file_page(&m, &file), "file": name}));
+                continue;
+            };
+            progress(0.5, &format!("Lade {title} von CurseForge …"));
+            net::download(
+                &url,
+                &staging.join(&name),
+                net::Expect {
+                    sha1: curseforge::file_sha1(&file).as_deref(),
+                    ..Default::default()
+                },
+                &|_| {},
+            )?;
+            let fid = file.get("id").and_then(|i| i.as_u64()).unwrap_or(0);
+            let shown = file
+                .get("displayName")
+                .and_then(|d| d.as_str())
+                .unwrap_or(&name)
+                .to_string();
+            planned.push((title, shown, name, id, fid));
+            for dep in curseforge::required_deps(&file) {
+                queue.push((dep, false));
+            }
+        }
+        progress(0.9, "Sortiere ein …");
+        for (_, _, name, mid, fid) in &planned {
+            fs::rename(staging.join(name), dest_dir.join(name))?;
+            mods::set_source(
+                dir,
+                &format!("{}/{name}", t.sub),
+                Some(json!({"source": "curseforge", "id": mid, "file": fid})),
+            )?;
+        }
+        Ok(())
+    })();
+    let _ = fs::remove_dir_all(dir.join(crate::config::STAGING_NAME));
+    res?;
+    Ok(json!({
+        "title": root_title,
+        "folder": t.sub,
+        "source": "curseforge",
+        "installed": planned
+            .iter()
+            .map(|(t, v, f, _, _)| json!({"title": t, "version": v, "file": f}))
+            .collect::<Vec<_>>(),
+        "skipped": skipped,
+        "missing": missing,
+        "manual": manual,
     }))
 }

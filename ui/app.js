@@ -853,6 +853,7 @@ async function loadSettings() {
   subEl.style.cursor = s.autostart && !s.linger && s.systemd ? "pointer" : "";
   subEl.onclick = s.autostart && !s.linger && s.systemd ? askLinger : null;
 
+  loadCurseForge();
   const box = $("old-panel-box");
   if (s.old_panel) {
     const o = s.old_panel;
@@ -864,6 +865,31 @@ async function loadSettings() {
     $("btn-old-off").onclick = disableOldPanel;
   } else box.classList.add("hidden");
 }
+
+async function loadCurseForge() {
+  const c = await invoke("cf_status").catch(() => ({ set: false }));
+  $("cf-state").textContent = c.set ? `Gespeicherter Schlüssel: ${c.masked} – CurseForge wird bei der Suche mit gefragt.`
+    : "Kein Schlüssel gespeichert – gesucht wird nur auf Modrinth.";
+  $("btn-cf-delete").disabled = !c.set;
+}
+$("btn-cf-apply").onclick = () => invoke("open_link", { target: "cf-apply" }).catch((e) => error("Link", e));
+$("btn-cf-console").onclick = () => invoke("open_link", { target: "cf-console" }).catch((e) => error("Link", e));
+$("btn-cf-docs").onclick = () => invoke("open_link", { target: "cf-docs" }).catch((e) => error("Link", e));
+$("btn-cf-test").onclick = async () => {
+  $("cf-state").textContent = "Teste …";
+  try { await invoke("cf_key_test", { key: $("cf-key").value || null }); $("cf-state").textContent = "✓ Der Schlüssel funktioniert."; }
+  catch (e) { $("cf-state").textContent = `✗ ${e}`; }
+};
+$("btn-cf-save").onclick = async () => {
+  try { await invoke("cf_key_save", { key: $("cf-key").value }); $("cf-key").value = ""; addEvent("CurseForge-Schlüssel gespeichert"); }
+  catch (e) { return error("Speichern", e); }
+  loadCurseForge();
+};
+$("btn-cf-delete").onclick = async () => {
+  if (!(await confirmAsk("CurseForge-Schlüssel entfernen?", "Danach sucht Vapafane wieder nur auf Modrinth.", "Entfernen"))) return;
+  await invoke("cf_key_delete").catch((e) => error("Entfernen", e));
+  loadCurseForge();
+};
 
 async function askLinger() {
   if (!(await confirmAsk("Start ohne Anmeldung erlauben?",
@@ -914,7 +940,9 @@ function modRow(m) {
   row.className = "item" + (m.enabled ? "" : " off");
   const sub = [m.version ? `Version ${esc(m.version)}` : "", esc(m.file)].filter(Boolean).join(" · ");
   row.innerHTML = `<div class="grow"><div>${esc(m.title)}${m.client_only ? '<span class="badge">nur Client</span>' : ""}` +
-    `${m.folder ? '<span class="badge">Ordner</span>' : ""}</div><div class="sub">${sub}</div>` +
+    `${m.folder ? '<span class="badge">Ordner</span>' : ""}` +
+    `${m.source?.source === "curseforge" ? '<span class="badge src-cf">CurseForge</span>' : m.source?.source === "modrinth" ? '<span class="badge src-mr">Modrinth</span>' : ""}` +
+    `</div><div class="sub">${sub}</div>` +
     (m.reason && !m.enabled ? `<div class="reason">Aus: ${esc(m.reason)}</div>` : "") + `</div>`;
   if (!m.folder) {
     const sw = document.createElement("label");
@@ -969,34 +997,52 @@ async function openCatalog() {
     <div id="cat-info" class="dim small"></div>
     <p id="catalog-msg" class="hint"></p>
     <div id="cat-list" class="catalog-list"></div>
+    <div id="cat-cf" class="hidden"><h3>Nur auf CurseForge</h3><p class="dim small">Diese gibt es nicht auf Modrinth. Manche Autoren erlauben keinen Download über andere Programme – dann lädst du die Datei im Browser und legst sie selbst in den Ordner.</p>
+      <div id="cat-cf-list" class="catalog-list"></div></div>
+    <p id="cat-cf-note" class="dim small"></p>
     <div class="row"><button id="cat-more" class="hidden">Mehr laden</button></div>`;
   let installed = new Set();
   let offset = 0;
   let total = 0;
+  let cfOffset = 0; // null = keine weiteren CurseForge-Treffer
   let timer = null;
   const datapacks = () => vanilla || ($("cat-what") && $("cat-what").value === "datapacks");
-  const msg = (html) => { $("catalog-msg").innerHTML = html; };
+  const msg = (html) => { $("catalog-msg").innerHTML = html; $("catalog-msg").scrollIntoView({ block: "nearest", behavior: "smooth" }); };
 
   const load = async (reset) => {
-    if (reset) { offset = 0; $("cat-list").innerHTML = `<div class="empty">Suche …</div>`; }
+    if (reset) {
+      offset = 0; cfOffset = 0;
+      $("cat-list").innerHTML = `<div class="empty">Suche …</div>`;
+      $("cat-cf-list").innerHTML = ""; $("cat-cf").classList.add("hidden");
+    }
     let r;
-    try { r = await invoke("catalog_search", { query: $("cat-q").value, offset, datapacks: datapacks() }); }
+    try { r = await invoke("catalog_search", { query: $("cat-q").value, offset, cfOffset, datapacks: datapacks() }); }
     catch (e) { $("cat-list").innerHTML = `<div class="empty">Fehler: ${esc(e)}</div>`; return; }
     if (reset) $("cat-list").innerHTML = "";
+    if (r.curseforge) {
+      const cf = r.cf_hits || [];
+      for (const h of cf) $("cat-cf-list").appendChild(hitRow(h));
+      if (cf.length) $("cat-cf").classList.remove("hidden");
+      cfOffset = r.cf_offset && r.cf_offset < (r.cf_total || 0) ? r.cf_offset : null;
+      $("cat-cf-note").textContent = r.cf_error ? `CurseForge: ${r.cf_error}` : "";
+    } else {
+      cfOffset = null;
+      $("cat-cf-note").textContent = "Tipp: Mit einem CurseForge-Schlüssel (Einstellungen) findest du zusätzlich Mods, die es nur dort gibt.";
+    }
     total = r.total || 0;
     $("cat-info").textContent = `${total.toLocaleString("de-DE")} passende ${datapacks() ? "Datapacks" : word} für Minecraft ${r.mc}` +
       ($("cat-q").value.trim() ? "" : " – sortiert nach Beliebtheit");
     for (const h of r.hits) $("cat-list").appendChild(hitRow(h));
     offset += r.hits.length;
     if (!r.hits.length && reset) $("cat-list").innerHTML = `<div class="empty">Nichts gefunden.</div>`;
-    $("cat-more").classList.toggle("hidden", offset >= total);
+    $("cat-more").classList.toggle("hidden", offset >= total && cfOffset === null);
   };
 
   const hitRow = (h) => {
     const row = document.createElement("div");
     row.className = "hit";
     const icon = h.icon ? `<img src="${esc(h.icon)}" alt="" loading="lazy">` : `<div class="noicon"></div>`;
-    const side = h.client_required
+    const side = h.source === "curseforge" ? `<span class="badge src-cf">CurseForge</span>` : h.client_required
       ? `<span class="badge both" title="Die Spieler brauchen das auch selbst – z. B. über „Mods für Freunde exportieren (.mrpack)“">Server + Client</span>`
       : `<span class="badge">Nur Server</span>`;
     row.innerHTML = `${icon}<div class="txt"><div class="t">${esc(h.title)} ${side}</div><div class="d">${esc(h.description)}</div>` +
@@ -1021,9 +1067,21 @@ async function openCatalog() {
         if (r.skipped.length) text += ` Schon vorhanden: ${r.skipped.map(esc).join(", ")}.`;
         if (r.missing.length) text += `<br>Achtung: Diese Abhängigkeit gibt es nicht für diese Version: ${r.missing.map(esc).join(", ")} – der Server startet so evtl. nicht.`;
         if (h.client_required) text += `<br>Die Spieler brauchen diese Mod auch – am einfachsten über „Mods für Freunde exportieren (.mrpack)“ im Tab Updates.`;
-        if (r.restart_needed) text += `<br>Der Server läuft – das wirkt erst nach einem Neustart. <button id="cat-restart">Jetzt neu starten</button>`;
+        if (r.manual && r.manual.length) {
+          text = (r.installed.length ? text + "<br>" : "") +
+            r.manual.map((m) => `<b>${esc(m.title)}</b>: Der Autor erlaubt keinen Download über andere Programme. Lade die Datei ` +
+              `<code>${esc(m.file)}</code> im Browser herunter und lege sie in den Ordner „${esc(r.folder)}“.`).join("<br>") +
+            `<div class="row">${r.manual.map((m, i) => `<button data-page="${i}">Im Browser herunterladen ↗</button>`).join("")}` +
+            `<button id="cat-open-folder">${esc(r.folder.includes("datapacks") ? "Datapack-Ordner" : "Mods-Ordner")} öffnen</button></div>`;
+          if (!r.installed.length) { btn.textContent = "Installieren"; btn.className = "primary"; btn.disabled = false; }
+        }
+        if (r.restart_needed && r.installed.length) text += `<br>Der Server läuft – das wirkt erst nach einem Neustart. <button id="cat-restart">Jetzt neu starten</button>`;
         msg(text);
-        if (r.restart_needed) $("cat-restart").onclick = () => { if (modalResolve) modalResolve(false); askStop(true); };
+        for (const b of $("catalog-msg").querySelectorAll("button[data-page]")) {
+          b.onclick = () => invoke("open_link", { target: r.manual[+b.dataset.page].page }).catch((e) => msg(esc(e)));
+        }
+        if ($("cat-open-folder")) $("cat-open-folder").onclick = () => invoke("open_folder", { which: r.folder.includes("datapacks") ? "datapacks" : "mods" }).catch(() => {});
+        if ($("cat-restart")) $("cat-restart").onclick = () => { if (modalResolve) modalResolve(false); askStop(true); };
         addEvent(`Installiert: ${r.title}`);
       } catch (e) {
         btn.disabled = false;
@@ -1077,7 +1135,7 @@ $("btn-cleanup").onclick = async () => {
 
 const ST_TEXT = {
   update: "✓ Update", current: "= aktuell", missing: "✗ fehlt", unknown: "? unbekannt",
-  new: "+ neu (wird gebraucht)", reenable: "✓ passt wieder – wird eingeschaltet", duplicate: "⇄ doppelt (ist schon als Mod da)",
+  new: "+ neu (wird gebraucht)", manual: "↗ Update nur im Browser (CurseForge)", reenable: "✓ passt wieder – wird eingeschaltet", duplicate: "⇄ doppelt (ist schon als Mod da)",
 };
 let updInfo = null;
 let plan = null;
@@ -1157,6 +1215,8 @@ function showPlan(hasWork) {
     lines.push(plan.java_ok ? `Java ${plan.java_required} nötig – vorhanden (${plan.java_path}).`
       : `Java ${plan.java_required} nötig, aber nicht installiert. ${javaHint(plan.java_required)}`);
   }
+  for (const n of plan.notes || []) lines.push(n);
+  if (plan.mods.some((m) => m.status === "manual")) lines.push("Für Mods mit „Update nur im Browser“ erlaubt der Autor kein automatisches Laden – neue Datei auf CurseForge herunterladen und selbst austauschen.");
   if (!plan.space_ok) lines.push(`Zu wenig Speicherplatz für das Backup (${fmtBytes(plan.free_space)} frei, Server ${fmtBytes(plan.server_size)}).`);
   if (!hasWork) lines.splice(0, lines.length, "Alles ist auf dem neuesten Stand.");
   $("upd-summary").textContent = lines.join("\n");

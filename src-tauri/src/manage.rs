@@ -330,3 +330,47 @@ pub fn set_notify(on: bool) -> Cmd<()> {
 pub async fn disable_old_panel() -> Cmd<()> {
     blocking(autostart::disable_old_panel).await
 }
+
+// ---------------------------------------------------------------- CurseForge-Schlüssel
+
+#[tauri::command]
+pub fn cf_status() -> Value {
+    json!({"set": crate::curseforge::key().is_some(), "masked": crate::curseforge::masked()})
+}
+
+/// Schlüssel ausprobieren. Ohne Angabe wird der gespeicherte getestet.
+#[tauri::command]
+pub async fn cf_key_test(key: Option<String>) -> Cmd<()> {
+    blocking(move || {
+        let k = key
+            .filter(|k| !k.trim().is_empty())
+            .or_else(crate::curseforge::key)
+            .ok_or_else(|| Error("Bitte zuerst einen Schlüssel einfügen.".into()))?;
+        crate::curseforge::test_key(&k)
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn cf_key_save(key: String) -> Cmd<()> {
+    crate::curseforge::save_key(&key).map_err(|e| e.0)
+}
+
+#[tauri::command]
+pub fn cf_key_delete() -> Cmd<()> {
+    crate::curseforge::delete_key().map_err(|e| e.0)
+}
+
+/// Webseite im Browser öffnen – nur fest hinterlegte Ziele bzw. Seiten auf curseforge.com/modrinth.com.
+#[tauri::command]
+pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = match target.as_str() {
+        "cf-apply" => crate::curseforge::APPLY_URL.to_string(),
+        "cf-docs" => crate::curseforge::DOCS_URL.to_string(),
+        "cf-console" => crate::curseforge::CONSOLE_URL.to_string(),
+        u if u.starts_with("https://www.curseforge.com/") || u.starts_with("https://modrinth.com/") => u.to_string(),
+        _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
+    };
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}

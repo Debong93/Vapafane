@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><img src="icon.png" alt=""><span>Vapafane</span></div>
+    <div class="brand"><img src="icon.png" alt=""><span>Vapafane <small>das Minecraft-Servertool</small></span></div>
     <div class="picker">
       <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"></select>
       <button id="btn-add-server" class="icon-btn" title="Server hinzufügen">＋</button>
@@ -185,6 +185,40 @@
         <div class="sw-row"><div><div>Benachrichtigungen</div><div class="dim small">Wenn jemand beitritt oder geht und wenn der Server abstürzt (solange das Fenster offen ist).</div></div><label class="switch"><input type="checkbox" id="sw-notify"><span></span></label></div>
       </div>
       <div id="old-panel-box" class="hint hidden"></div>
+      <h3>CurseForge (optional)</h3>
+      <div class="cf-box">
+        <p><b>Brauche ich das?</b> Nein. Ohne CurseForge sucht Vapafane auf <b>Modrinth</b> – dort gibt es die meisten Mods,
+          und sie lassen sich immer automatisch installieren. Mit CurseForge findest du <i>zusätzlich</i> Mods, die es nur dort gibt.</p>
+        <p><b>Was ist ein API-Schlüssel?</b> Eine Art persönlicher Zugangscode – eine lange Zeichenkette. Damit darf ein Programm wie
+          Vapafane bei CurseForge suchen und Mods laden. CurseForge verlangt das, damit sie wissen, wer ihre Schnittstelle benutzt.</p>
+        <details>
+          <summary><b>So bekommst du einen Schlüssel (kostenlos)</b></summary>
+          <ol>
+            <li>Auf <b>„Schlüssel beantragen“</b> klicken. Es öffnet sich das Antragsformular von CurseForge (gehört zu Overwolf).</li>
+            <li>Das Formular ausfüllen – zum Beispiel als Projekt „Vapafane – privates Minecraft-Servertool“ und als Zweck
+              „Mods für meinen eigenen Minecraft-Server suchen und installieren“.</li>
+            <li>Abschicken und auf die Antwort per E-Mail warten. CurseForge prüft jeden Antrag von Hand – das kann ein paar Tage dauern.</li>
+            <li>Nach der Freigabe findest du den Schlüssel in der Antwort bzw. in der CurseForge-Konsole (Knopf unten).</li>
+            <li>Den Schlüssel unten einfügen, <b>„Schlüssel testen“</b> drücken und dann <b>„Speichern“</b>.</li>
+          </ol>
+          <p class="dim small">Wichtig: Kein eigenes Konto in der CurseForge-Konsole anlegen, ohne den Antrag zu stellen – CurseForge
+            löscht laut eigener Doku Konten, die keinen Schlüssel beantragt haben. Der Schlüssel bleibt nur auf diesem PC
+            (in einer Datei, die nur du lesen kannst) und wird nie mitgeschickt oder angezeigt.</p>
+        </details>
+        <div class="row">
+          <button id="btn-cf-apply">Schlüssel beantragen ↗</button>
+          <button id="btn-cf-console">CurseForge-Konsole ↗</button>
+          <button id="btn-cf-docs">Mehr zur CurseForge-API ↗</button>
+        </div>
+        <div class="row">
+          <input id="cf-key" type="password" placeholder="API-Schlüssel hier einfügen" autocomplete="off" spellcheck="false">
+          <button id="btn-cf-test">Schlüssel testen</button>
+          <button id="btn-cf-save" class="primary">Speichern</button>
+          <button id="btn-cf-delete" class="danger">Entfernen</button>
+        </div>
+        <p id="cf-state" class="small"></p>
+      </div>
+
       <h3>Ordner</h3>
       <div class="row">
         <button data-open="server">Server-Ordner</button>

@@ -628,7 +628,8 @@ pub fn open_folder(app: AppHandle, which: String) -> Cmd<()> {
     let dir = active_dir(&cfg).map_err(|e| e.0)?;
     let path = match which.as_str() {
         "server" => dir.clone(),
-        "mods" => dir.join("mods"),
+        "mods" => dir.join(crate::flavor::mod_dir_of(&dir)),
+        "datapacks" => dir.join(crate::updater::level_name(&dir)).join("datapacks"),
         "backups" => cfg.backup_dir_for(&cfg.name_of(&dir)),
         "logs" => dir.join("logs"),
         _ => return Err("Unbekannter Ordner".into()),
@@ -733,6 +734,11 @@ pub fn run() {
             crate::updates_gui::catalog_search,
             crate::updates_gui::catalog_installed,
             crate::updates_gui::catalog_install,
+            crate::manage::cf_status,
+            crate::manage::cf_key_test,
+            crate::manage::cf_key_save,
+            crate::manage::cf_key_delete,
+            crate::manage::open_link,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");

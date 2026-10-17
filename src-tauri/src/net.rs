@@ -74,7 +74,8 @@ pub struct Expect<'a> {
 
 /// Lädt eine Datei und prüft die Prüfsummen. Erst danach liegt die Datei unter `dest`.
 pub fn download(url: &str, dest: &Path, expect: Expect, progress: &dyn Fn(f64)) -> Result<()> {
-    if !url.starts_with("https://") {
+    let test_local = crate::config::test_home().is_some() && url.starts_with("http://127.0.0.1:");
+    if !url.starts_with("https://") && !test_local {
         return err(format!("Unsichere Download-Adresse: {url}"));
     }
     let mut resp = AGENT.get(url).call().map_err(net_err)?;
