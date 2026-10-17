@@ -13,6 +13,12 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 - **Konsole:** das Server-Log live, farbig (Warnungen, Fehler, Beitritte, Chat),
   Befehle eingeben (mit Verlauf über ↑/↓) und Schnellknöpfe.
 - **Spieler:** wer online ist (Spielmodus, OP, rauswerfen) und die Whitelist.
+- **Mods:** Liste aller Mods und Datapacks mit An/Aus-Schalter. Ausgeschaltet heißt
+  umbenannt in `….jar.disabled` (wie bei der Modrinth-App) – die Datei bleibt da, wird
+  aber nicht geladen. Ausgeschaltete stehen ausgegraut mit Grund in der Liste
+  (z. B. „gibt es nicht für Minecraft 26.3“). Knopf **Aufräumen** zeigt Reste alter
+  Versionen (z. B. `mods/.old`, alte `versions/`, ältere Bibliotheken, alte Fabric-
+  Zwischenspeicher) mit Größe an und löscht sie nach Bestätigung (nur bei gestopptem Server).
 - **Mehrere Server:** Liste mit beliebig vielen Servern, es läuft immer nur einer.
   Hinzufügen per Ordner, Import aus ZIP/tar oder neuen Fabric-Server erstellen.
 - **Backups:** immer der komplette Server-Ordner als ZIP mit Datum im Namen
@@ -21,7 +27,10 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 - **Updates (Fabric):** prüft über Modrinth, ob es alle Mods und Datapacks für die
   gewünschte Version gibt, lädt nötige Abhängigkeiten nach, erkennt doppelte Datapacks,
   prüft Java und Speicherplatz. Das Update macht vorher ein Backup und bietet bei
-  Problemen den Rückweg an. **Probelauf:** testet das Update vorher an einer Kopie auf
+  Problemen den Rückweg an. Mods ohne passende Version werden ausgeschaltet (und beim
+  nächsten Update automatisch wieder eingeschaltet, sobald es eine passende gibt). Erst
+  wenn der Server mit der neuen Version fertig gestartet ist, werden die alten Dateien
+  gelöscht – das ZIP-Backup davor bleibt die Sicherung. **Probelauf:** testet das Update vorher an einer Kopie auf
   einem anderen Port – der echte Server bleibt unberührt. Export der Mods als
   `.mrpack` für Freunde (Modrinth-App).
 - **Automatik:** Server beim PC-Start starten (auch ohne Anmeldung), Fenster beim

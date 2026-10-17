@@ -21,7 +21,7 @@ use crate::rcon::Rcon;
 use crate::server;
 use crate::updater::{self, Plan};
 use crate::util::{self, Error, Result, err};
-use crate::{ipc, launcher};
+use crate::{cleanup, ipc, launcher, mods};
 
 /// Zuletzt geprüfter Plan (das Update nutzt genau diesen).
 static PLAN: Mutex<Option<Plan>> = Mutex::new(None);
@@ -195,13 +195,82 @@ pub fn do_update(
     })?;
     progress(0.8, "Starte Server (der erste Start kann ein paar Minuten dauern) …");
     let res = start_and_wait(progress, 0.85);
+    // Erst nach geglücktem Start aufräumen – bei Fehlern bleibt alles für den Rückweg liegen
+    let mut cleaned = json!(null);
+    if res.is_ok() {
+        progress(0.98, "Räume alte Dateien auf …");
+        let loader = plan.loader.clone().unwrap_or_else(|| server::detect_server(dir).loader);
+        let items = cleanup::after_update(dir, &alt, &plan.target, &loader);
+        let (freed, failed) = cleanup::delete(dir, &items);
+        cleaned = json!({"count": items.len() - failed.len(), "freed": freed, "failed": failed});
+    }
     Ok(json!({
         "ok": res.is_ok(),
         "error": res.err().map(|e| e.0),
         "backup": backup,
         "alt": alt,
         "what": what,
+        "cleaned": cleaned,
     }))
+}
+
+// ---------------------------------------------------------------- Mod-Liste und Aufräumen
+
+#[tauri::command]
+pub async fn mods_list() -> Cmd<Value> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        Ok(mods::list(&dir))
+    })
+    .await
+}
+
+/// Mod/Datapack ein- oder ausschalten. Läuft der Server, wirkt es erst nach einem Neustart
+/// (unter Windows lässt sich eine geladene Mod dann gar nicht umbenennen).
+#[tauri::command]
+pub async fn mod_set_enabled(rel: String, on: bool) -> Cmd<Value> {
+    blocking(move || {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let running = !matches!(state().as_str(), "stopped" | "failed" | "none");
+        if let Err(e) = mods::set_enabled(&dir, &rel, on) {
+            if running {
+                return err(format!("{e}\nBitte erst den Server stoppen."));
+            }
+            return Err(e);
+        }
+        Ok(json!({"restart_needed": running}))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn cleanup_preview() -> Cmd<Value> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let items = cleanup::candidates(&dir);
+        let total: u64 = items.iter().map(|c| c.size).sum();
+        Ok(json!({"items": items, "total": total}))
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn cleanup_run(app: AppHandle) -> Cmd<()> {
+    run_task(&app, "Aufräumen", |progress| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        if !matches!(state().as_str(), "stopped" | "failed" | "none") {
+            return err("Aufräumen geht nur, wenn der Server gestoppt ist.");
+        }
+        progress(0.3, "Lösche alte Dateien …");
+        let items = cleanup::candidates(&dir);
+        let (freed, failed) = cleanup::delete(&dir, &items);
+        Ok(json!({"count": items.len() - failed.len(), "freed": freed, "failed": failed}))
+    })
+    .map_err(|e| e.0)
 }
 
 /// Zurück zum Stand vor dem letzten Update (über dessen Backup).

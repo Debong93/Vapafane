@@ -100,6 +100,7 @@ function showTab(name) {
   if (name === "console") scrollConsole(true);
   if (name === "backups") refreshBackups();
   if (name === "players") refreshPlayersTab();
+  if (name === "mods") refreshMods();
   if (name === "settings") loadSettings();
   if (name === "updates") refreshUpdateTab();
 }
@@ -330,6 +331,7 @@ function onServerChanged() {
   const active = document.querySelector("#tabs button.active").dataset.tab;
   if (active === "settings") loadSettings();
   if (active === "players") refreshPlayersTab();
+  if (active === "mods") refreshMods();
   if (active === "updates") refreshUpdateTab();
 }
 
@@ -842,11 +844,77 @@ for (const b of document.querySelectorAll("[data-open]")) {
   b.onclick = () => invoke("open_folder", { which: b.dataset.open }).catch((e) => error("Ordner", e));
 }
 
+// ------------------------------------------------------------------ Mods
+
+function modRow(m) {
+  const row = document.createElement("div");
+  row.className = "item" + (m.enabled ? "" : " off");
+  const sub = [m.version ? `Version ${esc(m.version)}` : "", esc(m.file)].filter(Boolean).join(" · ");
+  row.innerHTML = `<div class="grow"><div>${esc(m.title)}${m.client_only ? '<span class="badge">nur Client</span>' : ""}` +
+    `${m.folder ? '<span class="badge">Ordner</span>' : ""}</div><div class="sub">${sub}</div>` +
+    (m.reason && !m.enabled ? `<div class="reason">Aus: ${esc(m.reason)}</div>` : "") + `</div>`;
+  if (!m.folder) {
+    const sw = document.createElement("label");
+    sw.className = "switch";
+    sw.title = m.enabled ? "Eingeschaltet – klicken zum Ausschalten" : "Ausgeschaltet – klicken zum Einschalten";
+    sw.innerHTML = `<input type="checkbox" ${m.enabled ? "checked" : ""}><span></span>`;
+    const input = sw.querySelector("input");
+    input.onchange = async () => {
+      input.disabled = true;
+      try {
+        const r = await invoke("mod_set_enabled", { rel: m.rel, on: input.checked });
+        addEvent(`${m.title} ${input.checked ? "eingeschaltet" : "ausgeschaltet"}`);
+        const hint = $("mods-hint");
+        hint.textContent = r.restart_needed ? "Der Server läuft – die Änderung wirkt nach dem nächsten Neustart." : "";
+        hint.classList.toggle("hidden", !r.restart_needed);
+      } catch (e) { error("Umschalten nicht möglich", e); }
+      refreshMods();
+    };
+    row.appendChild(sw);
+  }
+  return row;
+}
+
+async function refreshMods() {
+  let l;
+  try { l = await invoke("mods_list"); } catch (_) { $("mods-list").innerHTML = ""; $("packs-list").innerHTML = ""; return; }
+  const on = l.mods.filter((m) => m.enabled).length;
+  $("mods-count").textContent = `${on} von ${l.mods.length} Mods eingeschaltet` + (l.datapacks.length ? ` · ${l.datapacks.length} Datapacks` : "");
+  for (const [id, items, empty] of [["mods-list", l.mods, "Keine Mods im Ordner „mods“."], ["packs-list", l.datapacks, "Keine Datapacks in der Welt."]]) {
+    const box = $(id);
+    box.innerHTML = items.length ? "" : `<div class="empty">${empty}</div>`;
+    for (const m of items) box.appendChild(modRow(m));
+  }
+}
+
+$("btn-open-mods").onclick = () => invoke("open_folder", { which: "mods" }).catch((e) => error("Ordner", e));
+
+$("btn-cleanup").onclick = async () => {
+  let p;
+  try { p = await invoke("cleanup_preview"); } catch (e) { return error("Aufräumen", e); }
+  if (!p.items.length) return info("Aufräumen", "Alles sauber – es gibt keine Reste alter Versionen.");
+  const stopped = ["stopped", "failed", "none"].includes(status.state);
+  const list = p.items.map((c) => `<div><span class="sz">${fmtBytes(c.size)}</span><span><code>${esc(c.rel)}</code><br><span class="dim small">${esc(c.what)}</span></span></div>`).join("");
+  const body = `<p>Diese Reste alter Versionen würden gelöscht (zusammen <b>${fmtBytes(p.total)}</b>). Welt, Einstellungen und ausgeschaltete Mods bleiben.` +
+    ` Was der Server doch noch braucht, lädt er beim nächsten Start selbst nach.</p><div class="cleanup-list">${list}</div>` +
+    (stopped ? "" : `<p class="hint">Zum Löschen bitte zuerst den Server stoppen.</p>`);
+  const ok = await ask("Aufräumen", body, stopped
+    ? [{ label: "Abbrechen", value: false }, { label: `${fmtBytes(p.total)} löschen`, value: true, kind: "primary" }]
+    : [{ label: "Schließen", value: false, kind: "primary" }], { html: true });
+  if (ok !== true) return;
+  try {
+    const r = await task("cleanup_run");
+    addEvent(`Aufgeräumt: ${fmtBytes(r.freed)} frei`);
+    info("Aufgeräumt", `${r.count} Einträge gelöscht, ${fmtBytes(r.freed)} frei.` + (r.failed.length ? `\n\nNicht löschbar:\n${r.failed.join("\n")}` : ""));
+  } catch (e) { error("Aufräumen fehlgeschlagen", e); }
+  refreshMods();
+};
+
 // ------------------------------------------------------------------ Updates
 
 const ST_TEXT = {
   update: "✓ Update", current: "= aktuell", missing: "✗ fehlt", unknown: "? unbekannt",
-  new: "+ neu (wird gebraucht)", duplicate: "⇄ doppelt (ist schon als Mod da)",
+  new: "+ neu (wird gebraucht)", reenable: "✓ passt wieder – wird eingeschaltet", duplicate: "⇄ doppelt (ist schon als Mod da)",
 };
 let updInfo = null;
 let plan = null;
@@ -904,14 +972,15 @@ function showPlan(hasWork) {
   for (const m of rows) {
     const tr = document.createElement("tr");
     const title = (m.kind === "datapack" ? "Datapack: " : "") + (m.title || m.file || m.project_id || "?");
-    tr.innerHTML = `<td class="st-${m.status}">${ST_TEXT[m.status] || m.status}</td><td>${esc(title)}</td>` +
+    const st = m.disabled && m.status === "update" ? "✓ passt wieder – wird eingeschaltet" : ST_TEXT[m.status] || m.status;
+    tr.innerHTML = `<td class="st-${m.status}">${st}</td><td>${esc(title)}</td>` +
       `<td>${esc(m.current_version || (m.status === "new" ? "–" : m.file))}</td><td>${esc(m.new_version || "")}</td>`;
     tb.appendChild(tr);
   }
   const count = (st) => [...plan.mods, ...plan.datapacks].filter((m) => m.status === st).length;
   const newDeps = plan.extra.filter((e) => e.status === "new").length;
   const lines = [`${count("update")} Updates, ${count("current")} schon aktuell, ${count("missing")} ohne passende Version, ${count("unknown")} unbekannt` +
-    (newDeps ? `, ${newDeps} werden neu gebraucht` : "") + (count("duplicate") ? `, ${count("duplicate")} doppelt (wird beiseitegelegt)` : "")];
+    (newDeps ? `, ${newDeps} werden neu gebraucht` : "") + (count("reenable") ? `, ${count("reenable")} passen wieder` : "") + (count("duplicate") ? `, ${count("duplicate")} doppelt (wird beiseitegelegt)` : "")];
   if (plan.change_version) {
     lines.push(`Server: Minecraft ${plan.current} → ${plan.target} mit Fabric ${plan.loader}.`);
     lines.push("Achtung: Eine Welt, die einmal mit der neuen Version lief, kann man nicht zurückstufen. Zurück geht nur über das Backup, das automatisch gemacht wird.");
@@ -954,7 +1023,10 @@ $("btn-upd-run").onclick = async () => {
   invoke("log_reset");
   if (r.ok) {
     addEvent(`Update fertig (${r.what})`);
-    info("Update fertig", `Der Server läuft wieder (${r.what}).\n\nBackup vom alten Stand:\n${r.backup}\n\nAlte Mods liegen in:\n${r.alt}`);
+    const c = r.cleaned;
+    info("Update fertig", `Der Server läuft wieder (${r.what}).\n\nBackup vom alten Stand:\n${r.backup}` +
+      (c ? `\n\nAufgeräumt: ${c.count} alte Dateien/Ordner gelöscht (${fmtBytes(c.freed)}).` : "") +
+      "\nMods ohne passende Version sind ausgeschaltet und im Tab „Mods“ zu sehen.");
   } else if (await confirmAsk("Update hat nicht geklappt",
     `${r.error}\n\nSchau in der Konsole nach der Fehlermeldung. Soll ich den Stand vor dem Update aus dem Backup wiederherstellen?`, "Wiederherstellen")) {
     rollback(false);

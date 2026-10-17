@@ -8,6 +8,7 @@
 
 mod archive;
 mod autostart;
+mod cleanup;
 mod config;
 mod ctl;
 mod gui;
@@ -15,6 +16,7 @@ mod ipc;
 mod java;
 mod launcher;
 mod manage;
+mod mods;
 mod net;
 mod ops;
 mod procs;

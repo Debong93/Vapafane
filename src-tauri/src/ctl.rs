@@ -20,6 +20,10 @@ const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
   update-check VER  Mods/Datapacks für Minecraft VER über Modrinth prüfen
   trial VER         Probelauf: Kopie aktualisieren, auf anderem Port testen, löschen
   update VER        Update: stoppen, Backup, tauschen, starten (nur wenn Prüfung ok)
+  mods              Mods und Datapacks mit An/Aus-Zustand anzeigen
+  mod-an PFAD       Mod einschalten (PFAD wie in „mods“, z. B. mods/x.jar)
+  mod-aus PFAD      Mod ausschalten (wird zu .jar.disabled)
+  aufraeumen [--ja] zeigt alte Reste; mit --ja werden sie gelöscht (Server muss aus sein)
   mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
@@ -148,6 +152,60 @@ fn run_inner(args: &[String]) -> Result<()> {
                 crate::updates_gui::do_update(&dir, &plan, true, false, &print)?
             };
             println!("{}", serde_json::to_string_pretty(&r)?);
+        }
+        "mods" | "mod-an" | "mod-aus" | "aufraeumen" => {
+            let cfg = Config::load();
+            let dir = cfg
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+            match cmd {
+                "mods" => {
+                    let l = crate::mods::list(&dir);
+                    for m in l["mods"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .chain(l["datapacks"].as_array().into_iter().flatten())
+                    {
+                        println!(
+                            "{:<4} {:<45} {}{}",
+                            if m["enabled"].as_bool().unwrap_or(false) {
+                                "an"
+                            } else {
+                                "AUS"
+                            },
+                            m["rel"].as_str().unwrap_or(""),
+                            m["version"].as_str().unwrap_or(""),
+                            m["reason"].as_str().map(|r| format!("  ({r})")).unwrap_or_default()
+                        );
+                    }
+                }
+                "mod-an" | "mod-aus" => {
+                    let rel = args
+                        .get(1)
+                        .ok_or_else(|| crate::util::Error("Bitte Pfad angeben".into()))?;
+                    crate::mods::set_enabled(&dir, rel, cmd == "mod-an")?;
+                    println!("{rel}: {}", if cmd == "mod-an" { "an" } else { "aus" });
+                }
+                _ => {
+                    let items = crate::cleanup::candidates(&dir);
+                    for c in &items {
+                        println!("{:>10}  {:<55} {}", crate::util::fmt_bytes(c.size), c.rel, c.what);
+                    }
+                    let total: u64 = items.iter().map(|c| c.size).sum();
+                    println!("Zusammen: {}", crate::util::fmt_bytes(total));
+                    if args.get(1).map(String::as_str) == Some("--ja") {
+                        if !matches!(state().as_str(), "stopped" | "failed" | "none") {
+                            return err("Aufräumen geht nur, wenn der Server gestoppt ist.");
+                        }
+                        let (freed, failed) = crate::cleanup::delete(&dir, &items);
+                        println!(
+                            "Gelöscht: {} (nicht möglich: {failed:?})",
+                            crate::util::fmt_bytes(freed)
+                        );
+                    }
+                }
+            }
         }
         "mrpack" => {
             let cfg = Config::load();

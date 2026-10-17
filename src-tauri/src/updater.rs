@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use crate::archive::Progress;
 use crate::config::{ALT_DIR_NAME, STAGING_NAME};
 use crate::java;
+use crate::mods;
 use crate::net;
 use crate::server;
 use crate::util::{self, Result, err};
@@ -42,6 +43,9 @@ pub struct Item {
     pub new_file: Option<NewFile>,
     /// update, current, missing, unknown, new, duplicate
     pub status: String,
+    /// Datei ist ausgeschaltet (`.disabled`) – bei „update“ wird die neue Version eingeschaltet
+    #[serde(default)]
+    pub disabled: bool,
     pub client_side: Option<String>,
     pub server_side: Option<String>,
 }
@@ -80,6 +84,7 @@ impl Plan {
         self.change_version
             || self.count("update") > 0
             || self.count("duplicate") > 0
+            || self.count("reenable") > 0
             || self.extra.iter().any(|e| e.status == "new")
     }
 }
@@ -252,11 +257,36 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     }
     progress(0.05, "Lese installierte Mods …");
     let mut mods = installed_mods(dir);
-    let hashes: Vec<String> = mods.iter().filter_map(|m| m.sha1.clone()).collect();
+    // Ausgeschaltete Mods mitprüfen: gibt es jetzt eine passende Version, wird sie wieder eingeschaltet
+    let mut off: Vec<Item> = mods::disabled_mods(dir)
+        .into_iter()
+        .map(|(base, path)| Item {
+            kind: "mod".into(),
+            sha1: net::sha1_file(&path).ok(),
+            rel: format!("mods/{base}"),
+            title: base.clone(),
+            file: base,
+            disabled: true,
+            ..Default::default()
+        })
+        .collect();
+    let hashes: Vec<String> = mods.iter().chain(&off).filter_map(|m| m.sha1.clone()).collect();
     progress(0.2, "Frage Modrinth nach den Mods …");
     let known = version_files(&hashes)?;
     let updates = version_updates(&hashes, LOADER, target)?;
     classify(&mut mods, &known, &updates);
+    classify(&mut off, &known, &updates);
+    // Ausgeschaltete nur aufnehmen, wenn es eine passende Version gibt und das Projekt nicht schon aktiv ist
+    let active: HashSet<String> = mods.iter().filter_map(|m| m.project_id.clone()).collect();
+    let mut seen_off = HashSet::new();
+    off.retain(|m| {
+        let pid = m.project_id.clone().unwrap_or_default();
+        matches!(m.status.as_str(), "update" | "current") && !active.contains(&pid) && seen_off.insert(pid)
+    });
+    for m in off.iter_mut().filter(|m| m.status == "current") {
+        m.status = "reenable".into(); // genau diese Version passt (wieder)
+    }
+    mods.extend(off);
 
     // Pflicht-Abhängigkeiten der neuen Versionen, die noch nicht installiert sind
     progress(0.4, "Prüfe Abhängigkeiten …");
@@ -449,24 +479,47 @@ pub fn apply(
     progress(0.97, "Tausche Dateien …");
     fs::create_dir_all(alt.join("mods"))?;
     fs::create_dir_all(alt.join("datapacks"))?;
-    let move_old = |m: &Item, extra_status: &[&str]| -> Result<()> {
-        let take = m.status == "update"
-            || extra_status.contains(&m.status.as_str())
-            || (m.status == "missing" && disable_missing)
-            || (m.status == "unknown" && disable_unknown);
-        let src = dir.join(&m.rel);
-        if take && !m.rel.is_empty() && src.exists() {
-            let sub = if m.kind == "datapack" { "datapacks" } else { "mods" };
-            fs::rename(&src, alt.join(sub).join(&m.file))?;
+    // Ersetzte Dateien kommen nach .panel-alt (nach geglücktem Start wird aufgeräumt).
+    // Unpassende werden ausgeschaltet (.disabled) und bleiben mit Grund in der Mod-Liste.
+    let handle_old = |m: &Item| -> Result<()> {
+        if m.rel.is_empty() {
+            return Ok(());
+        }
+        let sub = if m.kind == "datapack" { "datapacks" } else { "mods" };
+        let src = if m.disabled {
+            PathBuf::from(format!("{}{}", dir.join(&m.rel).display(), mods::DISABLED))
+        } else {
+            dir.join(&m.rel)
+        };
+        if !src.exists() {
+            return Ok(());
+        }
+        match m.status.as_str() {
+            "update" => {
+                fs::rename(&src, alt.join(sub).join(&m.file))?;
+                mods::set_note(dir, &m.rel, None)?;
+            }
+            "missing" if disable_missing && !m.disabled => {
+                mods::disable(dir, &m.rel, &format!("gibt es nicht für Minecraft {}", plan.target))?
+            }
+            "unknown" if disable_unknown && !m.disabled => {
+                mods::disable(dir, &m.rel, "nicht auf Modrinth – passende Version unklar")?
+            }
+            "reenable" => mods::set_enabled(dir, &m.rel, true)?,
+            "duplicate" => mods::disable(
+                dir,
+                &m.rel,
+                &format!("doppelt – „{}“ ist schon als Mod installiert", m.title),
+            )?,
+            _ => {}
         }
         Ok(())
     };
-    for m in &plan.mods {
-        move_old(m, &[])?;
+    for m in plan.mods.iter().chain(&plan.datapacks) {
+        handle_old(m)?;
     }
-    for p in &plan.datapacks {
-        move_old(p, &["duplicate"])?;
-    }
+    // Zwischenspeicher der Mods wird beim nächsten Start neu erzeugt (Rückweg geht übers ZIP-Backup)
+    let _ = fs::remove_dir_all(dir.join(".fabric").join("processedMods"));
     for m in &downloads {
         let Some(f) = &m.new_file else { continue };
         let name = safe_filename(&f.filename)?;

@@ -260,6 +260,7 @@ td.st-current { color: var(--dim); }
 td.st-missing { color: var(--red); }
 td.st-unknown { color: var(--amber); }
 td.st-new { color: var(--blue); }
+td.st-reenable { color: var(--green); }
 td.st-duplicate { color: var(--amber); }
 .summary { margin: 10px 0; white-space: pre-line; }
 
@@ -302,3 +303,14 @@ a { color: var(--blue); }
   .progress { width: 100px; }
 }
 #modal-body label.check { display: flex; }
+
+.item.off .grow { opacity: 0.55; }
+.item .reason { color: var(--amber); font-size: 12.5px; }
+.cleanup-list { max-height: 50vh; overflow: auto; margin-top: 8px; font-size: 13px; }
+.cleanup-list div { display: flex; gap: 10px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.cleanup-list .sz { min-width: 74px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+.cleanup-list code { word-break: break-all; }
+@media (max-width: 980px) {
+  .brand span { display: none; }
+  .tabs button { padding: 7px 9px; }
+}

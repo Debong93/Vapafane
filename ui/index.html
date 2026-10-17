@@ -24,6 +24,7 @@
       <button data-tab="overview" class="active">Übersicht</button>
       <button data-tab="console">Konsole</button>
       <button data-tab="players">Spieler</button>
+      <button data-tab="mods">Mods</button>
       <button data-tab="updates">Updates</button>
       <button data-tab="backups">Backups</button>
       <button data-tab="settings">Einstellungen</button>
@@ -95,6 +96,23 @@
       </div>
       <p id="wl-hint" class="dim small"></p>
       <div id="wl-list" class="list"></div>
+    </section>
+
+    <!-- Mods -->
+    <section id="tab-mods" class="tab">
+      <p class="dim small">Ausgeschaltete Mods bleiben im Ordner (als „.disabled“), werden aber nicht geladen.
+        Änderungen wirken beim nächsten Start des Servers.</p>
+      <div class="row">
+        <span id="mods-count" class="dim"></span>
+        <span class="spacer"></span>
+        <button id="btn-open-mods">Mods-Ordner öffnen</button>
+        <button id="btn-cleanup" title="Reste alter Versionen löschen (Server muss gestoppt sein)">Aufräumen …</button>
+      </div>
+      <p id="mods-hint" class="hint hidden"></p>
+      <h3>Mods</h3>
+      <div id="mods-list" class="list"></div>
+      <h3>Datapacks in der Welt</h3>
+      <div id="packs-list" class="list"></div>
     </section>
 
     <!-- Updates -->
