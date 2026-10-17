@@ -721,6 +721,9 @@ pub fn run() {
             crate::updates_gui::mod_set_enabled,
             crate::updates_gui::cleanup_preview,
             crate::updates_gui::cleanup_run,
+            crate::updates_gui::catalog_search,
+            crate::updates_gui::catalog_installed,
+            crate::updates_gui::catalog_install,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");

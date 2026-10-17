@@ -94,7 +94,7 @@ impl Plan {
     }
 }
 
-fn primary_file(version: &Value) -> Option<NewFile> {
+pub(crate) fn primary_file(version: &Value) -> Option<NewFile> {
     let files = version.get("files")?.as_array()?;
     let f = files
         .iter()
@@ -113,7 +113,7 @@ fn s(v: &Value, key: &str) -> Option<String> {
 }
 
 /// Nur einfache Dateinamen zulassen (Modrinth-Angaben landen im Server-Ordner).
-fn safe_filename(name: &str) -> Result<String> {
+pub(crate) fn safe_filename(name: &str) -> Result<String> {
     if name.is_empty() || name.contains(['/', '\\']) || name.starts_with('.') || name.contains("..") {
         return err(format!("Ungültiger Dateiname von Modrinth: {name}"));
     }
@@ -149,7 +149,7 @@ fn installed_in(dir: &Path, sub: &str) -> Vec<Item> {
         .collect()
 }
 
-fn level_name(dir: &Path) -> String {
+pub(crate) fn level_name(dir: &Path) -> String {
     server::read_properties(dir)
         .get("level-name")
         .cloned()
@@ -187,7 +187,7 @@ pub fn installed_datapacks(dir: &Path) -> Vec<Item> {
     items
 }
 
-fn version_files(hashes: &[String]) -> Result<HashMap<String, Value>> {
+pub(crate) fn version_files(hashes: &[String]) -> Result<HashMap<String, Value>> {
     if hashes.is_empty() {
         return Ok(HashMap::new());
     }
@@ -209,7 +209,7 @@ fn version_updates(hashes: &[String], loaders: &[&str], target: &str) -> Result<
     Ok(serde_json::from_value(v).unwrap_or_default())
 }
 
-fn newest_for_project(project_id: &str, loaders: &[&str], target: &str) -> Result<Option<Value>> {
+pub(crate) fn newest_for_project(project_id: &str, loaders: &[&str], target: &str) -> Result<Option<Value>> {
     let v = net::get_json_query(
         &format!("{API}/project/{project_id}/version"),
         &[
@@ -217,7 +217,13 @@ fn newest_for_project(project_id: &str, loaders: &[&str], target: &str) -> Resul
             ("game_versions", json!([target]).to_string()),
         ],
     )?;
-    Ok(v.as_array().and_then(|a| a.first().cloned()))
+    // Neueste Release-Version bevorzugen, sonst die neueste überhaupt (Beta/Alpha)
+    let list = v.as_array().cloned().unwrap_or_default();
+    Ok(list
+        .iter()
+        .find(|x| x.get("version_type").and_then(|t| t.as_str()) == Some("release"))
+        .or(list.first())
+        .cloned())
 }
 
 fn project_infos(ids: &HashSet<String>) -> Result<HashMap<String, Value>> {

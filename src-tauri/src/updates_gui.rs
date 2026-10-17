@@ -21,7 +21,7 @@ use crate::rcon::Rcon;
 use crate::server;
 use crate::updater::{self, Plan};
 use crate::util::{self, Error, Result, err};
-use crate::{cleanup, ipc, launcher, mods};
+use crate::{catalog, cleanup, ipc, launcher, mods};
 
 /// Zuletzt geprüfter Plan (das Update nutzt genau diesen).
 static PLAN: Mutex<Option<Plan>> = Mutex::new(None);
@@ -574,4 +574,46 @@ pub async fn export_mrpack(app: AppHandle) -> Cmd<Option<Value>> {
         Ok(Some(json!({"path": dest, "files": files, "overrides": overrides})))
     })
     .await
+}
+
+// ---------------------------------------------------------------- Mods hinzufügen
+
+fn what_of(datapacks: bool) -> catalog::What {
+    if datapacks {
+        catalog::What::Datapacks
+    } else {
+        catalog::What::Mods
+    }
+}
+
+#[tauri::command]
+pub async fn catalog_search(query: String, offset: u32, datapacks: bool) -> Cmd<Value> {
+    blocking(move || {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        catalog::search(&dir, what_of(datapacks), &query, offset)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn catalog_installed() -> Cmd<Vec<String>> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        Ok(catalog::installed_projects(&dir)?.into_iter().collect())
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn catalog_install(app: AppHandle, project: String, title: String, datapacks: bool) -> Cmd<()> {
+    run_task(&app, &format!("Installiere {title}"), move |progress| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let mut r = catalog::install(&dir, what_of(datapacks), &project, progress)?;
+        r["restart_needed"] = json!(!matches!(state().as_str(), "stopped" | "failed" | "none"));
+        Ok(r)
+    })
+    .map_err(|e| e.0)
 }

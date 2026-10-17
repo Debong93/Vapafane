@@ -19,6 +19,10 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
   (z. B. „gibt es nicht für Minecraft 26.3“). Knopf **Aufräumen** zeigt Reste alter
   Versionen (z. B. `mods/.old`, alte `versions/`, ältere Bibliotheken, alte Fabric-
   Zwischenspeicher) mit Größe an und löscht sie nach Bestätigung (nur bei gestopptem Server).
+- **Mods hinzufügen:** Suche auf Modrinth direkt im Fenster, passend zu Typ und Version
+  des aktiven Servers (Mods bei Fabric/NeoForge, Plugins bei Paper, Datapacks bei allen).
+  Reine Client-Mods werden ausgeblendet, schon installierte markiert. „Installieren“ lädt
+  die neueste passende Version samt Pflicht-Abhängigkeiten (mit SHA512-Prüfung).
 - **Mehrere Server:** Liste mit beliebig vielen Servern, es läuft immer nur einer.
   Hinzufügen per Ordner, Import aus ZIP/tar oder neu erstellen als **Fabric**, **Paper**,
   **NeoForge** oder **Vanilla** – wahlweise in `MC_Servers/<Name>` oder einem anderen Ordner.

@@ -8,6 +8,7 @@
 
 mod archive;
 mod autostart;
+mod catalog;
 mod cleanup;
 mod config;
 mod ctl;

@@ -55,6 +55,7 @@ function ask(title, body, buttons, opts = {}) {
       resolve(v);
     };
     modalResolve = close;
+    document.querySelector("#modal-back .modal").classList.toggle("wide", !!opts.wide);
     $("modal-back").classList.remove("hidden");
     if (opts.onOpen) opts.onOpen();
     const def = bar.querySelector("button.primary") || bar.lastElementChild;
@@ -938,6 +939,8 @@ async function refreshMods() {
   try { l = await invoke("mods_list"); } catch (_) { $("mods-list").innerHTML = ""; $("packs-list").innerHTML = ""; return; }
   const word = l.mod_dir === "plugins" ? "Plugins" : "Mods";
   $("mods-heading").textContent = word;
+  modsInfo = l;
+  $("btn-add-mods").textContent = (details?.info?.type === "vanilla" ? "Datapacks" : word) + " hinzufügen …";
   $("mods-count").textContent = `${l.mods.filter((m) => m.enabled).length} von ${l.mods.length} ${word} eingeschaltet` + (l.datapacks.length ? ` · ${l.datapacks.length} Datapacks` : "");
   for (const [id, items, empty] of [["mods-list", l.mods, `Keine ${word} im Ordner „${l.mod_dir}“.`], ["packs-list", l.datapacks, "Keine Datapacks in der Welt."]]) {
     const box = $(id);
@@ -946,6 +949,103 @@ async function refreshMods() {
   }
 }
 
+let modsInfo = null;
+
+// ------------------------------------------------------------------ Mods hinzufügen (Modrinth)
+
+const fmtCount = (n) => n >= 1e6 ? `${num(n / 1e6)} Mio.` : n >= 1e3 ? `${Math.round(n / 1e3)} Tsd.` : String(n);
+
+async function openCatalog() {
+  const vanilla = details?.info?.type === "vanilla";
+  const word = vanilla ? "Datapacks" : modsInfo?.mod_dir === "plugins" ? "Plugins" : "Mods";
+  const body = `<div class="catalog-bar">
+      <input type="search" id="cat-q" placeholder="Suchen auf Modrinth … (leer = die beliebtesten)" autocomplete="off" spellcheck="false">
+      ${vanilla ? "" : `<select id="cat-what"><option value="mods">${word}</option><option value="datapacks">Datapacks (für die Welt)</option></select>`}
+    </div>
+    <div id="cat-info" class="dim small"></div>
+    <p id="catalog-msg" class="hint"></p>
+    <div id="cat-list" class="catalog-list"></div>
+    <div class="row"><button id="cat-more" class="hidden">Mehr laden</button></div>`;
+  let installed = new Set();
+  let offset = 0;
+  let total = 0;
+  let timer = null;
+  const datapacks = () => vanilla || ($("cat-what") && $("cat-what").value === "datapacks");
+  const msg = (html) => { $("catalog-msg").innerHTML = html; };
+
+  const load = async (reset) => {
+    if (reset) { offset = 0; $("cat-list").innerHTML = `<div class="empty">Suche …</div>`; }
+    let r;
+    try { r = await invoke("catalog_search", { query: $("cat-q").value, offset, datapacks: datapacks() }); }
+    catch (e) { $("cat-list").innerHTML = `<div class="empty">Fehler: ${esc(e)}</div>`; return; }
+    if (reset) $("cat-list").innerHTML = "";
+    total = r.total || 0;
+    $("cat-info").textContent = `${total.toLocaleString("de-DE")} passende ${datapacks() ? "Datapacks" : word} für Minecraft ${r.mc}` +
+      ($("cat-q").value.trim() ? "" : " – sortiert nach Beliebtheit");
+    for (const h of r.hits) $("cat-list").appendChild(hitRow(h));
+    offset += r.hits.length;
+    if (!r.hits.length && reset) $("cat-list").innerHTML = `<div class="empty">Nichts gefunden.</div>`;
+    $("cat-more").classList.toggle("hidden", offset >= total);
+  };
+
+  const hitRow = (h) => {
+    const row = document.createElement("div");
+    row.className = "hit";
+    const icon = h.icon ? `<img src="${esc(h.icon)}" alt="" loading="lazy">` : `<div class="noicon"></div>`;
+    const side = h.client_required
+      ? `<span class="badge both" title="Die Spieler brauchen das auch selbst – z. B. über „Mods für Freunde exportieren (.mrpack)“">Server + Client</span>`
+      : `<span class="badge">Nur Server</span>`;
+    row.innerHTML = `${icon}<div class="txt"><div class="t">${esc(h.title)} ${side}</div><div class="d">${esc(h.description)}</div>` +
+      `<div class="meta">${fmtCount(h.downloads || 0)} Downloads · von ${esc(h.author || "?")}</div></div>`;
+    const btn = document.createElement("button");
+    const isIn = installed.has(h.id);
+    btn.textContent = isIn ? "Installiert" : "Installieren";
+    btn.disabled = isIn;
+    if (isIn) btn.className = "badge ok";
+    else btn.className = "primary";
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "Lädt …";
+      try {
+        const r = await task("catalog_install", { project: h.id, title: h.title, datapacks: datapacks() });
+        installed = new Set(await invoke("catalog_installed").catch(() => [...installed]));
+        btn.textContent = "Installiert";
+        btn.className = "badge ok";
+        const extra = r.installed.slice(1).map((x) => x.title);
+        let text = `<b>${esc(r.title)}</b> ist installiert (in „${esc(r.folder)}“)` +
+          (extra.length ? `, dazu als Abhängigkeit: ${extra.map(esc).join(", ")}` : "") + ".";
+        if (r.skipped.length) text += ` Schon vorhanden: ${r.skipped.map(esc).join(", ")}.`;
+        if (r.missing.length) text += `<br>Achtung: Diese Abhängigkeit gibt es nicht für diese Version: ${r.missing.map(esc).join(", ")} – der Server startet so evtl. nicht.`;
+        if (h.client_required) text += `<br>Die Spieler brauchen diese Mod auch – am einfachsten über „Mods für Freunde exportieren (.mrpack)“ im Tab Updates.`;
+        if (r.restart_needed) text += `<br>Der Server läuft – das wirkt erst nach einem Neustart. <button id="cat-restart">Jetzt neu starten</button>`;
+        msg(text);
+        if (r.restart_needed) $("cat-restart").onclick = () => { if (modalResolve) modalResolve(false); askStop(true); };
+        addEvent(`Installiert: ${r.title}`);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = "Installieren";
+        msg(`Installieren hat nicht geklappt: ${esc(e)}`);
+      }
+    };
+    row.appendChild(btn);
+    return row;
+  };
+
+  await ask(`${word} hinzufügen`, body, [{ label: "Schließen", value: false, kind: "primary" }], {
+    html: true, wide: true, noFocus: true, onOpen: async () => {
+      $("cat-q").oninput = () => { clearTimeout(timer); timer = setTimeout(() => load(true), 350); };
+      $("cat-q").onkeydown = (e) => { if (e.key === "Enter") { clearTimeout(timer); load(true); } };
+      if ($("cat-what")) $("cat-what").onchange = () => load(true);
+      $("cat-more").onclick = () => load(false);
+      $("cat-q").focus();
+      installed = new Set(await invoke("catalog_installed").catch(() => []));
+      load(true);
+    },
+  });
+  refreshMods();
+}
+
+$("btn-add-mods").onclick = openCatalog;
 $("btn-open-mods").onclick = () => invoke("open_folder", { which: "mods" }).catch((e) => error("Ordner", e));
 
 $("btn-cleanup").onclick = async () => {

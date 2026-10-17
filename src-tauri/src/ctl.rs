@@ -17,6 +17,7 @@ const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
   wait-stopped [S.] warten, bis der Server aus ist
   backup            ganzen Server-Ordner als ZIP sichern
   cmd <BEFEHL …>    Befehl per RCON schicken
+  aktiv NAME        anderen Server aus der Liste aktiv machen (nur wenn gestoppt)
   neu TYP NAME VER [ORDNER]  neuen Server anlegen (fabric, paper, neoforge, vanilla) und aktiv machen
   update-check VER  Mods/Datapacks für Minecraft VER über Modrinth prüfen
   trial VER         Probelauf: Kopie aktualisieren, auf anderem Port testen, löschen
@@ -25,6 +26,8 @@ const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
   mod-an PFAD       Mod einschalten (PFAD wie in „mods“, z. B. mods/x.jar)
   mod-aus PFAD      Mod ausschalten (wird zu .jar.disabled)
   aufraeumen [--ja] zeigt alte Reste; mit --ja werden sie gelöscht (Server muss aus sein)
+  mod-suche [BEGRIFF] [--datapack]   Modrinth nach passenden Mods/Plugins (bzw. Datapacks) durchsuchen
+  mod-install PROJEKT [--datapack]  Mod/Plugin/Datapack samt Pflicht-Abhängigkeiten installieren
   mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
@@ -110,6 +113,23 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .active_path()
                 .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
             println!("{}", crate::rcon::once(&dir, &args[1..].join(" "))?);
+        }
+        "aktiv" => {
+            let want = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Namen angeben".into()))?;
+            let mut cfg = Config::load();
+            let entry = cfg
+                .servers
+                .iter()
+                .find(|s| &s.name == want || &s.path == want)
+                .cloned()
+                .ok_or_else(|| crate::util::Error(format!("„{want}“ ist nicht in der Liste")))?;
+            if !matches!(state().as_str(), "stopped" | "failed" | "none") {
+                return err("Umschalten geht nur, wenn der Server gestoppt ist.");
+            }
+            cfg.set_active(Some(std::path::Path::new(&entry.path)))?;
+            println!("Aktiv: {} ({})", entry.name, entry.path);
         }
         "neu" => {
             let (Some(kind), Some(name), Some(version)) = (args.get(1), args.get(2), args.get(3)) else {
@@ -224,6 +244,55 @@ fn run_inner(args: &[String]) -> Result<()> {
                         );
                     }
                 }
+            }
+        }
+        "mod-suche" | "mod-install" => {
+            let cfg = Config::load();
+            let dir = cfg
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+            let what = if args.iter().any(|a| a == "--datapack") {
+                crate::catalog::What::Datapacks
+            } else {
+                crate::catalog::What::Mods
+            };
+            let rest: Vec<&str> = args[1..]
+                .iter()
+                .map(String::as_str)
+                .filter(|a| *a != "--datapack")
+                .collect();
+            if cmd == "mod-suche" {
+                let r = crate::catalog::search(&dir, what, &rest.join(" "), 0)?;
+                let have = crate::catalog::installed_projects(&dir)?;
+                println!(
+                    "{} Treffer für Minecraft {} ({}):",
+                    r["total"],
+                    r["mc"].as_str().unwrap_or(""),
+                    r["type"].as_str().unwrap_or("")
+                );
+                for h in r["hits"].as_array().into_iter().flatten() {
+                    let id = h["id"].as_str().unwrap_or("");
+                    println!(
+                        "{:<10} {:<28} {:>11} Downloads  {}{}",
+                        h["slug"].as_str().unwrap_or(""),
+                        h["title"].as_str().unwrap_or(""),
+                        h["downloads"],
+                        if h["client_required"].as_bool().unwrap_or(false) {
+                            "Server + Client"
+                        } else {
+                            "nur Server"
+                        },
+                        if have.contains(id) { "  [installiert]" } else { "" }
+                    );
+                }
+            } else {
+                let project = rest
+                    .first()
+                    .ok_or_else(|| crate::util::Error("Bitte Projekt angeben".into()))?;
+                let _lock = ops::JobLock::acquire("Mod installieren")?;
+                let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
+                let r = crate::catalog::install(&dir, what, project, &print)?;
+                println!("{}", serde_json::to_string_pretty(&r)?);
             }
         }
         "mrpack" => {

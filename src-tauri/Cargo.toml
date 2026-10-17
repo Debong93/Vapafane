@@ -1,6 +1,6 @@
 [package]
 name = "redcraftserver"
-version = "0.2.0"
+version = "0.3.0"
 description = "Redcraftserver – Minecraft-Serververwaltung"
 authors = ["Debong93"]
 license = "MIT"
