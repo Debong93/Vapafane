@@ -369,6 +369,9 @@ pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
         "cf-apply" => crate::curseforge::APPLY_URL.to_string(),
         "cf-docs" => crate::curseforge::DOCS_URL.to_string(),
         "cf-console" => crate::curseforge::CONSOLE_URL.to_string(),
+        "cf-terms" => crate::curseforge::TERMS_URL.to_string(),
+        "issues" => "https://github.com/Debong93/Vapafane/issues".to_string(),
+        "repo" => "https://github.com/Debong93/Vapafane".to_string(),
         u if u.starts_with("https://www.curseforge.com/") || u.starts_with("https://modrinth.com/") => u.to_string(),
         _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
     };

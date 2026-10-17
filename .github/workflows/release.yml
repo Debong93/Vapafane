@@ -61,5 +61,8 @@ jobs:
             **Linux:** `.AppImage` herunterladen, ausführbar machen und starten – oder das `.deb` installieren.
 
             Java muss installiert sein (Minecraft 26.x braucht Java 25).
+
+            Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.
+            Kontakt und Fehlermeldungen: https://github.com/Debong93/Vapafane/issues
           releaseDraft: false
           prerelease: false

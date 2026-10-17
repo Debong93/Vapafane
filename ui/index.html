@@ -64,6 +64,7 @@
       <h3>Letzte Ereignisse</h3>
       <ul id="events" class="events"><li class="dim">Noch nichts passiert.</li></ul>
       <p class="dim small">Fenster schließen stoppt den Server nicht – er läuft im Hintergrund weiter.</p>
+      <p class="notice small">Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen. <a href="#" data-link="issues">Kontakt &amp; Fehler melden (GitHub)</a></p>
     </section>
 
     <!-- Konsole -->
@@ -185,7 +186,7 @@
         <div class="sw-row"><div><div>Benachrichtigungen</div><div class="dim small">Wenn jemand beitritt oder geht und wenn der Server abstürzt (solange das Fenster offen ist).</div></div><label class="switch"><input type="checkbox" id="sw-notify"><span></span></label></div>
       </div>
       <div id="old-panel-box" class="hint hidden"></div>
-      <h3>CurseForge (optional)</h3>
+      <h3>CurseForge (optional) <span class="badge exp">Experimentell</span></h3>
       <div class="cf-box">
         <p><b>Brauche ich das?</b> Nein. Ohne CurseForge sucht Vapafane auf <b>Modrinth</b> – dort gibt es die meisten Mods,
           und sie lassen sich immer automatisch installieren. Mit CurseForge findest du <i>zusätzlich</i> Mods, die es nur dort gibt.</p>
@@ -201,6 +202,10 @@
             <li>Nach der Freigabe findest du den Schlüssel in der Antwort bzw. in der CurseForge-Konsole (Knopf unten).</li>
             <li>Den Schlüssel unten einfügen, <b>„Schlüssel testen“</b> drücken und dann <b>„Speichern“</b>.</li>
           </ol>
+          <p><b>Der Schlüssel ist persönlich.</b> Er gehört dir und ist an dich gebunden. Gib ihn nicht weiter und veröffentliche
+            ihn nicht – auch nicht in Screenshots, Foren oder geteilten Dateien. Die Nutzung erfolgt nach den
+            <a href="#" data-link="cf-terms">CurseForge-Bedingungen für Drittprogramme</a>. Die Unterstützung in Vapafane ist
+            experimentell: Ob CurseForge Schlüssel für private Tools wie dieses vergibt, entscheidet CurseForge.</p>
           <p class="dim small">Wichtig: Kein eigenes Konto in der CurseForge-Konsole anlegen, ohne den Antrag zu stellen – CurseForge
             löscht laut eigener Doku Konten, die keinen Schlüssel beantragt haben. Der Schlüssel bleibt nur auf diesem PC
             (in einer Datei, die nur du lesen kannst) und wird nie mitgeschickt oder angezeigt.</p>
@@ -226,7 +231,13 @@
         <button data-open="backups">Backups</button>
         <button data-open="logs">Logs</button>
       </div>
-      <p class="dim small" id="about"></p>
+      <h3>Über Vapafane</h3>
+      <div class="cf-box about">
+        <p><b>Vapafane – das Minecraft-Servertool</b> <span id="about" class="dim"></span></p>
+        <p class="notice">Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.</p>
+        <p>Minecraft ist eine Marke von Mojang/Microsoft. Mods und Plugins stammen von ihren jeweiligen Autoren (über Modrinth bzw. CurseForge).</p>
+        <div class="row"><button data-link="issues">Kontakt &amp; Fehler melden (GitHub) ↗</button><button data-link="repo">Projektseite ↗</button></div>
+      </div>
     </section>
   </main>
 

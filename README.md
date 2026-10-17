@@ -1,5 +1,11 @@
 # Vapafane – das Minecraft-Servertool
 
+> **Hinweis:** Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder
+> Microsoft genehmigt und steht in keiner Verbindung zu ihnen.
+> *NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.*
+>
+> Kontakt, Fragen und Fehlermeldungen: [GitHub-Issues](https://github.com/Debong93/Vapafane/issues)
+
 **Va**nilla, **Pa**per, **Fa**bric, **Ne**oForge: Minecraft-Serververwaltung für Linux und Windows – ein Fenster, mit dem man einen
 Minecraft-Server startet, stoppt, überwacht, sichert und aktualisiert.
 Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
@@ -23,12 +29,14 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
   des aktiven Servers (Mods bei Fabric/NeoForge, Plugins bei Paper, Datapacks bei allen).
   Reine Client-Mods werden ausgeblendet, schon installierte markiert. „Installieren“ lädt
   die neueste passende Version samt Pflicht-Abhängigkeiten (mit SHA512-Prüfung).
-- **CurseForge (optional):** Mit einem eigenen CurseForge-API-Schlüssel (Einstellungen,
+- **CurseForge (optional, experimentell):** Mit einem eigenen, persönlichen CurseForge-API-Schlüssel (Einstellungen,
   dort steht Schritt für Schritt, wie man ihn beantragt) sucht Vapafane zusätzlich auf
   CurseForge. Modrinth hat immer Vorrang; angezeigt werden nur Projekte, die es auf
   Modrinth nicht gibt. Erlaubt ein Autor keine Downloads über andere Programme, gibt es
   den Knopf „Im Browser herunterladen“. Der Update-Assistent erkennt CurseForge-Mods über
   deren Fingerprint. Der Schlüssel liegt nur lokal in einer Datei, die nur du lesen kannst.
+  Er ist persönlich und darf nicht weitergegeben werden; es gelten die
+  [CurseForge-Bedingungen für Drittprogramme](https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions).
 - **Mehrere Server:** Liste mit beliebig vielen Servern, es läuft immer nur einer.
   Hinzufügen per Ordner, Import aus ZIP/tar oder neu erstellen als **Fabric**, **Paper**,
   **NeoForge** oder **Vanilla** – wahlweise in `MC_Servers/<Name>` oder einem anderen Ordner.
@@ -63,7 +71,7 @@ Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
 Eigenschaften → „Als Programm ausführen“) und starten – oder das `.deb` installieren:
 
 ```bash
-sudo apt install ./Vapafane_0.4.0_amd64.deb
+sudo apt install ./Vapafane_0.4.1_amd64.deb
 ```
 
 Java: `sudo apt install openjdk-25-jre-headless`
@@ -101,7 +109,7 @@ An/Aus-Zustand wird übernommen), der Login-Autostart `vapafane.desktop`. Die
 Konfiguration und alle Server bleiben, wie sie sind.
 
 ```bash
-sudo apt install ./Vapafane_0.4.0_amd64.deb
+sudo apt install ./Vapafane_0.4.1_amd64.deb
 sudo apt remove redcraftserver
 ```
 

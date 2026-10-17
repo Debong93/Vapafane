@@ -872,6 +872,9 @@ async function loadCurseForge() {
     : "Kein Schlüssel gespeichert – gesucht wird nur auf Modrinth.";
   $("btn-cf-delete").disabled = !c.set;
 }
+for (const el of document.querySelectorAll("[data-link]")) {
+  el.onclick = (e) => { e.preventDefault(); invoke("open_link", { target: el.dataset.link }).catch((er) => error("Link", er)); };
+}
 $("btn-cf-apply").onclick = () => invoke("open_link", { target: "cf-apply" }).catch((e) => error("Link", e));
 $("btn-cf-console").onclick = () => invoke("open_link", { target: "cf-console" }).catch((e) => error("Link", e));
 $("btn-cf-docs").onclick = () => invoke("open_link", { target: "cf-docs" }).catch((e) => error("Link", e));
@@ -997,7 +1000,7 @@ async function openCatalog() {
     <div id="cat-info" class="dim small"></div>
     <p id="catalog-msg" class="hint"></p>
     <div id="cat-list" class="catalog-list"></div>
-    <div id="cat-cf" class="hidden"><h3>Nur auf CurseForge</h3><p class="dim small">Diese gibt es nicht auf Modrinth. Manche Autoren erlauben keinen Download über andere Programme – dann lädst du die Datei im Browser und legst sie selbst in den Ordner.</p>
+    <div id="cat-cf" class="hidden"><h3>Nur auf CurseForge <span class="badge exp">Experimentell</span></h3><p class="dim small">Diese gibt es nicht auf Modrinth. Manche Autoren erlauben keinen Download über andere Programme – dann lädst du die Datei im Browser und legst sie selbst in den Ordner.</p>
       <div id="cat-cf-list" class="catalog-list"></div></div>
     <p id="cat-cf-note" class="dim small"></p>
     <div class="row"><button id="cat-more" class="hidden">Mehr laden</button></div>`;
@@ -1306,7 +1309,14 @@ $("btn-mrpack").onclick = async () => {
 
 async function init() {
   const cfg = await invoke("get_config");
-  $("about").textContent = `Vapafane ${cfg.version}` + (cfg.test_mode ? " · TESTMODUS" : "");
+  $("about").textContent = `Version ${cfg.version}` + (cfg.test_mode ? " · TESTMODUS" : "");
+  // Einmal beim ersten Start: Hinweis, dass Vapafane kein offizielles Produkt ist
+  let seen = null;
+  try { seen = localStorage.getItem("hinweis_nicht_offiziell"); } catch (_) { /* egal */ }
+  if (!seen) {
+    await info("Willkommen bei Vapafane", "Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.\n\nFragen, Ideen oder Fehler: über die GitHub-Seite des Projekts (Einstellungen → Über Vapafane).");
+    try { localStorage.setItem("hinweis_nicht_offiziell", "1"); } catch (_) { /* egal */ }
+  }
   await refreshStatus();
   refreshDetails();
   setInterval(refreshStatus, 2000);

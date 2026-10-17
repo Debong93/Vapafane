@@ -25,6 +25,8 @@ pub const MINECRAFT: u32 = 432;
 pub const APPLY_URL: &str = "https://forms.monday.com/forms/dce5ccb7afda9a1c21dab1a1aa1d84eb?r=use1";
 pub const DOCS_URL: &str = "https://docs.curseforge.com/rest-api/";
 pub const CONSOLE_URL: &str = "https://console.curseforge.com/";
+/// Bedingungen von CurseForge für Drittprogramme
+pub const TERMS_URL: &str = "https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions";
 
 // ---------------------------------------------------------------- Schlüssel
 
@@ -93,6 +95,7 @@ pub fn delete_key() -> Result<()> {
 
 static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
     ureq::Agent::config_builder()
+        .user_agent(crate::net::USER_AGENT)
         .timeout_connect(Some(Duration::from_secs(15)))
         .timeout_global(Some(Duration::from_secs(60)))
         .http_status_as_error(false)
@@ -119,26 +122,29 @@ fn api_base() -> String {
 
 fn request(k: &str, method: &str, path: &str, query: &[(&str, String)], body: Option<&Value>) -> Result<Value> {
     let url = format!("{}{path}", api_base());
-    let mut resp = if method == "POST" {
-        let mut r = AGENT
-            .post(&url)
-            .header("x-api-key", k)
-            .header("Accept", "application/json");
-        for (q, v) in query {
-            r = r.query(*q, v);
+    // Bei „zu vielen Anfragen“ wartet send_polite und versucht es erneut
+    let mut resp = crate::net::send_polite(&url, || {
+        if method == "POST" {
+            let mut r = AGENT
+                .post(&url)
+                .header("x-api-key", k)
+                .header("Accept", "application/json");
+            for (q, v) in query {
+                r = r.query(*q, v);
+            }
+            r.send_json(body.cloned().unwrap_or(Value::Null))
+        } else {
+            let mut r = AGENT
+                .get(&url)
+                .header("x-api-key", k)
+                .header("Accept", "application/json");
+            for (q, v) in query {
+                r = r.query(*q, v);
+            }
+            r.call()
         }
-        r.send_json(body.cloned().unwrap_or(Value::Null))
-    } else {
-        let mut r = AGENT
-            .get(&url)
-            .header("x-api-key", k)
-            .header("Accept", "application/json");
-        for (q, v) in query {
-            r = r.query(*q, v);
-        }
-        r.call()
-    }
-    .map_err(|e| clean(format!("Keine Verbindung zu CurseForge: {e}"), k))?;
+    })
+    .map_err(|e| clean(format!("CurseForge: {e}"), k))?;
     match resp.status().as_u16() {
         200 => resp
             .body_mut()

@@ -406,3 +406,9 @@ h3 { display: inline-block; background: var(--panel); border: 1px solid var(--bo
 .badge.src-cf { background: #b5401a; color: #fff; }
 .badge.src-mr { background: #157040; color: #fff; }
 .dot { box-shadow: 0 0 0 3px var(--panel), 0 0 0 4px var(--border); }
+
+.notice { margin-top: 6px; padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+.about .notice { padding: 0; border: none; font-weight: 600; }
+.badge.exp { background: var(--amber); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .badge.exp { color: #1f1a14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.exp { color: #1f1a14; } }
