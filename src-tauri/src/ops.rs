@@ -113,13 +113,12 @@ pub fn server_state(cfg: &Config) -> Value {
         st["state"] = json!("other");
         return st;
     }
-    if svc_state == "stopped" || svc_state == "failed" {
-        if let Some(pid) = procs::java_in_dir(&dir, None) {
+    if (svc_state == "stopped" || svc_state == "failed")
+        && let Some(pid) = procs::java_in_dir(&dir, None) {
             st["state"] = json!("external");
             st["pid"] = json!(pid);
             st["started_at"] = json!(procs::start_time(pid).unwrap_or(0));
         }
-    }
     st
 }
 

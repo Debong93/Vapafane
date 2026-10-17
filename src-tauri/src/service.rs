@@ -162,11 +162,10 @@ pub fn run(start_now: bool) -> i32 {
         std::thread::spawn(move || daily_backup_loop(sup));
     }
 
-    if start_now {
-        if let Err(e) = start(&sup) {
+    if start_now
+        && let Err(e) = start(&sup) {
             log(&format!("Autostart fehlgeschlagen: {e}"));
         }
-    }
 
     {
         let sup = sup.clone();
@@ -524,18 +523,17 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
         sup.changed.notify_all();
         if restart {
             drop(g);
-            if let Some(dir) = dir {
-                if let Err(e) = spawn_server(sup, &dir, false) {
+            if let Some(dir) = dir
+                && let Err(e) = spawn_server(sup, &dir, false) {
                     log(&format!("Neustart fehlgeschlagen: {e}"));
                 }
-            }
         }
         return;
     }
 
     // Absturz
-    let tail: Vec<String> = g.output.iter().rev().take(5).rev().cloned().collect();
-    g.last_exit = Some(format!("Abgestürzt ({desc}). {}", tail.join(" | ")));
+    let why = crash_reason(&g.output);
+    g.last_exit = Some(format!("Abgestürzt ({desc}).\n{why}"));
     let now = Instant::now();
     g.crash_times.push_back(now);
     while g
@@ -568,16 +566,44 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
         }
         drop(g);
         log("Starte nach Absturz neu …");
-        if let Some(dir) = dir {
-            if let Err(e) = spawn_server(&sup, &dir, true) {
+        if let Some(dir) = dir
+            && let Err(e) = spawn_server(&sup, &dir, true) {
                 log(&format!("Neustart fehlgeschlagen: {e}"));
                 let mut g = sup.inner.lock().unwrap();
                 g.state = Some(State::Failed);
                 g.last_exit = Some(e.0);
                 sup.changed.notify_all();
             }
-        }
     });
+}
+
+/// Die aussagekräftigen Zeilen einer Absturz-Ausgabe (statt Stacktrace-Zeilen).
+fn crash_reason(output: &VecDeque<String>) -> String {
+    let keys = [
+        "ERROR",
+        "Exception",
+        "requires",
+        "Install ",
+        "missing",
+        "incompatible",
+        "Incompatible",
+        "Caused by",
+    ];
+    let mut picked: Vec<String> = vec![];
+    for line in output.iter() {
+        let t = line.trim();
+        if t.starts_with("at ") || t.is_empty() {
+            continue;
+        }
+        if keys.iter().any(|k| t.contains(k)) && !picked.iter().any(|p| p == t) {
+            picked.push(t.chars().take(300).collect());
+        }
+    }
+    if picked.is_empty() {
+        picked = output.iter().rev().take(5).rev().cloned().collect();
+    }
+    let skip = picked.len().saturating_sub(8);
+    picked.into_iter().skip(skip).collect::<Vec<_>>().join("\n")
 }
 
 // ---------------------------------------------------------------- Stoppen

@@ -40,11 +40,10 @@ pub fn java_in_dir(dir: &Path, except: Option<u32>) -> Option<u32> {
         if p.thread_kind().is_some() || Some(pid.as_u32()) == except || !is_java(&p.name().to_string_lossy()) {
             continue;
         }
-        if let Some(cwd) = p.cwd() {
-            if util::canonical(cwd) == dir {
+        if let Some(cwd) = p.cwd()
+            && util::canonical(cwd) == dir {
                 return Some(pid.as_u32());
             }
-        }
     }
     None
 }
@@ -112,4 +111,11 @@ pub fn total_memory() -> u64 {
 /// Ist ein TCP-Port auf diesem PC frei?
 pub fn port_free(port: u16) -> bool {
     std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
+}
+
+/// Gerade freier Arbeitsspeicher in Bytes.
+pub fn available_memory() -> u64 {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    sys.available_memory()
 }

@@ -21,6 +21,8 @@ mod procs;
 mod rcon;
 mod server;
 mod service;
+mod updater;
+mod updates_gui;
 mod util;
 
 pub fn main() -> i32 {

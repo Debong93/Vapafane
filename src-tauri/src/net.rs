@@ -41,6 +41,20 @@ pub fn get_json(url: &str) -> Result<Value> {
         .map_err(net_err)
 }
 
+/// GET mit Abfrage-Parametern (werden korrekt kodiert).
+pub fn get_json_query(url: &str, query: &[(&str, String)]) -> Result<Value> {
+    let mut req = AGENT.get(url);
+    for (k, v) in query {
+        req = req.query(*k, v);
+    }
+    let mut resp = req.call().map_err(net_err)?;
+    resp.body_mut()
+        .with_config()
+        .limit(64 * 1024 * 1024)
+        .read_json()
+        .map_err(net_err)
+}
+
 pub fn post_json(url: &str, body: &Value) -> Result<Value> {
     let mut resp = AGENT.post(url).send_json(body).map_err(net_err)?;
     resp.body_mut()
@@ -119,10 +133,6 @@ pub fn download(
 
 pub fn sha1_file(path: &Path) -> Result<String> {
     hash_file::<sha1::Sha1>(path)
-}
-
-pub fn sha512_file(path: &Path) -> Result<String> {
-    hash_file::<sha2::Sha512>(path)
 }
 
 fn hash_file<D: Digest>(path: &Path) -> Result<String> {

@@ -842,9 +842,165 @@ for (const b of document.querySelectorAll("[data-open]")) {
   b.onclick = () => invoke("open_folder", { which: b.dataset.open }).catch((e) => error("Ordner", e));
 }
 
-// ------------------------------------------------------------------ Platzhalter für spätere Tabs
+// ------------------------------------------------------------------ Updates
 
-async function refreshUpdateTab() { /* folgt */ }
+const ST_TEXT = {
+  update: "✓ Update", current: "= aktuell", missing: "✗ fehlt", unknown: "? unbekannt",
+  new: "+ neu (wird gebraucht)", duplicate: "⇄ doppelt (ist schon als Mod da)",
+};
+let updInfo = null;
+let plan = null;
+
+async function refreshUpdateTab() {
+  try { updInfo = await invoke("upd_info"); } catch (e) { $("upd-current").textContent = String(e); return; }
+  const i = updInfo.info;
+  $("upd-current").innerHTML = `<b>Jetzt:</b> Minecraft ${esc(i.version || "?")}` + (i.loader ? ` · Fabric ${esc(i.loader)}` : "") +
+    (updInfo.mods ? ` · ${updInfo.mods} Mods` : "") + (updInfo.datapacks ? ` · ${updInfo.datapacks} Datapacks` : "") + `  <span class="dim">(${esc(i.type)})</span>`;
+  const fabric = i.type === "fabric";
+  for (const id of ["upd-target", "btn-upd-versions", "btn-upd-check", "btn-mrpack"]) $(id).disabled = !fabric;
+  if (!fabric) $("upd-summary").textContent = "Den Update-Assistenten gibt es bisher nur für Fabric-Server.";
+  $("btn-upd-rollback").classList.toggle("hidden", !updInfo.rollback);
+  const sel = $("upd-target");
+  if (!sel.options.length || sel.dataset.server !== serverPath) {
+    sel.dataset.server = serverPath;
+    sel.innerHTML = i.version ? `<option value="${esc(i.version)}">${esc(i.version)} (nur Mods aktualisieren)</option>` : "";
+    clearPlan();
+  }
+}
+
+function clearPlan() {
+  plan = null;
+  $("upd-table").querySelector("tbody").innerHTML = "";
+  $("upd-summary").textContent = "";
+  $("btn-upd-run").disabled = true;
+  $("btn-upd-trial").disabled = true;
+}
+
+$("btn-upd-versions").onclick = async () => {
+  let versions;
+  try { versions = await invoke("upd_versions"); } catch (e) { return error("Keine Verbindung", e); }
+  const cur = updInfo.info.version;
+  const sel = $("upd-target");
+  sel.innerHTML = versions.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("") +
+    (cur ? `<option value="${esc(cur)}">${esc(cur)} (nur Mods aktualisieren)</option>` : "");
+  if (!versions.length) $("upd-summary").textContent = "Es gibt keine neuere stabile Minecraft-Version mit Fabric.";
+};
+$("upd-target").onchange = clearPlan;
+
+$("btn-upd-check").onclick = async () => {
+  const target = $("upd-target").value;
+  if (!target) return;
+  clearPlan();
+  let r;
+  try { r = await task("upd_check", { target }); } catch (e) { return error("Prüfen fehlgeschlagen", e); }
+  plan = r.plan;
+  showPlan(r.has_work);
+};
+
+function showPlan(hasWork) {
+  const tb = $("upd-table").querySelector("tbody");
+  tb.innerHTML = "";
+  const rows = [...plan.mods, ...plan.extra, ...plan.datapacks];
+  for (const m of rows) {
+    const tr = document.createElement("tr");
+    const title = (m.kind === "datapack" ? "Datapack: " : "") + (m.title || m.file || m.project_id || "?");
+    tr.innerHTML = `<td class="st-${m.status}">${ST_TEXT[m.status] || m.status}</td><td>${esc(title)}</td>` +
+      `<td>${esc(m.current_version || (m.status === "new" ? "–" : m.file))}</td><td>${esc(m.new_version || "")}</td>`;
+    tb.appendChild(tr);
+  }
+  const count = (st) => [...plan.mods, ...plan.datapacks].filter((m) => m.status === st).length;
+  const newDeps = plan.extra.filter((e) => e.status === "new").length;
+  const lines = [`${count("update")} Updates, ${count("current")} schon aktuell, ${count("missing")} ohne passende Version, ${count("unknown")} unbekannt` +
+    (newDeps ? `, ${newDeps} werden neu gebraucht` : "") + (count("duplicate") ? `, ${count("duplicate")} doppelt (wird beiseitegelegt)` : "")];
+  if (plan.change_version) {
+    lines.push(`Server: Minecraft ${plan.current} → ${plan.target} mit Fabric ${plan.loader}.`);
+    lines.push("Achtung: Eine Welt, die einmal mit der neuen Version lief, kann man nicht zurückstufen. Zurück geht nur über das Backup, das automatisch gemacht wird.");
+  }
+  if (plan.java_required) {
+    lines.push(plan.java_ok ? `Java ${plan.java_required} nötig – vorhanden (${plan.java_path}).`
+      : `Java ${plan.java_required} nötig, aber nicht installiert. ${javaHint(plan.java_required)}`);
+  }
+  if (!plan.space_ok) lines.push(`Zu wenig Speicherplatz für das Backup (${fmtBytes(plan.free_space)} frei, Server ${fmtBytes(plan.server_size)}).`);
+  if (!hasWork) lines.splice(0, lines.length, "Alles ist auf dem neuesten Stand.");
+  $("upd-summary").textContent = lines.join("\n");
+  $("upd-unknown-row").classList.toggle("hidden", count("unknown") === 0);
+  const ok = plan.java_ok && plan.space_ok && hasWork;
+  $("btn-upd-run").disabled = !ok;
+  $("btn-upd-trial").disabled = !ok;
+}
+
+function javaHint(n) {
+  return navigator.userAgent.includes("Windows") ? `Installieren z. B. von adoptium.net (Temurin ${n}).`
+    : `Installieren mit: sudo apt install openjdk-${n}-jre-headless`;
+}
+
+const updOptions = () => ({ disableMissing: $("upd-disable-missing").checked, disableUnknown: $("upd-disable-unknown").checked });
+
+$("btn-upd-run").onclick = async () => {
+  if (!plan) return;
+  const what = plan.change_version ? `Minecraft ${plan.current} → ${plan.target}` : "Mods aktualisieren";
+  const n = plan.mods.filter((m) => m.status === "update").length + plan.extra.filter((e) => e.status === "new").length +
+    plan.datapacks.filter((d) => d.status === "update").length;
+  let msg = `Ablauf: Server stoppen (mit Warnung, falls jemand online ist) → komplettes Backup → ${n} Dateien laden und prüfen → tauschen → Server starten und prüfen.`;
+  const missing = [...plan.mods, ...plan.datapacks].filter((m) => m.status === "missing").length;
+  if (missing && $("upd-disable-missing").checked) msg += `\n\n${missing} Mod(s)/Datapack(s) ohne passende Version werden deaktiviert.`;
+  msg += "\n\nTipp: Mit „Probelauf“ kannst du das vorher gefahrlos an einer Kopie testen.";
+  if (!(await confirmAsk(`Update starten? (${what})`, msg, "Update starten"))) return;
+  addEvent(`Update gestartet (${what})`);
+  let r;
+  try { r = await task("upd_run", updOptions()); } catch (e) { error("Update fehlgeschlagen", e); refreshUpdateTab(); return; }
+  clearPlan();
+  await refreshUpdateTab();
+  invoke("log_reset");
+  if (r.ok) {
+    addEvent(`Update fertig (${r.what})`);
+    info("Update fertig", `Der Server läuft wieder (${r.what}).\n\nBackup vom alten Stand:\n${r.backup}\n\nAlte Mods liegen in:\n${r.alt}`);
+  } else if (await confirmAsk("Update hat nicht geklappt",
+    `${r.error}\n\nSchau in der Konsole nach der Fehlermeldung. Soll ich den Stand vor dem Update aus dem Backup wiederherstellen?`, "Wiederherstellen")) {
+    rollback(false);
+  }
+};
+
+async function rollback(ask = true) {
+  if (ask && !(await confirmAsk("Zurück zum Stand vor dem letzten Update?",
+    "Der Server wird gestoppt und aus dem Backup wiederhergestellt, das beim Update gemacht wurde. Der jetzige Stand bleibt als Ordner „…_vor_Wiederherstellung_<Datum>“ daneben liegen.", "Zurücksetzen"))) return;
+  try {
+    const r = await task("upd_rollback");
+    addEvent("Stand vor dem Update wiederhergestellt");
+    info("Zurückgesetzt", `Der Server ist wieder auf dem Stand von ${r.label}. Du kannst ihn jetzt starten.` +
+      (r.aside ? `\n\nDer Stand nach dem Update liegt in:\n${r.aside}` : ""));
+  } catch (e) { error("Zurücksetzen fehlgeschlagen", e); }
+  invoke("log_reset");
+  refreshUpdateTab();
+}
+$("btn-upd-rollback").onclick = () => rollback(true);
+
+$("btn-upd-trial").onclick = async () => {
+  if (!plan) return;
+  if (!(await confirmAsk("Probelauf starten?",
+    "Ich kopiere den Server in den Temp-Ordner, aktualisiere die Kopie, starte sie auf einem anderen Port und schaue, ob sie fertig hochfährt. Danach wird die Kopie gestoppt und gelöscht.\n\nDein echter Server bleibt dabei unverändert und kann weiterlaufen. Bei großen Welten dauert das Kopieren ein paar Minuten.", "Probelauf starten"))) return;
+  let r;
+  try { r = await task("upd_trial", updOptions()); } catch (e) { return error("Probelauf fehlgeschlagen", e); }
+  const parts = [];
+  if (r.ok) parts.push(`✓ Die aktualisierte Kopie ist in ${r.seconds} Sekunden fertig gestartet (Port ${r.port}).`);
+  else if (r.timeout) parts.push("✗ Die Kopie war nach 15 Minuten noch nicht fertig gestartet.");
+  else parts.push(`✗ Die Kopie hat sich beim Start beendet (Exit-Code ${r.exit_code ?? "?"}).`);
+  const lines = [r.version_line, r.mods_line].filter(Boolean).map((l) => l.replace(/^.*\]: /, ""));
+  if (lines.length) parts.push(lines.join("\n"));
+  if (r.problems.length) parts.push("Auffällige Meldungen:\n" + r.problems.map((l) => "• " + l.replace(/^\[[^\]]*\] /, "")).join("\n"));
+  if (r.tail.length) parts.push("Letzte Zeilen:\n" + r.tail.join("\n"));
+  parts.push(r.copy_deleted ? "Die Kopie wurde wieder gelöscht." : `Die Kopie konnte nicht ganz gelöscht werden: ${r.copy}`);
+  addEvent(`Probelauf ${r.ok ? "erfolgreich" : "fehlgeschlagen"}`);
+  ask(r.ok ? "Probelauf erfolgreich" : "Probelauf fehlgeschlagen", parts.join("\n\n"), [{ label: "OK", value: true, kind: "primary" }]);
+};
+
+$("btn-mrpack").onclick = async () => {
+  let r;
+  try { r = await invoke("export_mrpack"); } catch (e) { return error("Export fehlgeschlagen", e); }
+  if (!r) return;
+  info("Modpack gespeichert", `${r.path}\n\n${r.files} Mods von Modrinth` + (r.overrides ? `, ${r.overrides} direkt eingepackt` : "") +
+    ".\nDeine Freunde importieren die Datei in der Modrinth-App („Datei hinzufügen“). Reine Server-Mods werden dort nicht installiert.");
+};
 
 // ------------------------------------------------------------------ Start
 

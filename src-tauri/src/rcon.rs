@@ -13,8 +13,6 @@ const TYPE_LOGIN: i32 = 3;
 
 pub struct Rcon {
     dir: PathBuf,
-    /// Fester Port (für den Probelauf), sonst aus server.properties
-    port: Option<u16>,
     timeout: Duration,
     sock: Option<TcpStream>,
     next_id: i32,
@@ -24,7 +22,6 @@ impl Rcon {
     pub fn new(dir: &Path) -> Rcon {
         Rcon {
             dir: dir.to_path_buf(),
-            port: None,
             timeout: Duration::from_secs(5),
             sock: None,
             next_id: 1,
@@ -45,10 +42,7 @@ impl Rcon {
         if props.get("enable-rcon").map(String::as_str) != Some("true") {
             return err("RCON ist in server.properties ausgeschaltet");
         }
-        let port = match self.port {
-            Some(p) => p,
-            None => props.get("rcon.port").and_then(|p| p.parse().ok()).unwrap_or(25575),
-        };
+        let port = props.get("rcon.port").and_then(|p| p.parse().ok()).unwrap_or(25575);
         Ok((port, props.get("rcon.password").cloned().unwrap_or_default()))
     }
 
@@ -120,15 +114,14 @@ impl Rcon {
         let cmd = cmd.trim().trim_start_matches('/');
         let mut last = Error("RCON nicht erreichbar".into());
         for _ in 0..2 {
-            if self.sock.is_none() {
-                if let Err(e) = self.connect() {
+            if self.sock.is_none()
+                && let Err(e) = self.connect() {
                     if e.0.contains("Passwort") || e.0.contains("ausgeschaltet") {
                         return Err(e);
                     }
                     last = e;
                     continue;
                 }
-            }
             match self.send(TYPE_COMMAND, cmd).and_then(|id| {
                 loop {
                     let (rid, body) = self.recv()?;
@@ -167,11 +160,4 @@ pub fn strip_formatting(text: &str) -> String {
 /// Einmaliger Befehl ohne offene Verbindung.
 pub fn once(dir: &Path, cmd: &str) -> Result<String> {
     Rcon::new(dir).command(cmd)
-}
-
-/// Für den Probelauf: festen Port nutzen.
-pub fn on_port(dir: &Path, port: u16) -> Rcon {
-    let mut r = Rcon::new(dir);
-    r.port = Some(port);
-    r
 }

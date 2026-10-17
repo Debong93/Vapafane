@@ -148,3 +148,19 @@ pub fn command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
     }
     cmd
 }
+
+/// Größe lesbar: "6,8 GB".
+pub fn fmt_bytes(n: u64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB"];
+    let mut v = n as f64;
+    let mut i = 0;
+    while v >= 1024.0 && i < units.len() - 1 {
+        v /= 1024.0;
+        i += 1;
+    }
+    if i >= 3 {
+        format!("{v:.1} {}", units[i]).replace('.', ",")
+    } else {
+        format!("{v:.0} {}", units[i])
+    }
+}

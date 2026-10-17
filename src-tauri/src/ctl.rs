@@ -17,6 +17,10 @@ const HELP: &str = "Benutzung: redcraftserver --ctl <befehl>
   wait-stopped [S.] warten, bis der Server aus ist
   backup            ganzen Server-Ordner als ZIP sichern
   cmd <BEFEHL …>    Befehl per RCON schicken
+  update-check VER  Mods/Datapacks für Minecraft VER über Modrinth prüfen
+  trial VER         Probelauf: Kopie aktualisieren, auf anderem Port testen, löschen
+  update VER        Update: stoppen, Backup, tauschen, starten (nur wenn Prüfung ok)
+  mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
 pub fn run(args: &[String]) -> i32 {
@@ -101,6 +105,61 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .active_path()
                 .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
             println!("{}", crate::rcon::once(&dir, &args[1..].join(" "))?);
+        }
+        "update-check" | "trial" | "update" => {
+            let cfg = Config::load();
+            let dir = cfg
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+            let target = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Zielversion angeben".into()))?;
+            let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
+            let plan = crate::updater::check(&dir, target, &print)?;
+            for m in plan.mods.iter().chain(&plan.extra).chain(&plan.datapacks) {
+                println!(
+                    "{:<10} {:<9} {:<40} {} → {}",
+                    m.status,
+                    m.kind,
+                    m.title,
+                    m.current_version.clone().unwrap_or_default(),
+                    m.new_version.clone().unwrap_or_default()
+                );
+            }
+            println!(
+                "Version {} → {}, Java nötig {:?} (ok: {}), Platz ok: {}, etwas zu tun: {}",
+                plan.current,
+                plan.target,
+                plan.java_required,
+                plan.java_ok,
+                plan.space_ok,
+                plan.has_work()
+            );
+            if cmd == "update-check" {
+                return Ok(());
+            }
+            if !plan.java_ok || !plan.space_ok {
+                return err("Java oder Speicherplatz passt nicht.");
+            }
+            let _lock = ops::JobLock::acquire(if cmd == "trial" { "Probelauf" } else { "Update" })?;
+            let r = if cmd == "trial" {
+                crate::updates_gui::do_trial(&dir, &plan, true, false, &print)?
+            } else {
+                crate::updates_gui::do_update(&dir, &plan, true, false, &print)?
+            };
+            println!("{}", serde_json::to_string_pretty(&r)?);
+        }
+        "mrpack" => {
+            let cfg = Config::load();
+            let dir = cfg
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+            let dest = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Zieldatei angeben".into()))?;
+            let (files, overrides) =
+                crate::updater::export_mrpack(&dir, std::path::Path::new(dest), &cfg.name_of(&dir))?;
+            println!("{dest}: {files} Mods von Modrinth, {overrides} direkt eingepackt");
         }
         "quit-service" => {
             ipc::call("quit", Value::Null)?;

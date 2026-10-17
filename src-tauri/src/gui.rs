@@ -331,11 +331,10 @@ impl LogTail {
             lines.remove(0);
         }
         self.partial.clear();
-        if !text.ends_with('\n') {
-            if let Some(last) = lines.pop() {
+        if !text.ends_with('\n')
+            && let Some(last) = lines.pop() {
                 self.partial = last;
             }
-        }
         let skip = lines.len().saturating_sub(max_lines);
         lines.into_iter().skip(skip).collect()
     }
@@ -708,6 +707,13 @@ pub fn run() {
             crate::manage::set_daily_backup,
             crate::manage::set_notify,
             crate::manage::disable_old_panel,
+            crate::updates_gui::upd_info,
+            crate::updates_gui::upd_versions,
+            crate::updates_gui::upd_check,
+            crate::updates_gui::upd_run,
+            crate::updates_gui::upd_rollback,
+            crate::updates_gui::upd_trial,
+            crate::updates_gui::export_mrpack,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");

@@ -86,11 +86,10 @@ pub fn backup_server(dir: &Path, name: &str, cfg: &Config, progress: Progress) -
                 opts = opts.compression_level(Some(6));
             }
             if let Ok(meta) = f.metadata() {
-                if let Ok(modified) = meta.modified() {
-                    if let Some(dt) = zip_time(modified) {
+                if let Ok(modified) = meta.modified()
+                    && let Some(dt) = zip_time(modified) {
                         opts = opts.last_modified_time(dt);
                     }
-                }
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
