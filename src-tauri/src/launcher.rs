@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 
 use crate::config;
 use crate::ipc;
-use crate::util::{self, Result, err};
+#[cfg(target_os = "linux")]
+use crate::util;
+use crate::util::{Result, err};
 
 /// Pfad dieses Programms (bei AppImage die AppImage-Datei selbst).
 pub fn self_exe() -> PathBuf {

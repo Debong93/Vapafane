@@ -114,13 +114,12 @@ fn old_libraries(dir: &Path, mc_version: &str) -> Vec<Candidate> {
                     .any(|x| x.file_name().to_string_lossy().ends_with(".jar"))
             })
             .unwrap_or(false);
-        if has_jar
-            && let Some(parent) = e.path().parent() {
-                by_artifact
-                    .entry(parent.to_path_buf())
-                    .or_default()
-                    .push(e.path().to_path_buf());
-            }
+        if has_jar && let Some(parent) = e.path().parent() {
+            by_artifact
+                .entry(parent.to_path_buf())
+                .or_default()
+                .push(e.path().to_path_buf());
+        }
     }
     let mut out = vec![];
     for (artifact, mut versions) in by_artifact {
