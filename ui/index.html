@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redcraftserver</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icon.png" alt=""><span>Redcraftserver</span></div>
+    <div class="picker">
+      <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"></select>
+      <button id="btn-add-server" class="icon-btn" title="Server hinzufügen">＋</button>
+      <div id="add-menu" class="menu hidden">
+        <button data-add="folder">Vorhandenen Ordner hinzufügen …</button>
+        <button data-add="archive">Server aus ZIP/Backup importieren …</button>
+        <button data-add="new">Neuen Fabric-Server erstellen …</button>
+        <hr>
+        <button data-add="remove">Ausgewählten Server aus der Liste entfernen</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Übersicht</button>
+      <button data-tab="console">Konsole</button>
+      <button data-tab="players">Spieler</button>
+      <button data-tab="updates">Updates</button>
+      <button data-tab="backups">Backups</button>
+      <button data-tab="settings">Einstellungen</button>
+    </nav>
+    <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+  </header>
+
+  <main>
+    <!-- Übersicht -->
+    <section id="tab-overview" class="tab active">
+      <div class="status-row">
+        <div class="status">
+          <span id="status-dot" class="dot"></span>
+          <div>
+            <div id="status-label" class="status-big">…</div>
+            <div id="status-sub" class="dim"></div>
+          </div>
+        </div>
+        <div class="buttons">
+          <button id="btn-start" class="primary">▶ Starten</button>
+          <button id="btn-stop" class="danger">■ Stoppen</button>
+          <button id="btn-restart">⟳ Neustart</button>
+          <button id="btn-backup">Backup</button>
+        </div>
+      </div>
+      <div id="overview-hint" class="hint hidden"></div>
+      <div class="cards">
+        <div class="card"><div class="card-title">Spieler online</div><div class="card-value" id="c-players">–</div><div class="card-sub" id="c-players-sub"></div></div>
+        <div class="card"><div class="card-title">TPS (Ticks pro Sekunde)</div><div class="card-value" id="c-tps">–</div><div class="card-sub" id="c-tps-sub"></div><svg class="spark" id="s-tps" viewBox="0 0 150 34" preserveAspectRatio="none"></svg></div>
+        <div class="card"><div class="card-title">CPU</div><div class="card-value" id="c-cpu">–</div><div class="card-sub" id="c-cpu-sub"></div><svg class="spark" id="s-cpu" viewBox="0 0 150 34" preserveAspectRatio="none"></svg></div>
+        <div class="card"><div class="card-title">Arbeitsspeicher</div><div class="card-value" id="c-ram">–</div><div class="card-sub" id="c-ram-sub"></div><svg class="spark" id="s-ram" viewBox="0 0 150 34" preserveAspectRatio="none"></svg></div>
+        <div class="card"><div class="card-title">Server-Ordner</div><div class="card-value" id="c-size">–</div><div class="card-sub" id="c-size-sub"></div></div>
+        <div class="card"><div class="card-title">Adresse (Heimnetz)</div><div class="card-value" id="c-addr">–</div><div class="card-sub" id="c-addr-sub"></div></div>
+        <div class="card"><div class="card-title">Letztes Backup</div><div class="card-value" id="c-backup">–</div><div class="card-sub" id="c-backup-sub"></div></div>
+        <div class="card"><div class="card-title">Version</div><div class="card-value" id="c-version">–</div><div class="card-sub" id="c-version-sub"></div></div>
+      </div>
+      <h3>Letzte Ereignisse</h3>
+      <ul id="events" class="events"><li class="dim">Noch nichts passiert.</li></ul>
+      <p class="dim small">Fenster schließen stoppt den Server nicht – er läuft im Hintergrund weiter.</p>
+    </section>
+
+    <!-- Konsole -->
+    <section id="tab-console" class="tab">
+      <div id="console" class="console"></div>
+      <div class="cmd-row">
+        <input id="cmd-input" placeholder="Befehl eingeben, z. B. say Hallo  ·  time set day  ·  weather clear" autocomplete="off" spellcheck="false">
+        <button id="btn-send" class="primary">Senden</button>
+      </div>
+      <div class="quick">
+        <button data-cmd="time set day">Tag</button>
+        <button data-cmd="time set night">Nacht</button>
+        <button data-cmd="weather clear">Klares Wetter</button>
+        <button data-cmd="save-all">Speichern</button>
+        <button data-cmd="tick query">TPS</button>
+        <button data-cmd="list">Wer ist online?</button>
+        <span class="spacer"></span>
+        <button id="btn-open-logs">Log-Ordner öffnen</button>
+      </div>
+    </section>
+
+    <!-- Spieler -->
+    <section id="tab-players" class="tab">
+      <h3>Gerade online</h3>
+      <div id="online-list" class="list"><div class="empty">Niemand online</div></div>
+      <h3>Whitelist (wer darf rein)</h3>
+      <div class="row">
+        <input id="wl-input" placeholder="Minecraft-Name" autocomplete="off" spellcheck="false">
+        <button id="btn-wl-add" class="primary">Hinzufügen</button>
+      </div>
+      <p id="wl-hint" class="dim small"></p>
+      <div id="wl-list" class="list"></div>
+    </section>
+
+    <!-- Updates -->
+    <section id="tab-updates" class="tab">
+      <p id="upd-current"></p>
+      <p class="dim small">Prüft über Modrinth, ob es alle Mods und Datapacks für die gewählte Version gibt.
+        Vor jedem Update wird automatisch ein komplettes Backup gemacht.</p>
+      <div class="row">
+        <label>Ziel:</label>
+        <select id="upd-target"></select>
+        <button id="btn-upd-versions">Versionen laden</button>
+        <button id="btn-upd-check" class="primary">Prüfen</button>
+      </div>
+      <div class="table-wrap"><table id="upd-table"><thead><tr><th>Status</th><th>Mod / Datapack</th><th>Installiert</th><th>Neu</th></tr></thead><tbody></tbody></table></div>
+      <div id="upd-summary" class="summary"></div>
+      <label class="check"><input type="checkbox" id="upd-disable-missing" checked> Mods/Datapacks ohne passende Version deaktivieren (sonst startet der Server wahrscheinlich nicht)</label>
+      <label class="check hidden" id="upd-unknown-row"><input type="checkbox" id="upd-disable-unknown"> Unbekannte Mods/Datapacks (nicht auf Modrinth) deaktivieren</label>
+      <div class="row">
+        <button id="btn-upd-trial" disabled title="Aktualisiert eine Kopie im Temp-Ordner und startet sie auf einem anderen Port">Probelauf</button>
+        <button id="btn-upd-run" class="primary" disabled>Update starten</button>
+        <button id="btn-upd-rollback" class="hidden">Zurück zum Stand vor dem letzten Update</button>
+        <span class="spacer"></span>
+        <button id="btn-mrpack">Mods für Freunde exportieren (.mrpack)</button>
+      </div>
+    </section>
+
+    <!-- Backups -->
+    <section id="tab-backups" class="tab">
+      <p id="backup-info" class="dim"></p>
+      <div class="row">
+        <button id="btn-backup2" class="primary">Jetzt sichern</button>
+        <button id="btn-backup-folder">Backup-Ordner öffnen</button>
+        <button id="btn-restore-file">Andere ZIP wiederherstellen …</button>
+        <span class="spacer"></span>
+        <label for="backup-keep">Aufheben:</label>
+        <input id="backup-keep" type="number" min="1" max="100" class="num">
+      </div>
+      <div id="backup-list" class="list"></div>
+    </section>
+
+    <!-- Einstellungen -->
+    <section id="tab-settings" class="tab">
+      <h3>Spiel (dieser Server)</h3>
+      <div class="form" id="prop-form">
+        <label>Servername (MOTD)</label><input data-prop="motd">
+        <label>Max. Spieler</label><input data-prop="max-players" type="number" min="1" max="200" class="num">
+        <label>Schwierigkeit</label>
+        <select data-prop="difficulty"><option value="peaceful">Friedlich</option><option value="easy">Einfach</option><option value="normal">Normal</option><option value="hard">Schwer</option></select>
+        <label>Spielmodus für neue Spieler</label>
+        <select data-prop="gamemode"><option value="survival">Überleben</option><option value="creative">Kreativ</option><option value="adventure">Abenteuer</option><option value="spectator">Zuschauer</option></select>
+        <label>Sichtweite (Chunks)</label><input data-prop="view-distance" type="number" min="3" max="32" class="num">
+        <label>Simulationsweite (Chunks)</label><input data-prop="simulation-distance" type="number" min="3" max="32" class="num">
+        <label>Spawn-Schutz (Blöcke)</label><input data-prop="spawn-protection" type="number" min="0" max="64" class="num">
+        <label>Server-Port</label><input data-prop="server-port" type="number" min="1024" max="65535" class="num">
+        <label>Nur Whitelist darf rein</label><label class="switch"><input type="checkbox" data-prop="white-list"><span></span></label>
+      </div>
+      <h3>Leistung (dieser Server)</h3>
+      <div class="form">
+        <label>Max. Arbeitsspeicher für den Server (GB)</label><input id="set-ram" type="number" min="1" max="64" class="num">
+        <span></span><span id="ram-hint" class="dim small"></span>
+      </div>
+      <div class="row"><button id="btn-save-settings" class="primary">Einstellungen speichern</button><span id="save-hint" class="dim"></span></div>
+
+      <h3>Automatik</h3>
+      <div class="switches">
+        <div class="sw-row"><div><div>Aktiven Server beim PC-Start automatisch starten</div><div class="dim small" id="autostart-sub"></div></div><label class="switch"><input type="checkbox" id="sw-autostart"><span></span></label></div>
+        <div class="sw-row"><div><div>Dieses Fenster beim Anmelden öffnen</div></div><label class="switch"><input type="checkbox" id="sw-window"><span></span></label></div>
+        <div class="sw-row"><div><div>Tägliches Backup um 5:00 Uhr (ganzer Server als ZIP)</div><div class="dim small">Macht der Hintergrund-Dienst. Holt es nach, falls der PC um 5 Uhr aus war.</div></div><label class="switch"><input type="checkbox" id="sw-daily"><span></span></label></div>
+        <div class="sw-row"><div><div>Benachrichtigungen</div><div class="dim small">Wenn jemand beitritt oder geht und wenn der Server abstürzt (solange das Fenster offen ist).</div></div><label class="switch"><input type="checkbox" id="sw-notify"><span></span></label></div>
+      </div>
+      <div id="old-panel-box" class="hint hidden"></div>
+      <h3>Ordner</h3>
+      <div class="row">
+        <button data-open="server">Server-Ordner</button>
+        <button data-open="mods">Mods</button>
+        <button data-open="backups">Backups</button>
+        <button data-open="logs">Logs</button>
+      </div>
+      <p class="dim small" id="about"></p>
+    </section>
+  </main>
+
+  <footer id="taskbar" class="taskbar hidden">
+    <div class="spinner"></div>
+    <div class="task-texts"><div id="task-title"></div><div id="task-detail" class="dim small"></div></div>
+    <div class="progress"><div id="task-bar"></div></div>
+  </footer>
+
+  <div id="modal-back" class="modal-back hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+      <div id="modal-buttons" class="modal-buttons"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
