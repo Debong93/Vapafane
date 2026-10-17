@@ -385,12 +385,13 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     plan.java_path = java_now;
     plan.java_ok = true;
     if let Some(need) = plan.java_required
-        && plan.java_have < need {
-            match java::java_at_least(need) {
-                Some(p) => plan.java_path = p,
-                None => plan.java_ok = false,
-            }
+        && plan.java_have < need
+    {
+        match java::java_at_least(need) {
+            Some(p) => plan.java_path = p,
+            None => plan.java_ok = false,
         }
+    }
     plan.server_size = util::dir_size(dir);
     plan.free_space = util::free_space(dir);
     plan.space_ok = plan.free_space as f64 > plan.server_size as f64 * 1.3 + 2.0 * 1024f64.powi(3);

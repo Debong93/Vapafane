@@ -162,10 +162,9 @@ pub fn run(start_now: bool) -> i32 {
         std::thread::spawn(move || daily_backup_loop(sup));
     }
 
-    if start_now
-        && let Err(e) = start(&sup) {
-            log(&format!("Autostart fehlgeschlagen: {e}"));
-        }
+    if start_now && let Err(e) = start(&sup) {
+        log(&format!("Autostart fehlgeschlagen: {e}"));
+    }
 
     {
         let sup = sup.clone();
@@ -524,9 +523,10 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
         if restart {
             drop(g);
             if let Some(dir) = dir
-                && let Err(e) = spawn_server(sup, &dir, false) {
-                    log(&format!("Neustart fehlgeschlagen: {e}"));
-                }
+                && let Err(e) = spawn_server(sup, &dir, false)
+            {
+                log(&format!("Neustart fehlgeschlagen: {e}"));
+            }
         }
         return;
     }
@@ -567,13 +567,14 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
         drop(g);
         log("Starte nach Absturz neu …");
         if let Some(dir) = dir
-            && let Err(e) = spawn_server(&sup, &dir, true) {
-                log(&format!("Neustart fehlgeschlagen: {e}"));
-                let mut g = sup.inner.lock().unwrap();
-                g.state = Some(State::Failed);
-                g.last_exit = Some(e.0);
-                sup.changed.notify_all();
-            }
+            && let Err(e) = spawn_server(&sup, &dir, true)
+        {
+            log(&format!("Neustart fehlgeschlagen: {e}"));
+            let mut g = sup.inner.lock().unwrap();
+            g.state = Some(State::Failed);
+            g.last_exit = Some(e.0);
+            sup.changed.notify_all();
+        }
     });
 }
 

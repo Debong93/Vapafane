@@ -332,9 +332,10 @@ impl LogTail {
         }
         self.partial.clear();
         if !text.ends_with('\n')
-            && let Some(last) = lines.pop() {
-                self.partial = last;
-            }
+            && let Some(last) = lines.pop()
+        {
+            self.partial = last;
+        }
         let skip = lines.len().saturating_sub(max_lines);
         lines.into_iter().skip(skip).collect()
     }

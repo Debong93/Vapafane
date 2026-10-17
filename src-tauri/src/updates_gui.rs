@@ -424,11 +424,10 @@ fn trial_inner(
     if exited.is_none() {
         progress(0.92, "Stoppe die Kopie …");
         let mut stopped = Rcon::new(copy).command("stop").is_ok();
-        if !stopped
-            && let Some(stdin) = child.stdin.as_mut() {
-                use std::io::Write;
-                stopped = stdin.write_all(b"stop\n").is_ok();
-            }
+        if !stopped && let Some(stdin) = child.stdin.as_mut() {
+            use std::io::Write;
+            stopped = stdin.write_all(b"stop\n").is_ok();
+        }
         let end = Instant::now() + Duration::from_secs(if stopped { 180 } else { 5 });
         while Instant::now() < end {
             if let Ok(Some(_)) = child.try_wait() {

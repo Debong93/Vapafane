@@ -24,7 +24,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "nsis", "msi"],
+    "targets": "all",
     "category": "Utility",
     "shortDescription": "Minecraft-Serververwaltung",
     "longDescription": "Redcraftserver startet, stoppt und überwacht einen Minecraft-Server, macht Backups und hilft bei Updates.",

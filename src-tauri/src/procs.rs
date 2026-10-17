@@ -41,9 +41,10 @@ pub fn java_in_dir(dir: &Path, except: Option<u32>) -> Option<u32> {
             continue;
         }
         if let Some(cwd) = p.cwd()
-            && util::canonical(cwd) == dir {
-                return Some(pid.as_u32());
-            }
+            && util::canonical(cwd) == dir
+        {
+            return Some(pid.as_u32());
+        }
     }
     None
 }

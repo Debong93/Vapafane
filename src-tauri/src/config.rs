@@ -177,7 +177,7 @@ impl Config {
         }
         #[cfg(not(unix))]
         {
-            self.active.as_ref().map(PathBuf::from)
+            self.active.as_ref().map(|p| util::canonical(Path::new(p)))
         }
     }
 

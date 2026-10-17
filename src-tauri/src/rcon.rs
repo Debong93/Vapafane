@@ -115,13 +115,14 @@ impl Rcon {
         let mut last = Error("RCON nicht erreichbar".into());
         for _ in 0..2 {
             if self.sock.is_none()
-                && let Err(e) = self.connect() {
-                    if e.0.contains("Passwort") || e.0.contains("ausgeschaltet") {
-                        return Err(e);
-                    }
-                    last = e;
-                    continue;
+                && let Err(e) = self.connect()
+            {
+                if e.0.contains("Passwort") || e.0.contains("ausgeschaltet") {
+                    return Err(e);
                 }
+                last = e;
+                continue;
+            }
             match self.send(TYPE_COMMAND, cmd).and_then(|id| {
                 loop {
                     let (rid, body) = self.recv()?;

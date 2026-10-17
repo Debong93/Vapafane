@@ -1,0 +1,65 @@
+# Baut bei einem Tag v* (z. B. v0.1.0) die Installer und legt einen Release an:
+# Windows: .exe (NSIS) und .msi – Linux: AppImage und .deb
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-24.04
+            bundles: deb,appimage
+          - platform: windows-latest
+            bundles: nsis,msi
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux-Bibliotheken installieren
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Tauri-Werkzeug installieren
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --locked
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: cargo tauri
+          args: --bundles ${{ matrix.bundles }}
+          tagName: ${{ github.ref_name }}
+          releaseName: "Redcraftserver ${{ github.ref_name }}"
+          releaseBody: |
+            Redcraftserver – Minecraft-Serververwaltung für Linux und Windows.
+
+            **Windows:** `Redcraftserver_…_x64-setup.exe` (empfohlen) oder `.msi` herunterladen und starten.
+            Windows zeigt evtl. „Der Computer wurde durch Windows geschützt“ – auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken (das Programm ist nicht signiert).
+
+            **Linux:** `.AppImage` herunterladen, ausführbar machen und starten – oder das `.deb` installieren.
+
+            Java muss installiert sein (Minecraft 26.x braucht Java 25).
+          releaseDraft: false
+          prerelease: false

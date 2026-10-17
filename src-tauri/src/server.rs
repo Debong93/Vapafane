@@ -282,10 +282,11 @@ pub fn detect_server(dir: &Path) -> ServerInfo {
         for jar in &jars {
             if let Some(data) = read_zip_entry(&dir.join(jar), "version.json")
                 && let Ok(v) = serde_json::from_slice::<serde_json::Value>(&data)
-                    && let Some(id) = v.get("id").and_then(|i| i.as_str()) {
-                        info.version = id.to_string();
-                        break;
-                    }
+                && let Some(id) = v.get("id").and_then(|i| i.as_str())
+            {
+                info.version = id.to_string();
+                break;
+            }
         }
     }
     info
