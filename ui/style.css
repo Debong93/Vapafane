@@ -301,3 +301,4 @@ a { color: var(--blue); }
   .form { grid-template-columns: 1fr; }
   .progress { width: 100px; }
 }
+#modal-body label.check { display: flex; }

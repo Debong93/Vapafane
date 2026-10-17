@@ -1,7 +1,12 @@
 //! Autostart beim PC-Start und Fenster beim Anmelden.
 //!
-//! Linux: systemd-User-Unit `redcraftserver.service`; für den Start ohne
-//! Anmeldung braucht es `loginctl enable-linger` (nur auf Klick des Nutzers).
+//! Der Hintergrund-Dienst soll beim PC-Start laufen, wenn der Server automatisch
+//! starten soll oder das tägliche Backup an ist. Den Server selbst startet er nur
+//! bei „Autostart“.
+//!
+//! Linux: systemd-User-Units `redcraftserver.service` (Dienst) und
+//! `redcraftserver-autostart.service` (startet einmal den Server). Für den Start
+//! ohne Anmeldung braucht es `loginctl enable-linger` (nur auf Klick des Nutzers).
 //! Windows: Aufgabe „Redcraftserver“ in der Aufgabenplanung („beim Systemstart“),
 //! das Fenster über den Run-Schlüssel in der Registry.
 
@@ -20,9 +25,10 @@ mod linux {
     use crate::util::{self, Result, err};
 
     pub const UNIT: &str = "redcraftserver.service";
+    const START_UNIT: &str = "redcraftserver-autostart.service";
 
-    fn unit_path() -> PathBuf {
-        config::home().join(".config/systemd/user").join(UNIT)
+    fn unit_dir() -> PathBuf {
+        config::home().join(".config/systemd/user")
     }
 
     fn desktop_autostart_path() -> PathBuf {
@@ -47,8 +53,11 @@ mod linux {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
-    fn unit_text() -> String {
-        let exe = self_exe().to_string_lossy().replace('"', "\\\"");
+    fn quoted_exe() -> String {
+        format!("\"{}\"", self_exe().to_string_lossy().replace('"', "\\\""))
+    }
+
+    fn service_text() -> String {
         format!(
             "[Unit]\n\
              Description=Redcraftserver – Hintergrund-Dienst für den Minecraft-Server\n\
@@ -56,41 +65,75 @@ mod linux {
              \n\
              [Service]\n\
              Type=simple\n\
-             ExecStart=\"{exe}\" --service --start\n\
-             # Nur den Dienst benachrichtigen; er stoppt Java selbst sauber per RCON\n\
-             KillMode=mixed\n\
+             ExecStart={} --service\n\
+             # Beim Stoppen bekommt nur der Dienst das Signal; er stoppt Java selbst\n\
+             # sauber per RCON. Stürzt der Dienst ab, läuft Java weiter und wird\n\
+             # beim Neustart des Dienstes wieder übernommen.\n\
+             KillMode=process\n\
              TimeoutStopSec=210\n\
              Restart=on-failure\n\
              RestartSec=10\n\
              \n\
              [Install]\n\
-             WantedBy=default.target\n"
+             WantedBy=default.target\n",
+            quoted_exe()
         )
     }
 
-    /// Unit-Datei schreiben (oder aktualisieren, wenn sich der Programmpfad geändert hat).
+    fn start_text() -> String {
+        format!(
+            "[Unit]\n\
+             Description=Redcraftserver – aktiven Minecraft-Server beim Start hochfahren\n\
+             Wants={UNIT}\n\
+             After={UNIT} network-online.target\n\
+             \n\
+             [Service]\n\
+             Type=oneshot\n\
+             ExecStart={} --ctl start\n\
+             \n\
+             [Install]\n\
+             WantedBy=default.target\n",
+            quoted_exe()
+        )
+    }
+
+    /// Unit-Dateien schreiben (oder aktualisieren, wenn sich der Programmpfad geändert hat).
     pub fn install_unit() -> Result<()> {
-        let path = unit_path();
-        let text = unit_text();
-        if fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
-            util::write_atomic(&path, text.as_bytes())?;
+        let mut changed = false;
+        for (name, text) in [(UNIT, service_text()), (START_UNIT, start_text())] {
+            let path = unit_dir().join(name);
+            if fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+                util::write_atomic(&path, text.as_bytes())?;
+                changed = true;
+            }
+        }
+        if changed {
             systemctl(&["daemon-reload"])?;
         }
         Ok(())
     }
 
-    pub fn server_autostart_enabled() -> bool {
-        systemctl(&["is-enabled", UNIT])
+    fn is_enabled(unit: &str) -> bool {
+        systemctl(&["is-enabled", unit])
             .map(|s| s == "enabled")
             .unwrap_or(false)
     }
 
-    pub fn set_server_autostart(on: bool) -> Result<()> {
+    /// (Server startet beim PC-Start, Dienst läuft beim PC-Start)
+    pub fn boot_state() -> (bool, bool) {
+        if !systemd_usable() {
+            return (false, false);
+        }
+        (is_enabled(START_UNIT), is_enabled(UNIT))
+    }
+
+    pub fn apply_boot(server: bool, service: bool) -> Result<()> {
         if !systemd_usable() {
             return err("systemd ist hier nicht verfügbar (oder Testmodus).");
         }
         install_unit()?;
-        systemctl(&[if on { "enable" } else { "disable" }, UNIT])?;
+        systemctl(&[if service || server { "enable" } else { "disable" }, UNIT])?;
+        systemctl(&[if server { "enable" } else { "disable" }, START_UNIT])?;
         Ok(())
     }
 
@@ -115,11 +158,11 @@ mod linux {
     pub fn set_window_autostart(on: bool) -> Result<()> {
         let path = desktop_autostart_path();
         if on {
-            let exe = self_exe().to_string_lossy().into_owned();
             let text = format!(
                 "[Desktop Entry]\nType=Application\nName=Redcraftserver\nComment=Minecraft-Serververwaltung\n\
-                 Exec=\"{exe}\"\nIcon=redcraftserver\nTerminal=false\nX-GNOME-Autostart-enabled=true\n\
-                 X-GNOME-Autostart-Delay=5\n"
+                 Exec={}\nIcon=redcraftserver\nTerminal=false\nX-GNOME-Autostart-enabled=true\n\
+                 X-GNOME-Autostart-Delay=5\n",
+                quoted_exe()
             );
             util::write_atomic(&path, text.as_bytes())?;
         } else if path.exists() {
@@ -128,15 +171,38 @@ mod linux {
         Ok(())
     }
 
-    /// Ist das alte Panel (minecraft.service) noch eingerichtet?
-    pub fn old_panel_unit() -> Option<String> {
-        let state = systemctl(&["is-active", "minecraft.service"]).unwrap_or_else(|e| e.0);
-        let enabled = systemctl(&["is-enabled", "minecraft.service"]).unwrap_or_default();
-        if config::home().join(".config/systemd/user/minecraft.service").exists() {
-            Some(format!("{state}/{enabled}"))
-        } else {
-            None
+    /// Ist das alte Panel (minecraft.service) noch eingerichtet? (aktiv, beim Start an, Backup-Timer an)
+    pub fn old_panel() -> Option<(bool, bool, bool)> {
+        if config::test_home().is_some() || !unit_dir().join("minecraft.service").exists() {
+            return None;
         }
+        let active = systemctl(&["is-active", "minecraft.service"])
+            .map(|s| s == "active")
+            .unwrap_or(false);
+        Some((
+            active,
+            is_enabled("minecraft.service"),
+            is_enabled("minecraft-backup.timer"),
+        ))
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn writes_units_for_check() {
+        let dir = std::env::temp_dir().join("redcraft-units");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(UNIT), service_text()).unwrap();
+        fs::write(dir.join(START_UNIT), start_text()).unwrap();
+        assert!(service_text().contains("KillMode=process"));
+    }
+
+    /// Altes Panel abschalten: Dienst und Backup-Timer stoppen und nicht mehr automatisch starten.
+    /// Der Dienst stoppt den Server dabei sauber (sein ExecStop schickt „stop“ per RCON).
+    /// Die Dateien des alten Panels bleiben liegen, man kann es jederzeit wieder einschalten.
+    pub fn disable_old_panel() -> Result<()> {
+        systemctl(&["disable", "--now", "minecraft-backup.timer"]).ok();
+        systemctl(&["disable", "--now", "minecraft.service"])?;
+        Ok(())
     }
 }
 
@@ -144,7 +210,7 @@ mod linux {
 mod windows {
     use std::path::PathBuf;
 
-    use crate::config;
+    use crate::config::{self, Config};
     use crate::launcher::self_exe;
     use crate::util::{self, Result, err};
 
@@ -155,12 +221,20 @@ mod windows {
         false
     }
 
-    pub fn server_autostart_enabled() -> bool {
+    fn task_exists() -> bool {
         util::command("schtasks")
             .args(["/Query", "/TN", TASK])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
+    }
+
+    /// (Server startet beim PC-Start, Dienst läuft beim PC-Start)
+    pub fn boot_state() -> (bool, bool) {
+        if !task_exists() {
+            return (false, false);
+        }
+        (Config::load().autostart_server, true)
     }
 
     fn xml_escape(s: &str) -> String {
@@ -180,13 +254,14 @@ mod windows {
 
     /// Aufgabe als XML: läuft beim Systemstart ohne Anmeldung (ohne Passwort, „S4U“),
     /// ohne Zeitlimit, auch im Akkubetrieb und mit normaler Priorität.
-    fn task_xml() -> String {
+    fn task_xml(start_server: bool) -> String {
         let exe = xml_escape(&self_exe().to_string_lossy());
         let user = xml_escape(&current_user());
+        let args = if start_server { "--service --start" } else { "--service" };
         format!(
             r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>Redcraftserver: startet den Minecraft-Server beim PC-Start</Description></RegistrationInfo>
+  <RegistrationInfo><Description>Redcraftserver: Hintergrund-Dienst für den Minecraft-Server</Description></RegistrationInfo>
   <Triggers><BootTrigger><Enabled>true</Enabled><Delay>PT30S</Delay></BootTrigger></Triggers>
   <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>S4U</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
   <Settings>
@@ -198,7 +273,7 @@ mod windows {
     <StartWhenAvailable>true</StartWhenAvailable>
     <RestartOnFailure><Interval>PT1M</Interval><Count>3</Count></RestartOnFailure>
   </Settings>
-  <Actions Context="Author"><Exec><Command>{exe}</Command><Arguments>--service --start</Arguments></Exec></Actions>
+  <Actions Context="Author"><Exec><Command>{exe}</Command><Arguments>{args}</Arguments></Exec></Actions>
 </Task>
 "#
         )
@@ -222,18 +297,18 @@ mod windows {
         Ok(())
     }
 
-    pub fn set_server_autostart(on: bool) -> Result<()> {
-        if on {
+    pub fn apply_boot(server: bool, service: bool) -> Result<()> {
+        if server || service {
             let xml_path: PathBuf = config::state_dir().join("autostart-aufgabe.xml");
             std::fs::create_dir_all(config::state_dir())?;
             // schtasks erwartet UTF-16 mit BOM
             let mut bytes = vec![0xFF, 0xFE];
-            for u in task_xml().encode_utf16() {
+            for u in task_xml(server).encode_utf16() {
                 bytes.extend_from_slice(&u.to_le_bytes());
             }
             std::fs::write(&xml_path, bytes)?;
             schtasks_elevated(&format!("/Create /F /TN {TASK} /XML \"{}\"", xml_path.display()))?;
-        } else {
+        } else if task_exists() {
             schtasks_elevated(&format!("/Delete /F /TN {TASK}"))?;
         }
         Ok(())
@@ -272,7 +347,11 @@ mod windows {
         Ok(())
     }
 
-    pub fn old_panel_unit() -> Option<String> {
+    pub fn old_panel() -> Option<(bool, bool, bool)> {
         None
+    }
+
+    pub fn disable_old_panel() -> Result<()> {
+        Ok(())
     }
 }

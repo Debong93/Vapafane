@@ -14,6 +14,8 @@ mod gui;
 mod ipc;
 mod java;
 mod launcher;
+mod manage;
+mod net;
 mod ops;
 mod procs;
 mod rcon;
@@ -24,6 +26,13 @@ mod util;
 pub fn main() -> i32 {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(i) = args.iter().position(|a| a == "--ctl") {
+        // Das Programm hat unter Windows kein eigenes Konsolenfenster – Ausgabe ins Terminal leiten
+        #[cfg(windows)]
+        unsafe {
+            windows_sys::Win32::System::Console::AttachConsole(
+                windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
+            );
+        }
         return ctl::run(&args[i + 1..]);
     }
     if args.iter().any(|a| a == "--service") {

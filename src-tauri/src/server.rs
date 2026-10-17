@@ -407,3 +407,38 @@ pub fn launch_command(dir: &Path) -> Result<(String, Vec<String>)> {
     args.push("nogui".into());
     Ok((java, args))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prepare_enables_rcon_and_keeps_comments() {
+        let dir = std::env::temp_dir().join(format!("redcraft-prep-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("server.properties"),
+            "#Kommentar\nmotd=Hallo\nenable-rcon=false\n",
+        )
+        .unwrap();
+        let (_, notes) = prepare_server(&dir, true).unwrap();
+        let text = fs::read_to_string(dir.join("server.properties")).unwrap();
+        assert!(text.starts_with("#Kommentar\nmotd=Hallo\nenable-rcon=true\n"));
+        let props = read_properties(&dir);
+        assert_eq!(props["rcon.password"].len(), 24);
+        assert_eq!(props["rcon.port"], "25575");
+        assert!(eula_accepted(&dir));
+        assert!(notes.iter().any(|n| n.contains("RCON")));
+        // .mcpanel.env wird gelesen, aber Shell-Kram nicht ausgeführt
+        fs::write(
+            dir.join(ENV_NAME),
+            "MC_XMX=6G\nMC_JAVA_OPTS=\"-XX:+UseG1GC $(rm -rf /)\"\nPATH=/evil\n",
+        )
+        .unwrap();
+        let env = read_env(&dir);
+        assert_eq!(xmx_gb(&env), Some(6));
+        assert!(!env.contains_key("PATH"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+}

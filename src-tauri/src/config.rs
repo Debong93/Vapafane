@@ -84,6 +84,9 @@ pub struct Config {
     pub daily_backup: bool,
     #[serde(default = "default_daily_time")]
     pub daily_backup_time: String,
+    /// Server beim PC-Start automatisch starten (Wunsch; unter Linux zählt die systemd-Unit)
+    #[serde(default)]
+    pub autostart_server: bool,
     /// Aktiver Server (unter Windows maßgeblich, unter Linux nur Kopie des Links).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active: Option<String>,

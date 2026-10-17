@@ -467,6 +467,49 @@ mod tests {
     }
 
     #[test]
+    fn imports_zip_with_top_folder() {
+        let base = std::env::temp_dir().join(format!("redcraft-imp-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let zpath = base.join("Mein Server_2026-10-01_05-00.zip");
+        {
+            let mut z = zip::ZipWriter::new(fs::File::create(&zpath).unwrap());
+            let o = zip::write::SimpleFileOptions::default();
+            z.add_directory("MeinServer/", o).unwrap();
+            z.start_file("MeinServer/server.properties", o).unwrap();
+            io::Write::write_all(&mut z, b"motd=x\n").unwrap();
+            z.start_file("MeinServer/world/level.dat", o).unwrap();
+            io::Write::write_all(&mut z, b"daten").unwrap();
+            z.finish().unwrap();
+        }
+        let dest = base.join("ziel");
+        let noop = |_: f64, _: &str| {};
+        let root = extract_archive(&zpath, &dest, &noop).unwrap();
+        assert_eq!(root, dest.join("MeinServer"));
+        assert_eq!(fs::read_to_string(root.join("world/level.dat")).unwrap(), "daten");
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn imports_tar_gz() {
+        let base = std::env::temp_dir().join(format!("redcraft-tgz-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("src/S")).unwrap();
+        fs::write(base.join("src/S/server.properties"), "motd=y\n").unwrap();
+        let tgz = base.join("s.tar.gz");
+        {
+            let enc = flate2::write::GzEncoder::new(fs::File::create(&tgz).unwrap(), flate2::Compression::fast());
+            let mut t = tar::Builder::new(enc);
+            t.append_dir_all("S", base.join("src/S")).unwrap();
+            t.into_inner().unwrap().finish().unwrap();
+        }
+        let noop = |_: f64, _: &str| {};
+        let root = extract_archive(&tgz, &base.join("ziel"), &noop).unwrap();
+        assert_eq!(fs::read_to_string(root.join("server.properties")).unwrap(), "motd=y\n");
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
     fn finds_single_top_folder() {
         let base = std::env::temp_dir().join(format!("redcraft-root-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);

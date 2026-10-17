@@ -646,9 +646,204 @@ $("backup-keep").onchange = async (e) => {
   refreshBackups();
 };
 
+// ------------------------------------------------------------------ Server-Auswahl
+
+$("server-select").onchange = async (e) => {
+  const path = e.target.value;
+  if (!path || (status.server && path === status.server.path)) return;
+  try {
+    await invoke("select_server", { path });
+    addEvent(`Server gewechselt: ${e.target.selectedOptions[0].textContent}`);
+  } catch (er) {
+    error("Umschalten nicht möglich", er);
+  }
+  e.target.dataset.key = "";
+  refreshStatus();
+};
+
+const addMenu = $("add-menu");
+$("btn-add-server").onclick = (e) => { e.stopPropagation(); addMenu.classList.toggle("hidden"); };
+document.addEventListener("click", () => addMenu.classList.add("hidden"));
+for (const b of addMenu.querySelectorAll("button")) {
+  b.onclick = () => {
+    addMenu.classList.add("hidden");
+    ({ folder: addFolder, archive: addArchive, new: addNew, remove: removeServer })[b.dataset.add]();
+  };
+}
+
+/** Dialog: Name (und evtl. Version), EULA-Häkchen. Liefert {name, version, eula} oder null. */
+async function askServerDetails(title, name, { needEula = false, versions = null } = {}) {
+  let html = `<label for="f-name">Name in der Server-Liste</label><input id="f-name" value="${esc(name)}">`;
+  if (versions) {
+    html += `<label for="f-version">Minecraft-Version</label><select id="f-version">` +
+      versions.map((v) => `<option>${esc(v)}</option>`).join("") + `</select>`;
+  }
+  if (needEula) {
+    html += `<label class="check"><input type="checkbox" id="f-eula"> Ich akzeptiere die
+      <a href="#" id="f-eula-link">Minecraft-EULA</a> (ohne startet kein Server)</label>`;
+  }
+  const ok = await ask(title, html, [{ label: "Abbrechen", value: false }, { label: "Weiter", value: true, kind: "primary", id: "f-ok" }], {
+    html: true, noFocus: true, onOpen: () => {
+      const okBtn = $("f-ok");
+      const check = () => { okBtn.disabled = !$("f-name").value.trim() || (needEula && !$("f-eula").checked); };
+      $("f-name").oninput = check;
+      if (needEula) { $("f-eula").onchange = check; $("f-eula-link").onclick = (e) => { e.preventDefault(); invoke("open_eula").catch(() => {}); }; }
+      $("f-name").onkeydown = (e) => { if (e.key === "Enter" && !okBtn.disabled) okBtn.click(); };
+      check();
+      $("f-name").focus();
+    },
+  });
+  if (ok !== true) return null;
+  // Der Dialog ist nur versteckt, die Felder sind noch da
+  return { name: $("f-name").value.trim(), version: versions ? $("f-version").value : null, eula: needEula ? $("f-eula").checked : false };
+}
+
+async function afterAdded(r, name) {
+  if (r.notes && r.notes.length) await info("Hinweis", r.notes.join("\n"));
+  addEvent(`Server hinzugefügt: ${name}`);
+  $("server-select").dataset.key = "";
+  await refreshStatus();
+  if (!r.activated) info("Server hinzugefügt", `„${name}“ ist in der Liste. Stoppe den laufenden Server, um umzuschalten.`);
+}
+
+async function addFolder() {
+  const path = await invoke("pick_folder", { title: "Server-Ordner wählen" });
+  if (!path) return;
+  let insp;
+  try { insp = await invoke("inspect_folder", { path }); } catch (e) { return error("Kein Server gefunden", e); }
+  const d = await askServerDetails("Server hinzufügen", insp.name, { needEula: !insp.eula });
+  if (!d) return;
+  try { afterAdded(await invoke("add_server", { path: insp.root, name: d.name, eula: d.eula }), d.name); }
+  catch (e) { error("Hinzufügen fehlgeschlagen", e); }
+}
+
+async function addArchive() {
+  const archive = await invoke("pick_archive", { title: "Server-Backup (ZIP oder tar) wählen", start: null });
+  if (!archive) return;
+  let base = archive.split(/[\\/]/).pop().replace(/(\.tar)?\.(zip|gz|tgz|zst|tar)$/i, "");
+  base = base.replace(/_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?$/, "");
+  const d = await askServerDetails("Server importieren", base);
+  if (!d) return;
+  let r;
+  try { r = await task("import_server", { archive, name: d.name }); } catch (e) { return error("Import fehlgeschlagen", e); }
+  let eula = r.eula;
+  if (!eula) eula = await askEula(d.name);
+  try { afterAdded(await invoke("add_server", { path: r.path, name: d.name, eula }), d.name); }
+  catch (e) { error("Hinzufügen fehlgeschlagen", e); }
+}
+
+async function addNew() {
+  let versions;
+  try { versions = await invoke("fabric_versions"); } catch (e) { return error("Keine Verbindung", `Versionsliste konnte nicht geladen werden: ${e}`); }
+  const d = await askServerDetails("Neuen Fabric-Server erstellen", "Neuer_Server", { needEula: true, versions: versions.slice(0, 30) });
+  if (!d) return;
+  let r;
+  try { r = await task("create_fabric_server", { name: d.name, version: d.version }); } catch (e) { return error("Erstellen fehlgeschlagen", e); }
+  try { afterAdded(await invoke("add_server", { path: r.path, name: d.name, eula: true }), d.name); }
+  catch (e) { error("Hinzufügen fehlgeschlagen", e); }
+}
+
+async function removeServer() {
+  const sel = $("server-select");
+  const path = sel.value;
+  if (!path) return;
+  const name = sel.selectedOptions[0].textContent;
+  if (!(await confirmAsk(`„${name}“ aus der Liste entfernen?`, `Die Dateien in ${path} bleiben erhalten, nur der Eintrag verschwindet.`, "Entfernen"))) return;
+  try { await invoke("remove_server", { path }); } catch (e) { return error("Entfernen fehlgeschlagen", e); }
+  sel.dataset.key = "";
+  refreshStatus();
+}
+
+// ------------------------------------------------------------------ Einstellungen
+
+let settings = null;
+
+async function loadSettings() {
+  try { settings = await invoke("get_settings"); } catch (e) { return; }
+  const s = settings;
+  for (const el of document.querySelectorAll("[data-prop]")) {
+    const v = s.props ? s.props[el.dataset.prop] ?? "" : "";
+    if (el.type === "checkbox") el.checked = v === "true"; else el.value = v;
+    el.disabled = !s.props;
+  }
+  const totalGb = Math.round(s.total_memory / 1024 ** 3);
+  $("set-ram").max = Math.max(2, totalGb);
+  $("set-ram").value = s.ram_gb ?? 4;
+  $("ram-hint").textContent = `Der PC hat ${totalGb} GB. Lass etwa 3–4 GB für das System übrig.`;
+  $("save-hint").textContent = "";
+
+  $("sw-autostart").checked = s.autostart;
+  $("sw-window").checked = s.window;
+  $("sw-daily").checked = s.daily;
+  $("sw-notify").checked = s.notify;
+  const autoOk = s.systemd || s.windows;
+  $("sw-autostart").disabled = !autoOk;
+  let sub = "";
+  if (!autoOk) sub = s.test_mode ? "Im Testmodus abgeschaltet." : "Auf diesem System nicht verfügbar (kein systemd).";
+  else if (s.windows) sub = "Startet beim PC-Start, auch ohne Anmeldung (Windows fragt beim Einschalten nach Administratorrechten).";
+  else if (s.autostart && !s.linger) sub = "Achtung: startet erst, wenn du dich anmeldest. Klick hier, um den Start ohne Anmeldung zu erlauben.";
+  else sub = "Startet auch ohne Anmeldung und nach einem Absturz von selbst neu.";
+  const subEl = $("autostart-sub");
+  subEl.textContent = sub;
+  subEl.style.cursor = s.autostart && !s.linger && s.systemd ? "pointer" : "";
+  subEl.onclick = s.autostart && !s.linger && s.systemd ? askLinger : null;
+
+  const box = $("old-panel-box");
+  if (s.old_panel) {
+    const o = s.old_panel;
+    box.innerHTML = `<b>Altes Bedienfenster noch eingerichtet.</b> Dienst „minecraft.service“: ${o.active ? "läuft" : "aus"}, ` +
+      `beim Start ${o.enabled ? "an" : "aus"}; tägliches Backup-Zeitprogramm ${o.timer ? "an" : "aus"}. ` +
+      `Solange es läuft, kann Redcraftserver den Server nicht selbst starten (gleicher Port), und Backups würden doppelt gemacht. ` +
+      `<div class="row"><button id="btn-old-off">Altes Panel abschalten …</button></div>`;
+    box.classList.remove("hidden");
+    $("btn-old-off").onclick = disableOldPanel;
+  } else box.classList.add("hidden");
+}
+
+async function askLinger() {
+  if (!(await confirmAsk("Start ohne Anmeldung erlauben?",
+    "Dafür muss systemd deine Benutzer-Dienste schon beim Hochfahren starten dürfen („loginctl enable-linger“). Danach läuft der Server auch, wenn sich niemand anmeldet.", "Erlauben"))) return;
+  try { await invoke("enable_linger"); } catch (e) { error("Nicht erlaubt", e); }
+  loadSettings();
+}
+
+async function disableOldPanel() {
+  if (!(await confirmAsk("Altes Panel abschalten?",
+    "Ich stoppe den Dienst „minecraft.service“ (der Server speichert dabei sauber und beendet sich) und schalte ihn und sein tägliches Backup beim PC-Start aus.\n\nDas alte Panel selbst und seine Dateien bleiben erhalten – man kann es jederzeit wieder einschalten. Danach startest du den Server hier mit „Starten“.", "Abschalten"))) return;
+  try { await invoke("disable_old_panel"); addEvent("Altes Panel abgeschaltet"); } catch (e) { error("Abschalten fehlgeschlagen", e); }
+  loadSettings();
+  refreshStatus();
+}
+
+$("btn-save-settings").onclick = async () => {
+  const props = {};
+  for (const el of document.querySelectorAll("[data-prop]")) props[el.dataset.prop] = el.type === "checkbox" ? String(el.checked) : el.value.trim();
+  try {
+    await invoke("save_settings", { props, ramGb: parseInt($("set-ram").value, 10) || 4 });
+    $("save-hint").textContent = ["running", "starting"].includes(status.state) ? "Gespeichert. Wird beim nächsten Neustart aktiv." : "Gespeichert.";
+  } catch (e) { error("Speichern fehlgeschlagen", e); }
+  refreshDetails();
+};
+
+function bindSwitch(id, cmd, after) {
+  $(id).onchange = async (e) => {
+    const on = e.target.checked;
+    e.target.disabled = true;
+    try { await invoke(cmd, { on }); if (after) await after(on); } catch (er) { error("Einstellung", er); }
+    e.target.disabled = false;
+    loadSettings();
+  };
+}
+bindSwitch("sw-autostart", "set_autostart", async (on) => { if (on && settings && settings.systemd && !settings.linger) await askLinger(); });
+bindSwitch("sw-window", "set_window_autostart");
+bindSwitch("sw-daily", "set_daily_backup");
+bindSwitch("sw-notify", "set_notify");
+for (const b of document.querySelectorAll("[data-open]")) {
+  b.onclick = () => invoke("open_folder", { which: b.dataset.open }).catch((e) => error("Ordner", e));
+}
+
 // ------------------------------------------------------------------ Platzhalter für spätere Tabs
 
-async function loadSettings() { /* folgt */ }
 async function refreshUpdateTab() { /* folgt */ }
 
 // ------------------------------------------------------------------ Start

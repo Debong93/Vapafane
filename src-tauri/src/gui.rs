@@ -32,17 +32,17 @@ pub struct Gui {
     log_reset: Arc<AtomicBool>,
 }
 
-type Cmd<T> = std::result::Result<T, String>;
+pub(crate) type Cmd<T> = std::result::Result<T, String>;
 
 /// Blockierende Arbeit außerhalb des UI-Threads ausführen.
-async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T> + Send + 'static) -> Cmd<T> {
+pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T> + Send + 'static) -> Cmd<T> {
     tauri::async_runtime::spawn_blocking(f)
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.0)
 }
 
-fn active_dir(cfg: &Config) -> Result<PathBuf> {
+pub(crate) fn active_dir(cfg: &Config) -> Result<PathBuf> {
     cfg.active_path()
         .ok_or_else(|| util::Error("Kein Server ausgewählt.".into()))
 }
@@ -435,7 +435,7 @@ struct TaskEvent {
 }
 
 /// Führt `f` im Hintergrund aus und meldet den Fortschritt als Ereignis „task“.
-fn run_task(
+pub(crate) fn run_task(
     app: &AppHandle,
     title: &str,
     f: impl FnOnce(&(dyn Fn(f64, &str) + Sync)) -> Result<Value> + Send + 'static,
@@ -501,7 +501,7 @@ fn run_task(
 }
 
 /// Server über den Dienst stoppen und warten, bis er wirklich aus ist.
-fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()> {
+pub(crate) fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()> {
     let cfg = Config::load();
     let st = server_state(&cfg);
     match st.get("state").and_then(|s| s.as_str()).unwrap_or("stopped") {
@@ -525,7 +525,7 @@ fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()> {
     err("Der Server ließ sich nicht stoppen.")
 }
 
-fn is_running(cfg: &Config) -> bool {
+pub(crate) fn is_running(cfg: &Config) -> bool {
     server_state(cfg).get("state").and_then(|s| s.as_str()) == Some("running")
 }
 
@@ -693,6 +693,21 @@ pub fn run() {
             open_folder,
             notify,
             get_config,
+            crate::manage::select_server,
+            crate::manage::inspect_folder,
+            crate::manage::add_server,
+            crate::manage::import_server,
+            crate::manage::fabric_versions,
+            crate::manage::create_fabric_server,
+            crate::manage::remove_server,
+            crate::manage::get_settings,
+            crate::manage::save_settings,
+            crate::manage::set_autostart,
+            crate::manage::enable_linger,
+            crate::manage::set_window_autostart,
+            crate::manage::set_daily_backup,
+            crate::manage::set_notify,
+            crate::manage::disable_old_panel,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");
