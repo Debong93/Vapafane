@@ -107,9 +107,18 @@ function showTab(name) {
 }
 
 function applyTheme() {
-  let t = null;
-  try { t = localStorage.getItem("theme"); } catch (_) { /* egal */ }
+  let t = null, skin = null;
+  try { t = localStorage.getItem("theme"); skin = localStorage.getItem("skin"); } catch (_) { /* egal */ }
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  // Thema: Grasblock (Standard) oder Crying Obsidian
+  if (skin === "obsidian") document.documentElement.dataset.skin = "obsidian"; else delete document.documentElement.dataset.skin;
+  for (const r of document.querySelectorAll('input[name="skin"]')) r.checked = r.value === (skin === "obsidian" ? "obsidian" : "grass");
+}
+for (const r of document.querySelectorAll('input[name="skin"]')) {
+  r.onchange = () => {
+    try { localStorage.setItem("skin", r.value); } catch (_) { /* egal */ }
+    applyTheme();
+  };
 }
 $("btn-theme").onclick = () => {
   const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;

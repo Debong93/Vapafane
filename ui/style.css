@@ -1,19 +1,22 @@
 @import url("textures.css");
 
-/* Farben im Stil der Minecraft-Menüs: graue Flächen mit hellem/dunklem Pixelrand,
-   Stein-Knöpfe, schwarze Textfelder. Eigene Werte – Kontrast mindestens WCAG AA. */
+/* Zwei Themen, beide eigene Pixel-Art im Minecraft-Stil (keine Originaldateien):
+   „Grasblock“ (Standard; hell oder dunkel nach System bzw. Knopf oben rechts) und
+   „Crying Obsidian“ (immer dunkel). Kontrast überall mindestens WCAG AA. */
 :root {
   --bg: #a8a8a8;
   --veil: rgba(198, 198, 198, 0.78);
+  --bg-tex: var(--tex-dirt);
+  --edge-tex: var(--tex-grass);
+  --edge-size: 32px 16px;
+  --edge-h: 16px;
+  --edge-glow: none;
   --panel: #c6c6c6;
   --hi: #ffffff;
   --lo: #555555;
+  --border: #555555;
   --text: #1b1b1b;
   --dim: #3c3c3c;
-  --border: #555555;
-  --accent: #2f7a1f;
-  --accent-hover: #3b8f27;
-  --accent-text: #ffffff;
   --earth: #5e3a1f;
   --green: #145a1b;
   --amber: #6b4400;
@@ -21,13 +24,20 @@
   --gray: #5a5a5a;
   --blue: #1a46a0;
   --purple: #5a2ca8;
+  --accent: #2a6e1b;
+  --tab-line: #2a6e1b;
+  --focus: #111111;
+  --hover: rgba(0, 0, 0, 0.08);
+  /* Knöpfe: Stein */
+  --btn: #5f5f5f; --btn-hover: #6e6e6e; --btn-hi: #9a9a9a; --btn-lo: #3e3e3e; --btn-depth: #262626; --btn-edge: #161616;
+  /* Hauptknöpfe: Gras */
+  --pri: #286a1a; --pri-hover: #2f7a1e; --pri-hi: #5fae3b; --pri-lo: #1a4a10; --pri-depth: #11340a; --pri-edge: #0b2406;
+  /* Gefahr: Redstone-Rot */
+  --dan: #9b1c18; --dan-hover: #ad231d; --dan-hi: #d0524a; --dan-lo: #6a110e; --dan-depth: #470b09; --dan-edge: #2e0705;
+  --dis: #b4b4b4; --dis-text: #333333;
+  --input: #000000; --input-text: #f2f2f2; --input-border: #8a8a8a;
   --console-bg: #101010;
   --console-text: #e6e6e6;
-  --hover: rgba(0, 0, 0, 0.08);
-  --grass: var(--tex-grass);
-  --dirt: var(--tex-dirt);
-  --tear: #6d28d9;
-  --shadow: none;
   color-scheme: light;
 }
 
@@ -35,15 +45,14 @@
   :root:not([data-theme="light"]) {
     --bg: #1c1c1c;
     --veil: rgba(24, 24, 24, 0.8);
+    --bg-tex: var(--tex-dirt-dark);
+    --edge-tex: var(--tex-grass-dark);
     --panel: #313131;
     --hi: #4e4e4e;
     --lo: #161616;
+    --border: #0e0e0e;
     --text: #f2f2f2;
     --dim: #c4c4c4;
-    --border: #0e0e0e;
-    --accent: #2f7a1f;
-    --accent-hover: #3b8f27;
-    --accent-text: #ffffff;
     --earth: #d6a77a;
     --green: #6fd46f;
     --amber: #f0b840;
@@ -51,13 +60,15 @@
     --gray: #a0a0a0;
     --blue: #8ab8ff;
     --purple: #c4a5f5;
-    --console-bg: #0b0b0b;
-    --console-text: #e6e6e6;
+    --tab-line: #5fae3b;
+    --focus: #ffd84a;
     --hover: rgba(255, 255, 255, 0.07);
-    --grass: var(--tex-grass-dark);
-    --dirt: var(--tex-dirt-dark);
-    --tear: #b26bff;
-    --shadow: none;
+    --btn: #555555; --btn-hover: #656565; --btn-hi: #888888; --btn-lo: #333333; --btn-depth: #0c0c0c; --btn-edge: #050505;
+    --pri-depth: #08200a; --pri-edge: #041003;
+    --dan: #a3221d; --dan-hover: #b52b25; --dan-depth: #2e0705; --dan-edge: #1a0403;
+    --dis: #3a3a3a; --dis-text: #a8a8a8;
+    --input-border: #7a7a7a;
+    --console-bg: #0b0b0b;
     color-scheme: dark;
   }
 }
@@ -65,15 +76,14 @@
 :root[data-theme="dark"] {
   --bg: #1c1c1c;
   --veil: rgba(24, 24, 24, 0.8);
+  --bg-tex: var(--tex-dirt-dark);
+  --edge-tex: var(--tex-grass-dark);
   --panel: #313131;
   --hi: #4e4e4e;
   --lo: #161616;
+  --border: #0e0e0e;
   --text: #f2f2f2;
   --dim: #c4c4c4;
-  --border: #0e0e0e;
-  --accent: #2f7a1f;
-  --accent-hover: #3b8f27;
-  --accent-text: #ffffff;
   --earth: #d6a77a;
   --green: #6fd46f;
   --amber: #f0b840;
@@ -81,13 +91,54 @@
   --gray: #a0a0a0;
   --blue: #8ab8ff;
   --purple: #c4a5f5;
-  --console-bg: #0b0b0b;
-  --console-text: #e6e6e6;
+  --tab-line: #5fae3b;
+  --focus: #ffd84a;
   --hover: rgba(255, 255, 255, 0.07);
-  --grass: var(--tex-grass-dark);
-  --dirt: var(--tex-dirt-dark);
-  --tear: #b26bff;
-  --shadow: none;
+  --btn: #555555; --btn-hover: #656565; --btn-hi: #888888; --btn-lo: #333333; --btn-depth: #0c0c0c; --btn-edge: #050505;
+  --pri-depth: #08200a; --pri-edge: #041003;
+  --dan: #a3221d; --dan-hover: #b52b25; --dan-depth: #2e0705; --dan-edge: #1a0403;
+  --dis: #3a3a3a; --dis-text: #a8a8a8;
+  --input-border: #7a7a7a;
+  --console-bg: #0b0b0b;
+  color-scheme: dark;
+}
+
+/* Crying Obsidian – steht nach den Grasblock-Regeln und gewinnt damit immer */
+:root[data-skin="obsidian"] {
+  --bg: #0b0614;
+  --veil: rgba(11, 6, 20, 0.86);
+  --bg-tex: var(--tex-obsidian);
+  --edge-tex: var(--tex-obsidian);
+  --edge-size: 32px 32px;
+  --edge-h: 12px;
+  --edge-glow: 0 2px 12px rgba(178, 107, 255, 0.55);
+  --panel: #1c1230;
+  --hi: #3b2566;
+  --lo: #08040f;
+  --border: #040108;
+  --text: #f3ecff;
+  --dim: #cdbcec;
+  --earth: #d9b8ff;
+  --green: #6fd46f;
+  --amber: #f0b840;
+  --red: #ff8a95;
+  --gray: #a99bc0;
+  --blue: #9ec2ff;
+  --purple: #d0a8ff;
+  --accent: #7a2fd4;
+  --tab-line: #c07bff;
+  --focus: #ffd84a;
+  --hover: rgba(192, 123, 255, 0.1);
+  /* Knöpfe: Obsidian */
+  --btn: #3a2858; --btn-hover: #4b3570; --btn-hi: #6a4f9a; --btn-lo: #1f1433; --btn-depth: #0c0617; --btn-edge: #030106;
+  /* Hauptknöpfe: leuchtende Tränen */
+  --pri: #7a2fd4; --pri-hover: #8a3de6; --pri-hi: #b07cf5; --pri-lo: #4b1890; --pri-depth: #2a0c55; --pri-edge: #12042a;
+  /* Gefahr: dunkles Magenta-Rot */
+  --dan: #9c1840; --dan-hover: #b01f4a; --dan-hi: #d4507a; --dan-lo: #600d27; --dan-depth: #3a0718; --dan-edge: #1e030c;
+  --dis: #241a36; --dis-text: #9c8fb5;
+  --input: #05020a; --input-text: #f3ecff; --input-border: #7a5aa8;
+  --console-bg: #07030d;
+  --console-text: #ece4fa;
   color-scheme: dark;
 }
 
@@ -119,34 +170,21 @@ body { display: flex; flex-direction: column; overflow: hidden; }
   gap: 8px 14px;
   padding: 14px 14px 24px;
   background: var(--panel);
-  box-shadow: var(--shadow);
   z-index: 5;
 }
-/* Unten: Kante eines Grasblocks (Gras hängt gezackt in die Erde) */
+/* Unten: Kante aus dem Material des Themas (Grasblock bzw. Crying Obsidian) */
 .topbar::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 16px;
-  background-image: var(--grass);
-  background-size: 32px 16px;
+  height: var(--edge-h);
+  background-image: var(--edge-tex);
+  background-size: var(--edge-size);
   background-repeat: repeat-x;
   image-rendering: pixelated;
-}
-/* Oben: schmaler Streifen Crying Obsidian mit leichtem Leuchten */
-.topbar::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 8px;
-  background-image: var(--tex-obsidian);
-  background-size: 32px 32px;
-  image-rendering: pixelated;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.45);
+  box-shadow: var(--edge-glow);
 }
 .brand { grid-area: brand; }
 .picker { grid-area: picker; }
@@ -170,8 +208,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
   cursor: pointer;
   font: inherit;
 }
-.tabs button:hover { background: var(--hover); color: var(--text); }
-.tabs button.active { background: var(--hover); color: var(--text); font-weight: 650; box-shadow: inset 0 -3px 0 var(--tear); }
 
 .menu {
   position: absolute;
@@ -207,28 +243,7 @@ button, select, input {
   border-radius: 7px;
   padding: 6px 12px;
 }
-button { cursor: pointer; }
-button:hover:not(:disabled) { background: var(--hover); }
-button:disabled { opacity: 0.45; cursor: default; }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
-/* Gefahr-/Stopp-Knöpfe: Crying Obsidian (abgedunkelt, damit die Schrift klar lesbar bleibt) */
-button.danger {
-  color: #fff;
-  font-weight: 600;
-  border-color: #7a2fd0;
-  background-color: #110a1e;
-  background-image: linear-gradient(rgba(13, 7, 23, 0.74), rgba(13, 7, 23, 0.74)), var(--tex-obsidian);
-  background-size: auto, 32px 32px;
-  image-rendering: pixelated;
-}
-button.danger:hover:not(:disabled) {
-  background-color: #110a1e;
-  background-image: linear-gradient(rgba(13, 7, 23, 0.62), rgba(13, 7, 23, 0.62)), var(--tex-obsidian);
-  box-shadow: 0 0 10px rgba(178, 107, 255, 0.55);
-}
 .icon-btn { padding: 4px 10px; font-size: 16px; line-height: 1.2; }
-input:focus, select:focus, button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
 input.num { width: 90px; }
 
 .row { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
@@ -257,8 +272,8 @@ main {
   overflow: hidden;
   position: relative;
   background-color: var(--bg);
-  /* Erd-Textur, stark abgedeckt, damit Text darauf gut lesbar bleibt */
-  background-image: linear-gradient(var(--veil), var(--veil)), var(--dirt);
+  /* Textur des Themas, stark abgedeckt, damit Text darauf gut lesbar bleibt */
+  background-image: linear-gradient(var(--veil), var(--veil)), var(--bg-tex);
   background-size: auto, 64px 64px;
   image-rendering: pixelated;
 }
@@ -297,7 +312,6 @@ h3 { margin: 18px 0 8px; font-size: 14px; }
   border-radius: 10px;
   padding: 10px 12px;
   min-width: 0;
-  box-shadow: var(--shadow);
 }
 .card-title { color: var(--dim); font-size: 12.5px; }
 .card-value { font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -337,7 +351,7 @@ h3 { margin: 18px 0 8px; font-size: 14px; }
 
 /* ---------------------------------------------------------- Listen */
 
-.list { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.list { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .list:empty { display: none; }
 .item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .item:last-child { border-bottom: none; }
@@ -432,7 +446,6 @@ a { color: var(--blue); }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: var(--shadow);
 }
 .status-row { padding: 12px 14px; }
 .events { padding: 4px 8px; }
@@ -457,27 +470,17 @@ h3 { display: inline-block; background: var(--panel); border: 1px solid var(--bo
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.exp { color: #1f1a14; } }
 
 /* Umschalter Server | Client */
-.mode-switch { grid-area: mode; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.mode-switch button { border: none; border-radius: 0; padding: 5px 14px; background: var(--panel); color: var(--dim); font-weight: 600; }
-.mode-switch button.active { background: var(--accent); color: var(--accent-text); }
-/* Client-Bereich: Akzent in Crying Obsidian */
-.mode-switch #mode-client.active {
-  background-color: #110a1e;
-  background-image: linear-gradient(rgba(13, 7, 23, 0.5), rgba(13, 7, 23, 0.5)), var(--tex-obsidian);
-  background-size: auto, 32px 32px;
-  image-rendering: pixelated;
-  color: #fff;
-}
-#tab-client > .cf-box:first-child { position: relative; overflow: hidden; padding-top: 12px; }
+.mode-switch { grid-area: mode; display: inline-flex; gap: 4px; }
+#tab-client > .cf-box:first-child { position: relative; overflow: hidden; padding-top: 18px; }
 #tab-client > .cf-box:first-child::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
-  height: 6px;
-  background-image: var(--tex-obsidian);
-  background-size: 32px 32px;
+  height: 10px;
+  background-image: var(--edge-tex);
+  background-size: var(--edge-size);
   image-rendering: pixelated;
 }
 body.client-mode .picker, body.client-mode .tabs { visibility: hidden; }
@@ -496,8 +499,8 @@ body.client-mode .tabs { height: 0; overflow: hidden; }
 .dest .check { margin: 4px 0; }
 
 /* ================================================================ Minecraft-Look
-   Eigene Nachbildung des typischen Stils: eckige Flächen, 2-px-Pixelrand
-   (hell oben/links, dunkel unten/rechts), Knöpfe wie Steinplatten. */
+   Eigene Nachbildung des typischen Stils: eckige Flächen mit 2-px-Pixelrand
+   (hell oben/links, dunkel unten/rechts). Farben kommen aus dem gewählten Thema. */
 
 .card, .list, .status-row, .events, .form, .switches, .cf-box, .summary:not(:empty), .notice,
 #tab-backups > p, #tab-updates > p, #tab-mods > p, .table-wrap, .modal, .menu, .hint, .dest {
@@ -511,49 +514,146 @@ h3 { border-radius: 0; border: 2px solid var(--border); box-shadow: inset 2px 2p
 .hint.error { border-color: var(--red); }
 .badge, .pill { border-radius: 0; }
 
-/* Knöpfe wie Stein */
-button {
+/* ---------------------------------------------------------- Knöpfe zum Anfassen
+   Ein Knopf ist ein kleiner Block: oben/links hell, unten/rechts dunkel, darunter
+   eine sichtbare Unterkante (die „Dicke“). Beim Drücken sinkt er um diese Kante ein. */
+
+button, .tabs button, .mode-switch button {
+  --b: var(--btn); --bh: var(--btn-hover); --bhi: var(--btn-hi); --blo: var(--btn-lo); --bd: var(--btn-depth); --be: var(--btn-edge);
+  position: relative;
   border-radius: 0;
-  border: 2px solid #1a1a1a;
-  background: #6b6b6b;
+  border: 2px solid var(--be);
+  background: var(--b);
   color: #fff;
   font-weight: 600;
-  text-shadow: 1px 1px 0 #2e2e2e;
-  box-shadow: inset 2px 2px 0 #a3a3a3, inset -2px -2px 0 #434343;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
   padding: 6px 14px;
+  margin-bottom: 4px;
+  box-shadow: inset 2px 2px 0 var(--bhi), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--be);
+  transform: translateY(0);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out, background-color 80ms ease-out;
+  cursor: pointer;
 }
-button:hover:not(:disabled) { background: #5866a8; box-shadow: inset 2px 2px 0 #8f9ad6, inset -2px -2px 0 #3a4579; outline: 2px solid #fff; outline-offset: -4px; }
-button:active:not(:disabled) { box-shadow: inset -2px -2px 0 #a3a3a3, inset 2px 2px 0 #434343; }
-button:disabled { opacity: 1; background: #3c3c3c; color: #b4b4b4; text-shadow: none; box-shadow: inset 2px 2px 0 #4f4f4f, inset -2px -2px 0 #2a2a2a; }
-button.primary { background: var(--accent); border-color: #10300a; box-shadow: inset 2px 2px 0 #5aa538, inset -2px -2px 0 #1f5214; color: #fff; }
-button.primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: inset 2px 2px 0 #6cbf47, inset -2px -2px 0 #225c16; }
-button.danger { border-color: #05020a; box-shadow: inset 2px 2px 0 #3a2063, inset -2px -2px 0 #05020a; }
+button.primary { --b: var(--pri); --bh: var(--pri-hover); --bhi: var(--pri-hi); --blo: var(--pri-lo); --bd: var(--pri-depth); --be: var(--pri-edge); }
+button.danger { --b: var(--dan); --bh: var(--dan-hover); --bhi: var(--dan-hi); --blo: var(--dan-lo); --bd: var(--dan-depth); --be: var(--dan-edge); }
+
+button:hover:not(:disabled) { background: var(--bh); }
+/* Gedrückt: Unterkante weg, Knopf rutscht hinunter, Schatten innen */
+button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: inset 2px 3px 0 var(--blo), inset -1px -1px 0 var(--bhi), 0 0 0 0 var(--bd);
+}
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+/* Deaktiviert: flach und ausgegraut, liegt schon „unten“ */
+button:disabled {
+  background: var(--dis);
+  color: var(--dis-text);
+  text-shadow: none;
+  border-color: color-mix(in srgb, var(--dis-text) 45%, var(--dis));
+  box-shadow: none;
+  transform: translateY(4px);
+  cursor: default;
+  opacity: 1;
+}
 .icon-btn { padding: 4px 10px; }
 
-/* Reiter: wie Steinknöpfe, der aktive ist „hell“ mit Obsidian-Linie */
-.tabs button { background: #6b6b6b; color: #fff; border: 2px solid #1a1a1a; box-shadow: inset 2px 2px 0 #a3a3a3, inset -2px -2px 0 #434343; }
-.tabs button:hover { background: #5866a8; color: #fff; }
-.tabs button.active { background: var(--panel); color: var(--text); text-shadow: none; box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo), inset 0 -5px 0 var(--tear); }
-.menu button { background: transparent; color: var(--text); text-shadow: none; border: none; box-shadow: none; }
-.menu button:hover:not(:disabled) { background: #5866a8; color: #fff; outline: none; }
-.mode-switch { border: 2px solid #1a1a1a; border-radius: 0; }
-.mode-switch button { border: none; color: #fff; background: #6b6b6b; }
+/* Reiter: gleiche Blöcke; der aktive ist eingedrückt und trägt die Farbe der Fläche */
+.tabs { gap: 6px; }
+.tabs button { padding: 6px 12px; }
+.tabs button.active, .mode-switch button.active {
+  transform: translateY(4px);
+  cursor: default;
+}
+.tabs button.active {
+  background: var(--panel);
+  color: var(--text);
+  text-shadow: none;
+  border-color: var(--border);
+  box-shadow: inset 2px 2px 0 var(--lo), inset -2px -2px 0 var(--hi), inset 0 -6px 0 var(--tab-line);
+}
+.tabs button.active:hover:not(:disabled) { background: var(--panel); }
+.mode-switch button { padding: 5px 14px; }
+.mode-switch button.active {
+  --b: var(--pri); --bh: var(--pri); --bhi: var(--pri-hi); --blo: var(--pri-lo); --be: var(--pri-edge);
+  box-shadow: inset 2px 3px 0 var(--blo), inset -1px -1px 0 var(--bhi);
+}
 
-/* Textfelder wie in Minecraft: schwarz mit grauem Rand */
+/* Einträge in Aufklapp-Menüs und kleine Abzeichen bleiben flach */
+.menu button { background: transparent; color: var(--text); text-shadow: none; border: none; box-shadow: none; margin: 0; transform: none; }
+.menu button:hover:not(:disabled) { background: var(--btn-hover); color: #fff; }
+.menu button:active:not(:disabled) { transform: none; box-shadow: none; }
+.hit button.badge.ok:disabled { box-shadow: none; transform: none; margin: 0; border: none; background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+
+/* Textfelder wie in Minecraft: dunkel mit hellem Rand, leicht eingelassen */
 input:not([type=checkbox]):not([type=radio]), select, textarea, #cl-code, #inv-code {
   border-radius: 0;
-  background: #000;
-  color: #f2f2f2;
-  border: 2px solid #a0a0a0;
+  background: var(--input);
+  color: var(--input-text);
+  border: 2px solid var(--input-border);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
+input:focus, select:focus, textarea:focus { outline: 3px solid var(--focus); outline-offset: 1px; }
 input::placeholder, textarea::placeholder { color: #9a9a9a; }
-select option { background: #000; color: #f2f2f2; }
+select option { background: var(--input); color: var(--input-text); }
+input[type=checkbox], input[type=radio] { accent-color: var(--pri); width: 16px; height: 16px; }
 
-/* Schalter eckig */
-.switch span { border-radius: 0; border: 2px solid #1a1a1a; background: #6b6b6b; }
-.switch span::before { border-radius: 0; background: #d0d0d0; box-shadow: inset -2px -2px 0 #8a8a8a; top: 1px; left: 1px; }
-.switch input:checked + span { background: var(--accent); }
+/* Schalter: eingelassene Rinne mit einem Block, der hin- und herrutscht */
+.switch { width: 48px; height: 26px; }
+.switch span {
+  border-radius: 0;
+  border: 2px solid var(--btn-edge);
+  background: var(--btn-lo);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.45);
+  transition: background-color 80ms ease-out;
+}
+.switch span::before {
+  border-radius: 0;
+  width: 18px;
+  height: 16px;
+  left: 2px;
+  top: 1px;
+  background: #d6d6d6;
+  box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #8a8a8a, 0 3px 0 #3a3a3a;
+  transition: transform 80ms ease-out;
+}
+.switch input:checked + span { background: var(--pri); }
+.switch input:checked + span::before { transform: translateX(22px); }
+.switch input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.switch:active span::before { box-shadow: inset 2px 2px 0 #8a8a8a, inset -1px -1px 0 #ffffff; top: 3px; }
+.switch input:disabled + span { opacity: 1; background: var(--dis); box-shadow: none; }
+.switch input:disabled + span::before { background: color-mix(in srgb, var(--dis-text) 40%, var(--dis)); box-shadow: none; top: 3px; }
 
-.console { border-radius: 0; border: 2px solid #1a1a1a; }
+.console { border-radius: 0; border: 2px solid var(--btn-edge); box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.6); }
 .dot { border-radius: 0; }
 .progress, .progress div { border-radius: 0; }
+.progress div { background: var(--pri); }
+.spinner { border-top-color: var(--pri); }
+a { color: var(--blue); }
+
+/* Crying Obsidian: Hauptknöpfe leuchten ein wenig */
+:root[data-skin="obsidian"] button.primary:not(:disabled) { box-shadow: inset 2px 2px 0 var(--bhi), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--be), 0 0 12px rgba(178, 107, 255, 0.35); }
+:root[data-skin="obsidian"] button.primary:hover:not(:disabled) { box-shadow: inset 2px 2px 0 var(--bhi), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--be), 0 0 16px rgba(192, 123, 255, 0.6); }
+:root[data-skin="obsidian"] button.primary:active:not(:disabled) { box-shadow: inset 2px 3px 0 var(--blo), inset -1px -1px 0 var(--bhi); }
+/* Crying Obsidian ist immer dunkel – der Hell/Dunkel-Knopf gilt nur für Grasblock */
+:root[data-skin="obsidian"] #btn-theme { display: none; }
+
+/* Aussehen-Auswahl in den Einstellungen */
+.skins { display: flex; gap: 12px; flex-wrap: wrap; }
+.skin-choice {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  padding: 10px; min-width: 200px;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo);
+  cursor: pointer;
+}
+.skin-choice:has(input:checked) { outline: 3px solid var(--tab-line); outline-offset: 0; }
+.skin-choice:has(input:focus-visible) { outline: 3px solid var(--focus); }
+.skin-choice .swatch { width: 100%; height: 34px; image-rendering: pixelated; border: 2px solid #000; }
+.skin-choice .swatch.grass { background: var(--tex-grass) 0 0 / 32px 16px repeat-x, var(--tex-dirt) 0 0 / 32px 32px; }
+.skin-choice .swatch.obsidian { background: var(--tex-obsidian) 0 0 / 32px 32px; }
+.skin-choice span { font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  button, .switch span, .switch span::before { transition: none; }
+}

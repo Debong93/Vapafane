@@ -21,7 +21,7 @@ Die Dateien gibt es unter **Releases** (rechts auf dieser Seite).
 Software-Verwaltung installiert sie dann. Oder im Terminal (Datei liegt im Download-Ordner):
 
 ```bash
-sudo apt install ~/Downloads/Vapafane_0.6.1_amd64.deb
+sudo apt install ~/Downloads/Vapafane_0.7.0_amd64.deb
 ```
 
 Alternativ das `.AppImage` ausführbar machen (Rechtsklick → Eigenschaften →
@@ -44,7 +44,8 @@ Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
    umschalten, Code einfügen, **„Einladung prüfen“** → **„Einrichten“**. Danach mit
    **„Spielen“** den Minecraft-Launcher (oder wahlweise die Modrinth-App) öffnen.
 
-Backups, Updates und Einstellungen findest du in den Reitern oben. Server-Autostart beim
+Backups, Updates und Einstellungen findest du in den Reitern oben. Unter **Einstellungen →
+Aussehen** wählst du zwischen „Grasblock“ (hell/dunkel) und „Crying Obsidian“. Server-Autostart beim
 PC-Start ist anfangs aus und lässt sich unter **Einstellungen** einschalten.
 
 ## Kontakt
