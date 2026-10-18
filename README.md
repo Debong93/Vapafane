@@ -17,10 +17,11 @@ Die Dateien gibt es unter **Releases** (rechts auf dieser Seite).
 „Der Computer wurde durch Windows geschützt“, auf **„Weitere Informationen“** →
 **„Trotzdem ausführen“** klicken (das Programm ist nicht signiert).
 
-**Linux:** die `.deb`-Datei herunterladen und im Terminal installieren:
+**Linux:** die `.deb`-Datei herunterladen und im Dateimanager **doppelklicken** – die
+Software-Verwaltung installiert sie dann. Oder im Terminal (Datei liegt im Download-Ordner):
 
 ```bash
-sudo apt install ./Vapafane_0.6.1_amd64.deb
+sudo apt install ~/Downloads/Vapafane_0.6.1_amd64.deb
 ```
 
 Alternativ das `.AppImage` ausführbar machen (Rechtsklick → Eigenschaften →

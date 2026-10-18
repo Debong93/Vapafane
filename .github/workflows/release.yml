@@ -57,7 +57,7 @@ jobs:
 
             **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Bei „Der Computer wurde durch Windows geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“.
 
-            **Linux:** `.deb` herunterladen und `sudo apt install ./Vapafane_…_amd64.deb` – oder das `.AppImage` ausführbar machen und starten.
+            **Linux:** `.deb` herunterladen und im Dateimanager doppelklicken – oder im Terminal `sudo apt install ~/Downloads/Vapafane_…_amd64.deb`. Alternativ das `.AppImage` ausführbar machen und starten.
 
             Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25).
 
