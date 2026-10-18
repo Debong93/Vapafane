@@ -1400,6 +1400,7 @@ $("btn-invite").onclick = async () => {
 const LOADER_NAMES = { fabric: "Fabric", neoforge: "NeoForge", paper: "Paper", vanilla: "Vanilla" };
 let clPreview = null;
 let clTarget = null;
+let clInfo = {};
 
 function pingPill(p, ok) {
   if (!p || !p.online) return `<span class="pill bad">Server nicht erreichbar</span>`;
@@ -1429,11 +1430,32 @@ async function checkInvite(source) {
     ${p.ping.online && !p.version_ok ? `<p class="hint">Der Server meldet eine andere Version (${esc(p.ping.version)}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.</p>` : ""}
     ${warn}
     <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>Mod</th><th>Version</th><th>Größe</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="row"><span>Ordner:</span><code id="cl-dir" class="grow">${esc(p.default_dir)}</code><button id="cl-dir-btn">Anderer Ordner …</button></div>
-    <p class="dim small">Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt.</p>
+    <div class="dest">
+      <b>Einrichten für:</b>
+      <label class="check"><input type="radio" name="cl-dest" value="launcher"> Offizieller Minecraft-Launcher ${clInfo.launcher ? '<span class="pill ok">gefunden</span>' : '<span class="pill warn">nicht gefunden</span>'}</label>
+      <label class="check"><input type="radio" name="cl-dest" value="modrinth"> Modrinth-App ${clInfo.modrinth ? '<span class="pill ok">gefunden</span>' : '<span class="pill warn">nicht gefunden</span>'}</label>
+    </div>
+    <div id="cl-dest-launcher">
+      <div class="row"><span>Ordner:</span><code id="cl-dir" class="grow">${esc(p.default_dir)}</code><button id="cl-dir-btn">Anderer Ordner …</button></div>
+      <p class="dim small">Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt.</p>
+    </div>
+    <div id="cl-dest-modrinth" class="hidden">
+      <p class="dim small">Vapafane baut daraus ein Modrinth-Paket (.mrpack) und öffnet es mit der Modrinth-App – dort nur noch den Import bestätigen.
+        Vapafane schreibt nichts in die Dateien der Modrinth-App. Wird der Server später aktualisiert, legt ein neuer Code in der App eine
+        <b>neue</b> Instanz an – die alte dann in der App löschen.</p>
+    </div>
     <div class="row"><button id="cl-install" class="primary">Einrichten</button></div>
     <div id="cl-result"></div>`;
   if ($("cl-dl")) $("cl-dl").onclick = (e) => { e.preventDefault(); invoke("open_link", { target: "launcher-download" }); };
+  const dest = clInfo.target || "launcher";
+  for (const r of document.querySelectorAll('input[name="cl-dest"]')) {
+    r.checked = r.value === dest;
+    r.onchange = () => {
+      $("cl-dest-launcher").classList.toggle("hidden", r.value !== "launcher" || !r.checked);
+      $("cl-dest-modrinth").classList.toggle("hidden", r.value !== "modrinth" || !r.checked);
+    };
+    if (r.checked) r.onchange();
+  }
   $("cl-dir-btn").onclick = async () => {
     const d = await invoke("pick_folder", { title: "Ordner für dieses Minecraft wählen" });
     if (d) { clTarget = d; $("cl-dir").textContent = d; }
@@ -1443,31 +1465,45 @@ async function checkInvite(source) {
 
 async function installClient() {
   const selected = [...document.querySelectorAll("#cl-preview [data-opt]")].filter((c) => c.checked).map((c) => c.dataset.opt);
+  const destination = document.querySelector('input[name="cl-dest"]:checked')?.value || "launcher";
   $("cl-install").disabled = true;
   let r;
-  try { r = await task("client_install", { source: clPreview.source, target: clTarget, selected }); }
+  try { r = await task("client_install", { source: clPreview.source, target: clTarget, selected, destination }); }
   catch (e) { $("cl-install").disabled = false; $("cl-result").innerHTML = `<p class="hint error">${esc(e)}</p>`; return; }
-  let t = `<p class="hint">✓ Eingerichtet: ${r.installed.length} Mods geladen.` + (r.profile ? ` Im Minecraft-Launcher gibt es jetzt das Profil <b>„Vapafane – ${esc(clPreview.invite.n)}“</b>.` : "") + `</p>`;
+  let t;
+  if (r.target === "modrinth") {
+    t = r.opened
+      ? `<p class="hint">✓ Das Modrinth-Paket ist fertig, und die Modrinth-App wurde damit geöffnet. Bestätige dort den Import – dann erscheint die Instanz <b>„${esc(clPreview.invite.n)} (Vapafane)“</b>.</p>`
+      : `<p class="hint">✓ Das Modrinth-Paket ist fertig: <code>${esc(r.mrpack)}</code><br>Die Modrinth-App ließ sich nicht automatisch öffnen. So geht es von Hand:
+          in der Modrinth-App auf <b>„+“</b> (Instanz erstellen) klicken, dann <b>„Aus Datei importieren“</b> (englisch „Import from file“) und diese Datei wählen.</p>
+         <button id="cl-res-mrfolder">Ordner mit dem Paket öffnen</button>`;
+  } else {
+    t = `<p class="hint">✓ Eingerichtet: ${r.installed.length} Mods geladen.` + (r.profile ? ` Im Minecraft-Launcher gibt es jetzt das Profil <b>„Vapafane – ${esc(clPreview.invite.n)}“</b>.` : "") + `</p>`;
+  }
   for (const n of r.notes) t += `<p class="hint">${esc(n)}</p>`;
   if (r.manual.length) {
     t += `<p><b>Bitte selbst herunterladen</b> und in den Ordner <code>mods</code> legen:</p><ul>` +
       r.manual.map((m, i) => `<li>${esc(m.title)} – ${esc(m.reason)} ${m.page ? `<button data-man="${i}">Im Browser herunterladen ↗</button>` : ""}</li>`).join("") + `</ul>` +
       `<button id="cl-res-folder">Ordner öffnen</button>`;
   }
-  t += `<div class="row"><button id="cl-res-play" class="primary">Spielen (Launcher öffnen)</button></div>`;
+  t += `<div class="row"><button id="cl-res-play" class="primary">${r.target === "modrinth" ? "Spielen (Modrinth-App öffnen)" : "Spielen (Launcher öffnen)"}</button></div>`;
   $("cl-result").innerHTML = t;
+  if ($("cl-res-mrfolder")) $("cl-res-mrfolder").onclick = () => invoke("client_open_folder", { dir: r.dir }).catch((e) => error("Ordner", e));
+  clInfo.target = r.target || "launcher";
   for (const b of document.querySelectorAll("#cl-result [data-man]")) b.onclick = () => invoke("open_link", { target: r.manual[+b.dataset.man].page }).catch((e) => error("Link", e));
   if ($("cl-res-folder")) $("cl-res-folder").onclick = () => invoke("client_open_folder", { dir: r.dir });
-  $("cl-res-play").onclick = playLauncher;
+  $("cl-res-play").onclick = () => playLauncher(r.target);
   addEvent(`Client eingerichtet: ${clPreview.invite.n}`);
   refreshClients();
 }
 
-async function playLauncher() {
-  try { await invoke("client_play"); }
+async function playLauncher(target) {
+  try { await invoke("client_play", { target: target || "launcher" }); }
   catch (e) {
-    ask("Minecraft-Launcher nicht gefunden", `${esc(e)}`, [{ label: "Schließen", value: false }, { label: "Zur Download-Seite", value: true, kind: "primary" }], { html: true })
-      .then((ok) => { if (ok) invoke("open_link", { target: "launcher-download" }); });
+    const modrinth = target === "modrinth";
+    ask(modrinth ? "Modrinth-App nicht gefunden" : "Minecraft-Launcher nicht gefunden", `${esc(e)}`,
+      [{ label: "Schließen", value: false }, { label: "Zur Download-Seite", value: true, kind: "primary" }], { html: true })
+      .then((ok) => { if (ok) invoke("open_link", { target: modrinth ? "modrinth-download" : "launcher-download" }); });
   }
 }
 
@@ -1476,8 +1512,10 @@ $("btn-cl-file").onclick = async () => { const f = await invoke("client_pick_fil
 
 async function refreshClients() {
   const info = await invoke("client_info").catch(() => ({}));
-  $("cl-launcher").innerHTML = info.launcher ? `<span class="pill ok">Minecraft-Launcher gefunden</span>`
-    : `<span class="pill warn">Kein Minecraft-Launcher gefunden</span> <a href="#" id="cl-dl2">Download</a>`;
+  clInfo = info;
+  $("cl-launcher").innerHTML = (info.launcher ? `<span class="pill ok">Minecraft-Launcher gefunden</span>`
+    : `<span class="pill warn">Kein Minecraft-Launcher</span> <a href="#" id="cl-dl2">Download</a>`) +
+    ` ${info.modrinth ? `<span class="pill ok">Modrinth-App gefunden</span>` : ""}`;
   if ($("cl-dl2")) $("cl-dl2").onclick = (e) => { e.preventDefault(); invoke("open_link", { target: "launcher-download" }); };
   const list = await invoke("client_list").catch(() => []);
   const box = $("cl-list");
@@ -1486,13 +1524,16 @@ async function refreshClients() {
     const row = document.createElement("div");
     row.className = "item";
     row.innerHTML = `<div class="grow"><div><b>${esc(c.name)}</b> <code>${esc(c.address)}</code> <span class="st"><span class="pill">prüfe …</span></span></div>
-      <div class="sub">Minecraft ${esc(c.mc)} · ${esc(LOADER_NAMES[c.loader] || c.loader)} · ${c.mods} Mods · eingerichtet ${esc(c.updated || "")}</div></div>`;
+      <div class="sub">Minecraft ${esc(c.mc)} · ${esc(LOADER_NAMES[c.loader] || c.loader)} · ${c.mods} Mods · ${c.target === "modrinth" ? "Modrinth-App" : "Minecraft-Launcher"} · eingerichtet ${esc(c.updated || "")}</div></div>`;
     for (const [label, fn, cls] of [
-      ["Spielen", playLauncher, "primary"],
+      ["Spielen", () => playLauncher(c.target), "primary"],
       ["Aktualisieren", () => { $("cl-code").focus(); info2("Aktualisieren", "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt."); }],
       ["Ordner öffnen", () => invoke("client_open_folder", { dir: c.dir }).catch((e) => error("Ordner", e))],
       ["Entfernen", async () => {
-        if (!(await confirmAsk(`„${c.name}“ entfernen?`, "Der Ordner mit Mods, Einstellungen und Einzelspieler-Welten dieses Profils wird gelöscht, und das Profil verschwindet aus dem Minecraft-Launcher.", "Entfernen"))) return;
+        const text = c.target === "modrinth"
+          ? "Vapafane vergisst diesen Client und löscht sein Paket. Die Instanz in der Modrinth-App bleibt – die bitte dort selbst löschen."
+          : "Der Ordner mit Mods, Einstellungen und Einzelspieler-Welten dieses Profils wird gelöscht, und das Profil verschwindet aus dem Minecraft-Launcher.";
+        if (!(await confirmAsk(`„${c.name}“ entfernen?`, text, "Entfernen"))) return;
         try { await invoke("client_remove", { dir: c.dir }); } catch (e) { error("Entfernen", e); }
         refreshClients();
       }, "danger"],

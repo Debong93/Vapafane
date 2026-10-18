@@ -142,10 +142,12 @@ pub fn version_matches(ping: &Value, mc: &str) -> bool {
 pub fn launcher_dirs() -> Vec<PathBuf> {
     let h = config::home();
     let mut c = vec![];
-    if config::test_home().is_none() && cfg!(windows)
-        && let Some(a) = std::env::var_os("APPDATA") {
-            c.push(PathBuf::from(a).join(".minecraft"));
-        }
+    if config::test_home().is_none()
+        && cfg!(windows)
+        && let Some(a) = std::env::var_os("APPDATA")
+    {
+        c.push(PathBuf::from(a).join(".minecraft"));
+    }
     c.push(h.join(".minecraft"));
     c.push(h.join(".var/app/com.mojang.Minecraft/.minecraft"));
     c.push(h.join("snap/mc-installer/current/.minecraft"));
@@ -486,28 +488,9 @@ fn write_index(list: &[PathBuf]) -> Result<()> {
 }
 
 /// Client einrichten bzw. aktualisieren. `selected` = gewählte optionale Mods (Schlüssel).
-pub fn install(
-    inv: &Invite,
-    zip: Option<&Path>,
-    target: Option<&Path>,
-    selected: &HashSet<String>,
-    progress: Progress,
-) -> Result<Value> {
+/// Mods, die geladen werden: Einladung (ohne abgewählte optionale) plus fehlende Pflicht-Abhängigkeiten.
+fn plan_mods(inv: &Invite, zip: Option<&Path>, selected: &HashSet<String>) -> Result<Vec<Resolved>> {
     let kind = kind_of(inv);
-    let game_dir = target.map(Path::to_path_buf).unwrap_or_else(|| default_dir(&inv.name));
-    let meta_path = game_dir.join(META);
-    let old_meta: Option<Value> = fs::read_to_string(&meta_path)
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok());
-    if old_meta.is_none() && game_dir.exists() && fs::read_dir(&game_dir)?.next().is_some() {
-        return err(format!(
-            "Der Ordner {} ist nicht leer und gehört nicht zu Vapafane.",
-            game_dir.display()
-        ));
-    }
-    fs::create_dir_all(game_dir.join("mods"))?;
-
-    progress(0.05, "Prüfe die Mods …");
     let mods: Vec<Resolved> = resolve(inv, zip)?
         .into_iter()
         .filter(|m| !m.optional || selected.contains(&m.key))
@@ -548,6 +531,39 @@ pub fn install(
         }
     }
 
+    let mut all = mods;
+    all.extend(extra);
+    Ok(all)
+}
+
+pub fn install(
+    inv: &Invite,
+    zip: Option<&Path>,
+    target: Option<&Path>,
+    selected: &HashSet<String>,
+    progress: Progress,
+) -> Result<Value> {
+    let kind = kind_of(inv);
+    let game_dir = target.map(Path::to_path_buf).unwrap_or_else(|| default_dir(&inv.name));
+    let meta_path = game_dir.join(META);
+    let old_meta: Option<Value> = fs::read_to_string(&meta_path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    if old_meta.is_none() && game_dir.exists() && fs::read_dir(&game_dir)?.next().is_some() {
+        return err(format!(
+            "Der Ordner {} ist nicht leer und gehört nicht zu Vapafane.",
+            game_dir.display()
+        ));
+    }
+    fs::create_dir_all(game_dir.join("mods"))?;
+    // Vorher ein Modrinth-Paket? Das wird nicht mehr gebraucht.
+    if let Some(p) = old_meta.as_ref().and_then(|m| m.get("mrpack")).and_then(|p| p.as_str()) {
+        let _ = fs::remove_file(p);
+    }
+
+    progress(0.05, "Prüfe die Mods …");
+    let all = plan_mods(inv, zip, selected)?;
+
     // Alte Mods aus einer früheren Einladung entfernen
     if let Some(m) = &old_meta {
         for f in m
@@ -562,10 +578,10 @@ pub fn install(
         }
     }
 
-    let total = (mods.len() + extra.len()).max(1) as f64;
+    let total = all.len().max(1) as f64;
     let mut installed = vec![];
     let mut manual = vec![];
-    for (i, m) in mods.iter().chain(&extra).enumerate() {
+    for (i, m) in all.iter().enumerate() {
         progress(0.1 + 0.6 * i as f64 / total, &format!("Lade {} …", m.title));
         let name = updater::safe_filename(&m.file).unwrap_or_default();
         if m.source == "file" {
@@ -781,6 +797,7 @@ pub fn list() -> Vec<Value> {
                 "mods": m.get("mods").and_then(|x| x.as_array()).map(|a| a.len()).unwrap_or(0),
                 "manual": m.get("manual"),
                 "updated": m.get("updated"),
+                "target": m.get("target").and_then(|t| t.as_str()).unwrap_or("launcher"),
             }))
         })
         .collect()
@@ -790,9 +807,11 @@ pub fn remove(dir: &Path) -> Result<()> {
     let meta: Value = serde_json::from_str(
         &fs::read_to_string(dir.join(META)).map_err(|_| Error("Das ist kein Vapafane-Client.".into()))?,
     )?;
-    let key = meta.get("profile_key").and_then(|k| k.as_str()).unwrap_or("");
-    for f in profile_files() {
-        remove_profile(&f, key)?;
+    // Bei Modrinth-Clients gibt es kein Launcher-Profil – die Instanz löscht man in der App selbst
+    if let Some(key) = meta.get("profile_key").and_then(|k| k.as_str()) {
+        for f in profile_files() {
+            remove_profile(&f, key)?;
+        }
     }
     fs::remove_dir_all(dir)?;
     let idx: Vec<PathBuf> = read_index()
@@ -897,4 +916,239 @@ mod tests {
         assert!(version_matches(&json!({"version": "Paper 1.21.4"}), "1.21.4"));
         assert!(!version_matches(&json!({"version": "26.2"}), "26.3"));
     }
+}
+
+// ---------------------------------------------------------------- Ziel: Modrinth-App
+
+/// Ist die Modrinth-App installiert? Gibt den Startbefehl zurück (Programm + Argumente vor der Datei).
+pub fn modrinth_app() -> Option<(String, Vec<String>)> {
+    #[cfg(windows)]
+    {
+        // Windows: über die Dateiverknüpfung öffnen (siehe open_mrpack)
+        let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+        let pf = std::env::var_os("ProgramFiles").map(PathBuf::from);
+        for base in [local.clone(), local.map(|l| l.join("Programs")), pf]
+            .into_iter()
+            .flatten()
+        {
+            let exe = base.join("Modrinth App").join("Modrinth App.exe");
+            if exe.is_file() {
+                return Some((exe.to_string_lossy().into_owned(), vec![]));
+            }
+        }
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        for bin in ["ModrinthApp", "modrinth-app"] {
+            if let Some(p) = std::env::var_os("PATH")
+                .and_then(|p| std::env::split_paths(&p).map(|d| d.join(bin)).find(|f| f.is_file()))
+            {
+                return Some((p.to_string_lossy().into_owned(), vec![]));
+            }
+        }
+        let flatpak = std::process::Command::new("flatpak")
+            .args(["info", "com.modrinth.ModrinthApp"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+        if flatpak.map(|s| s.success()).unwrap_or(false) {
+            return Some(("flatpak".into(), vec!["run".into(), "com.modrinth.ModrinthApp".into()]));
+        }
+        None
+    }
+}
+
+/// Paket an die Modrinth-App übergeben: Sie zeigt dann ihren Import-Dialog.
+/// Vapafane schreibt dabei nichts in die Dateien der App.
+pub fn open_mrpack(path: &Path) -> Result<()> {
+    // Im Testmodus nie die echte App öffnen – nur zeigen, was aufgerufen würde
+    if config::test_home().is_some() {
+        let how = modrinth_app()
+            .map(|(c, a)| format!("{c} {}", a.join(" ")))
+            .unwrap_or_else(|| "(keine App)".into());
+        eprintln!("Testmodus – würde öffnen: {how} {}", path.display());
+        return Ok(());
+    }
+    #[cfg(windows)]
+    {
+        // Dateiverknüpfung (.mrpack → Modrinth App)
+        let st = util::command("cmd").args(["/C", "start", ""]).arg(path).status()?;
+        if st.success() {
+            return Ok(());
+        }
+    }
+    #[cfg(not(windows))]
+    if let Some((cmd, mut args)) = modrinth_app() {
+        args.push(path.to_string_lossy().into_owned());
+        std::process::Command::new(cmd)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        return Ok(());
+    }
+    err("Die Modrinth-App wurde nicht gefunden.")
+}
+
+/// Modrinth-App ohne Paket öffnen (für „Spielen“).
+pub fn open_modrinth_app() -> Result<()> {
+    if let Some((cmd, args)) = modrinth_app() {
+        std::process::Command::new(cmd)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        return Ok(());
+    }
+    err("Die Modrinth-App wurde nicht gefunden. Download: https://modrinth.com/app")
+}
+
+/// Aus der Einladung ein Modrinth-Paket (.mrpack) bauen und – wenn gewünscht – öffnen.
+pub fn install_mrpack(
+    inv: &Invite,
+    zip: Option<&Path>,
+    selected: &HashSet<String>,
+    open: bool,
+    progress: Progress,
+) -> Result<Value> {
+    let kind = kind_of(inv);
+    let dir = default_dir(&inv.name);
+    let meta_path = dir.join(META);
+    if !meta_path.exists() && dir.exists() && fs::read_dir(&dir)?.next().is_some() {
+        return err(format!(
+            "Der Ordner {} ist nicht leer und gehört nicht zu Vapafane.",
+            dir.display()
+        ));
+    }
+    fs::create_dir_all(&dir)?;
+    // War dieser Client vorher für den Minecraft-Launcher eingerichtet? Dessen Profil und Mods entfernen
+    // (Spielstände, Einstellungen usw. im Ordner bleiben).
+    if let Some(old) = fs::read_to_string(&meta_path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        && let Some(key) = old.get("profile_key").and_then(|k| k.as_str())
+    {
+        for f in profile_files() {
+            remove_profile(&f, key)?;
+        }
+        for f in old
+            .get("mods")
+            .and_then(|m| m.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|f| f.as_str())
+        {
+            let _ = fs::remove_file(dir.join("mods").join(Path::new(f).file_name().unwrap_or_default()));
+        }
+    }
+    progress(0.05, "Prüfe die Mods …");
+    let all = plan_mods(inv, zip, selected)?;
+
+    let mut files = vec![];
+    let mut overrides: Vec<(String, Vec<u8>)> = vec![];
+    let mut manual = vec![];
+    let total = all.len().max(1) as f64;
+    for (i, m) in all.iter().enumerate() {
+        progress(0.1 + 0.7 * i as f64 / total, &format!("Bereite {} vor …", m.title));
+        let name = updater::safe_filename(&m.file).unwrap_or_default();
+        match m.source.as_str() {
+            // Modrinth: nur Verweis mit Prüfsummen – die App lädt selbst
+            "modrinth" => files.push(json!({
+                "path": format!("mods/{name}"),
+                "hashes": {"sha1": m.sha1, "sha512": m.sha512},
+                "env": {"client": "required", "server": "unsupported"},
+                "downloads": [m.url],
+                "fileSize": m.size,
+            })),
+            // Datei aus der Einladungs-Datei: direkt einpacken
+            "file" => {
+                let Some(zp) = zip else {
+                    manual.push(json!({"title": m.title, "page": Value::Null, "file": m.file, "reason": "nur in der Einladungs-Datei enthalten"}));
+                    continue;
+                };
+                let mut a = zip::ZipArchive::new(fs::File::open(zp)?)?;
+                let mut data = vec![];
+                a.by_name(&format!("mods/{}", m.file))?.read_to_end(&mut data)?;
+                overrides.push((format!("overrides/mods/{name}"), data));
+            }
+            // CurseForge: nur wenn der Autor Downloads über andere Programme erlaubt
+            _ => match &m.url {
+                Some(url) => {
+                    let tmp = dir.join(format!(".{name}.part-cf"));
+                    net::download(url, &tmp, net::Expect { sha1: m.sha1.as_deref(), ..Default::default() }, &|_| {})?;
+                    overrides.push((format!("overrides/mods/{name}"), fs::read(&tmp)?));
+                    let _ = fs::remove_file(&tmp);
+                }
+                None => manual.push(json!({"title": m.title, "page": m.page, "file": m.file, "reason": "Download nur im Browser (CurseForge)"})),
+            },
+        }
+    }
+    let mut deps = serde_json::Map::new();
+    deps.insert("minecraft".into(), json!(inv.mc));
+    match kind {
+        Kind::Fabric => {
+            let lv = if inv.loader_version.is_empty() {
+                net::fabric_server_jar_url(&inv.mc)?.1
+            } else {
+                inv.loader_version.clone()
+            };
+            deps.insert("fabric-loader".into(), json!(lv));
+        }
+        Kind::NeoForge => {
+            deps.insert("neoforge".into(), json!(inv.loader_version));
+        }
+        _ => {}
+    }
+    let index = json!({
+        "formatVersion": 1,
+        "game": "minecraft",
+        "versionId": chrono::Local::now().format("%Y.%m.%d-%H%M").to_string(),
+        "name": format!("{} (Vapafane)", inv.name),
+        "summary": format!("Eingerichtet von Vapafane für den Server {} ({})", inv.name, inv.address),
+        "files": files,
+        "dependencies": deps,
+    });
+    progress(0.85, "Packe das Modrinth-Paket …");
+    let pack = dir.join(format!("{}.mrpack", util::safe_name(&inv.name)));
+    let tmp = pack.with_extension("part");
+    {
+        let mut z = zip::ZipWriter::new(fs::File::create(&tmp)?);
+        let o = zip::write::SimpleFileOptions::default();
+        z.start_file("modrinth.index.json", o)?;
+        z.write_all(serde_json::to_string_pretty(&index)?.as_bytes())?;
+        // servers.dat mit dem Server-Eintrag
+        write_servers_dat(&dir, &inv.name, &inv.address)?;
+        z.start_file("overrides/servers.dat", o)?;
+        z.write_all(&fs::read(dir.join("servers.dat"))?)?;
+        for (path, data) in &overrides {
+            z.start_file(path.as_str(), o.compression_method(zip::CompressionMethod::Stored))?;
+            z.write_all(data)?;
+        }
+        z.finish()?;
+    }
+    fs::rename(&tmp, &pack)?;
+    let _ = fs::remove_file(dir.join("servers.dat"));
+
+    let opened = open && open_mrpack(&pack).is_ok();
+    let meta = json!({
+        "invite": inv,
+        "target": "modrinth",
+        "mrpack": pack,
+        "mods": all.iter().filter(|m| m.source == "modrinth" || overrides.iter().any(|(p, _)| p.ends_with(&m.file))).map(|m| m.file.clone()).collect::<Vec<_>>(),
+        "manual": manual,
+        "updated": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+    });
+    util::write_atomic(&meta_path, serde_json::to_string_pretty(&meta)?.as_bytes())?;
+    progress(1.0, "Fertig.");
+    Ok(json!({
+        "dir": dir,
+        "target": "modrinth",
+        "mrpack": pack,
+        "opened": opened,
+        "app": modrinth_app().is_some(),
+        "installed": meta["mods"],
+        "manual": manual,
+        "notes": [],
+    }))
 }

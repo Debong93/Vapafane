@@ -101,6 +101,9 @@ pub struct Config {
     pub daily_backup: bool,
     #[serde(default = "default_daily_time")]
     pub daily_backup_time: String,
+    /// Zuletzt gewähltes Ziel beim Einrichten eines Clients: "launcher" oder "modrinth"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_target: Option<String>,
     /// Server beim PC-Start automatisch starten (Wunsch; unter Linux zählt die systemd-Unit)
     #[serde(default)]
     pub autostart_server: bool,

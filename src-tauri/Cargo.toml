@@ -1,6 +1,6 @@
 [package]
 name = "vapafane"
-version = "0.5.0"
+version = "0.6.0"
 description = "Vapafane – Minecraft-Werkbank für Server & Client"
 authors = ["Debong93"]
 license = "MIT"

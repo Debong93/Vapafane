@@ -32,7 +32,8 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   curseforge-test   gespeicherten CurseForge-Schlüssel ausprobieren
   einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
   einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
-  einloesen CODE|DATEI [--ordner O] [--alle-optionalen]  Client für eine Einladung einrichten
+  einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
+                                    Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket)
   clients                           eingerichtete Clients anzeigen
   client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
   ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
@@ -417,7 +418,17 @@ fn run_inner(args: &[String]) -> Result<()> {
                 Default::default()
             };
             let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
-            let r = crate::client::install(&inv, zip, folder.as_deref(), &selected, &print)?;
+            let modrinth = args
+                .iter()
+                .position(|a| a == "--ziel")
+                .and_then(|i| args.get(i + 1))
+                .map(String::as_str)
+                == Some("modrinth");
+            let r = if modrinth {
+                crate::client::install_mrpack(&inv, zip, &selected, true, &print)?
+            } else {
+                crate::client::install(&inv, zip, folder.as_deref(), &selected, &print)?
+            };
             println!("{}", serde_json::to_string_pretty(&r)?);
         }
         "clients" => println!("{}", serde_json::to_string_pretty(&crate::client::list())?),

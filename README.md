@@ -79,6 +79,14 @@ Prüfsumme), trägt den Server ein und legt im Launcher das Profil **„Vapafane
 an (vorher wird eine Sicherheitskopie von `launcher_profiles.json` gemacht, andere Profile
 bleiben unberührt). **„Spielen“** öffnet den offiziellen Launcher – Vapafane startet
 Minecraft nicht selbst und fasst kein Microsoft-Konto an.
+
+Statt des offiziellen Launchers kann man beim Einrichten auch die **Modrinth-App** wählen
+(die Wahl wird gemerkt). Dann baut Vapafane aus der Einladung ein Modrinth-Paket (`.mrpack`
+mit den Mods, ihren Prüfsummen und dem Server-Eintrag) und öffnet es mit der Modrinth-App –
+dort nur noch den Import bestätigen. Vapafane schreibt dabei nichts in die Dateien der
+Modrinth-App. Klappt das automatische Öffnen nicht: in der Modrinth-App auf „+“ →
+„Aus Datei importieren“ und das Paket wählen. Wird der Server aktualisiert, legt ein neuer
+Code dort eine neue Instanz an; die alte dann in der App löschen.
 Wird der Server aktualisiert, zeigt Vapafane das an; dann einfach den neuen Code einlösen.
 
 ## Installieren
@@ -95,7 +103,7 @@ Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
 Eigenschaften → „Als Programm ausführen“) und starten – oder das `.deb` installieren:
 
 ```bash
-sudo apt install ./Vapafane_0.5.0_amd64.deb
+sudo apt install ./Vapafane_0.6.0_amd64.deb
 ```
 
 Java: `sudo apt install openjdk-25-jre-headless`
@@ -133,7 +141,7 @@ An/Aus-Zustand wird übernommen), der Login-Autostart `vapafane.desktop`. Die
 Konfiguration und alle Server bleiben, wie sie sind.
 
 ```bash
-sudo apt install ./Vapafane_0.5.0_amd64.deb
+sudo apt install ./Vapafane_0.6.0_amd64.deb
 sudo apt remove redcraftserver
 ```
 
@@ -171,4 +179,4 @@ Ein neuer Release entsteht, wenn ein Tag `v…` gepusht wird (GitHub Actions bau
 die Installer für Windows und Linux).
 
 Technik: Rust + [Tauri 2](https://tauri.app), Oberfläche in schlichtem HTML/CSS/JS.
-Die Gras- und Erd-Texturen sind eigene Pixel-Grafiken (`assets/make_textures.py`), keine Originaldateien aus Minecraft.
+Die Block-Texturen (Erde, Grasblock-Kante, Crying Obsidian) sind eigene 16×16-Pixel-Art (`assets/make_textures.py`), keine Originaldateien aus Minecraft.
