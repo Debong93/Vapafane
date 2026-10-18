@@ -425,9 +425,11 @@ mod tests {
         fs::write(srv.join("world/region/r.0.0.mca"), vec![7u8; 100_000]).unwrap();
         fs::create_dir_all(srv.join(STAGING_NAME)).unwrap();
         fs::write(srv.join(STAGING_NAME).join("x.jar"), "weg").unwrap();
-        let mut cfg = Config::default();
-        cfg.backup_dir = base.join("Backups").to_string_lossy().into_owned();
-        cfg.backup_keep = 1;
+        let cfg = Config {
+            backup_dir: base.join("Backups").to_string_lossy().into_owned(),
+            backup_keep: 1,
+            ..Default::default()
+        };
         let noop = |_: f64, _: &str| {};
         let zip1 = backup_server(&srv, "Welt Server", &cfg, &noop).unwrap();
         assert!(zip1.file_name().unwrap().to_string_lossy().starts_with("Welt_Server_"));

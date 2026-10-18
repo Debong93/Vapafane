@@ -89,9 +89,6 @@ pub async fn get_status(gui: State<'_, Gui>) -> Cmd<Value> {
         .collect();
     st["servers"] = json!(servers);
     st["busy"] = json!(busy);
-    if let Some(msg) = crate::migrate::MESSAGE.lock().unwrap().take() {
-        st["migration"] = json!(msg);
-    }
     if st.get("job").map(|j| j.is_null()).unwrap_or(true) {
         st["job"] = json!(ops::current_job().filter(|j| Some(j) != busy.as_ref()));
     }
@@ -674,12 +671,6 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             std::thread::spawn(move || log_thread(handle, reset_flag));
-            // Umstieg von Redcraftserver (einmalig, im Hintergrund)
-            std::thread::spawn(|| {
-                if let Some(msg) = crate::migrate::run() {
-                    *crate::migrate::MESSAGE.lock().unwrap() = Some(msg);
-                }
-            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

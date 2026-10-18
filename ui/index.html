@@ -106,8 +106,7 @@
 
     <!-- Mods -->
     <section id="tab-mods" class="tab">
-      <p class="dim small">Ausgeschaltete Mods und Plugins bleiben im Ordner (als „.disabled“), werden aber nicht geladen.
-        Änderungen wirken beim nächsten Start des Servers.</p>
+      <p class="dim small">Ausgeschaltete Mods bleiben im Ordner, werden aber nicht geladen. Änderungen wirken beim nächsten Serverstart.</p>
       <div class="row">
         <span id="mods-count" class="dim"></span>
         <span class="spacer"></span>
@@ -125,8 +124,7 @@
     <!-- Updates -->
     <section id="tab-updates" class="tab">
       <p id="upd-current"></p>
-      <p class="dim small">Prüft über Modrinth, ob es alle Mods bzw. Plugins und Datapacks für die gewählte Version gibt.
-        Vor jedem Update wird automatisch ein komplettes Backup gemacht.</p>
+      <p class="dim small">Prüft, ob es alle Mods für die gewählte Version gibt. Vor jedem Update wird automatisch ein Backup gemacht.</p>
       <div class="row">
         <label>Ziel:</label>
         <select id="upd-target"></select>
@@ -193,27 +191,18 @@
       <div id="old-panel-box" class="hint hidden"></div>
       <h3>CurseForge (optional) <span class="badge exp">Experimentell</span></h3>
       <div class="cf-box">
-        <p><b>Brauche ich das?</b> Nein. Ohne CurseForge sucht Vapafane auf <b>Modrinth</b> – dort gibt es die meisten Mods,
-          und sie lassen sich immer automatisch installieren. Mit CurseForge findest du <i>zusätzlich</i> Mods, die es nur dort gibt.</p>
-        <p><b>Was ist ein API-Schlüssel?</b> Eine Art persönlicher Zugangscode – eine lange Zeichenkette. Damit darf ein Programm wie
-          Vapafane bei CurseForge suchen und Mods laden. CurseForge verlangt das, damit sie wissen, wer ihre Schnittstelle benutzt.</p>
+        <p><b>Brauche ich das?</b> Nein – die meisten Mods gibt es auf <b>Modrinth</b>, das geht ohne Einrichtung.
+          CurseForge findet <i>zusätzlich</i> Mods, die es nur dort gibt, und braucht dafür einen persönlichen API-Schlüssel (eine Art Zugangscode).</p>
         <details>
           <summary><b>So bekommst du einen Schlüssel (kostenlos)</b></summary>
           <ol>
-            <li>Auf <b>„Schlüssel beantragen“</b> klicken. Es öffnet sich das Antragsformular von CurseForge (gehört zu Overwolf).</li>
-            <li>Das Formular ausfüllen – zum Beispiel als Projekt „Vapafane – privates Minecraft-Servertool“ und als Zweck
-              „Mods für meinen eigenen Minecraft-Server suchen und installieren“.</li>
-            <li>Abschicken und auf die Antwort per E-Mail warten. CurseForge prüft jeden Antrag von Hand – das kann ein paar Tage dauern.</li>
-            <li>Nach der Freigabe findest du den Schlüssel in der Antwort bzw. in der CurseForge-Konsole (Knopf unten).</li>
-            <li>Den Schlüssel unten einfügen, <b>„Schlüssel testen“</b> drücken und dann <b>„Speichern“</b>.</li>
+            <li>Auf <b>„Schlüssel beantragen“</b> klicken und das Formular ausfüllen (z. B. Zweck: „Mods für meinen eigenen Server“).</li>
+            <li>Auf die Antwort per E-Mail warten – CurseForge prüft von Hand, das kann ein paar Tage dauern.</li>
+            <li>Den Schlüssel unten einfügen, <b>„Schlüssel testen“</b> und <b>„Speichern“</b>.</li>
           </ol>
-          <p><b>Der Schlüssel ist persönlich.</b> Er gehört dir und ist an dich gebunden. Gib ihn nicht weiter und veröffentliche
-            ihn nicht – auch nicht in Screenshots, Foren oder geteilten Dateien. Die Nutzung erfolgt nach den
-            <a href="#" data-link="cf-terms">CurseForge-Bedingungen für Drittprogramme</a>. Die Unterstützung in Vapafane ist
-            experimentell: Ob CurseForge Schlüssel für private Tools wie dieses vergibt, entscheidet CurseForge.</p>
-          <p class="dim small">Wichtig: Kein eigenes Konto in der CurseForge-Konsole anlegen, ohne den Antrag zu stellen – CurseForge
-            löscht laut eigener Doku Konten, die keinen Schlüssel beantragt haben. Der Schlüssel bleibt nur auf diesem PC
-            (in einer Datei, die nur du lesen kannst) und wird nie mitgeschickt oder angezeigt.</p>
+          <p><b>Der Schlüssel ist persönlich</b> – nicht weitergeben oder veröffentlichen. Er bleibt nur auf diesem PC.
+            Es gelten die <a href="#" data-link="cf-terms">CurseForge-Bedingungen für Drittprogramme</a>.
+            Experimentell: Ob CurseForge Schlüssel für private Tools vergibt, entscheidet CurseForge.</p>
         </details>
         <div class="row">
           <button id="btn-cf-apply">Schlüssel beantragen ↗</button>
@@ -248,9 +237,8 @@
     <section id="tab-client" class="tab">
       <div class="cf-box">
         <h2 class="client-h">Einladung einlösen</h2>
-        <p class="dim">Hat dir jemand einen Einladungs-Code (beginnt mit <code>VPF1-</code>) oder eine Datei <code>.vapafane</code> geschickt?
-          Dann richtet Vapafane Minecraft passend für diesen Server ein – mit allen Mods – wahlweise als eigenes Profil im offiziellen
-          Minecraft-Launcher oder als Instanz in der Modrinth-App. Gespielt wird ganz normal dort.</p>
+        <p class="dim">Code (beginnt mit <code>VPF1-</code>) einfügen oder die <code>.vapafane</code>-Datei öffnen –
+          Vapafane richtet Minecraft mit allen Mods passend zum Server ein.</p>
         <textarea id="cl-code" rows="3" placeholder="Einladungs-Code hier einfügen (VPF1-…)" spellcheck="false"></textarea>
         <div class="row">
           <button id="btn-cl-check" class="primary">Einladung prüfen</button>

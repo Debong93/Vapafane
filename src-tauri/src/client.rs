@@ -877,47 +877,6 @@ pub fn open_launcher() -> Result<()> {
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn addresses() {
-        assert_eq!(split_address("example.org").unwrap(), ("example.org".into(), 25565));
-        assert_eq!(split_address("1.2.3.4:25570").unwrap(), ("1.2.3.4".into(), 25570));
-        assert_eq!(split_address("[::1]:25566").unwrap(), ("::1".into(), 25566));
-        assert!(split_address("host:abc").is_err());
-    }
-
-    #[test]
-    fn varints() {
-        for v in [0, 1, 127, 128, 255, 25565, -1, i32::MAX] {
-            let mut b = vec![];
-            write_varint(&mut b, v);
-            assert_eq!(read_varint(&mut &b[..]).unwrap(), v);
-        }
-    }
-
-    #[test]
-    fn servers_dat_layout() {
-        let d = std::env::temp_dir().join(format!("vapafane-nbt-{}", std::process::id()));
-        fs::create_dir_all(&d).unwrap();
-        write_servers_dat(&d, "Welt", "a.b:1").unwrap();
-        let b = fs::read(d.join("servers.dat")).unwrap();
-        assert_eq!(&b[..3], &[10, 0, 0]);
-        assert!(b.windows(4).any(|w| w == b"Welt"));
-        assert_eq!(*b.last().unwrap(), 0);
-        fs::remove_dir_all(&d).unwrap();
-    }
-
-    #[test]
-    fn version_check() {
-        assert!(version_matches(&json!({"version": "26.3"}), "26.3"));
-        assert!(version_matches(&json!({"version": "Paper 1.21.4"}), "1.21.4"));
-        assert!(!version_matches(&json!({"version": "26.2"}), "26.3"));
-    }
-}
-
 // ---------------------------------------------------------------- Ziel: Modrinth-App
 
 /// Ist die Modrinth-App installiert? Gibt den Startbefehl zurück (Programm + Argumente vor der Datei).
@@ -1151,4 +1110,45 @@ pub fn install_mrpack(
         "manual": manual,
         "notes": [],
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn addresses() {
+        assert_eq!(split_address("example.org").unwrap(), ("example.org".into(), 25565));
+        assert_eq!(split_address("1.2.3.4:25570").unwrap(), ("1.2.3.4".into(), 25570));
+        assert_eq!(split_address("[::1]:25566").unwrap(), ("::1".into(), 25566));
+        assert!(split_address("host:abc").is_err());
+    }
+
+    #[test]
+    fn varints() {
+        for v in [0, 1, 127, 128, 255, 25565, -1, i32::MAX] {
+            let mut b = vec![];
+            write_varint(&mut b, v);
+            assert_eq!(read_varint(&mut &b[..]).unwrap(), v);
+        }
+    }
+
+    #[test]
+    fn servers_dat_layout() {
+        let d = std::env::temp_dir().join(format!("vapafane-nbt-{}", std::process::id()));
+        fs::create_dir_all(&d).unwrap();
+        write_servers_dat(&d, "Welt", "a.b:1").unwrap();
+        let b = fs::read(d.join("servers.dat")).unwrap();
+        assert_eq!(&b[..3], &[10, 0, 0]);
+        assert!(b.windows(4).any(|w| w == b"Welt"));
+        assert_eq!(*b.last().unwrap(), 0);
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn version_check() {
+        assert!(version_matches(&json!({"version": "26.3"}), "26.3"));
+        assert!(version_matches(&json!({"version": "Paper 1.21.4"}), "1.21.4"));
+        assert!(!version_matches(&json!({"version": "26.2"}), "26.3"));
+    }
 }

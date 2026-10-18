@@ -1,83 +1,93 @@
 @import url("textures.css");
 
-/* Farben: helles Pergament / warmes Dunkel, Akzent Grasgrün, Erdbraun für Ränder.
-   Alle Texte stehen auf festen Flächen; Kontrast mindestens WCAG AA. */
+/* Farben im Stil der Minecraft-Menüs: graue Flächen mit hellem/dunklem Pixelrand,
+   Stein-Knöpfe, schwarze Textfelder. Eigene Werte – Kontrast mindestens WCAG AA. */
 :root {
-  --bg: #f1ece2;
-  --veil: rgba(241, 236, 226, 0.84);
-  --panel: #fffdf8;
-  --text: #1f1a14;
-  --dim: #5c5246;
-  --border: #d9cdbb;
+  --bg: #a8a8a8;
+  --veil: rgba(198, 198, 198, 0.78);
+  --panel: #c6c6c6;
+  --hi: #ffffff;
+  --lo: #555555;
+  --text: #1b1b1b;
+  --dim: #3c3c3c;
+  --border: #555555;
   --accent: #2f7a1f;
-  --accent-hover: #286a1a;
+  --accent-hover: #3b8f27;
   --accent-text: #ffffff;
-  --earth: #7b5031;
-  --green: #237a2b;
-  --amber: #8f5c00;
-  --red: #c9302c;
-  --gray: #857a6d;
-  --blue: #2563c9;
-  --purple: #7c4dcc;
-  --console-bg: #14110e;
-  --console-text: #e2dbd2;
-  --hover: rgba(90, 60, 30, 0.07);
+  --earth: #5e3a1f;
+  --green: #145a1b;
+  --amber: #6b4400;
+  --red: #9b1c18;
+  --gray: #5a5a5a;
+  --blue: #1a46a0;
+  --purple: #5a2ca8;
+  --console-bg: #101010;
+  --console-text: #e6e6e6;
+  --hover: rgba(0, 0, 0, 0.08);
   --grass: var(--tex-grass);
   --dirt: var(--tex-dirt);
   --tear: #6d28d9;
-  --shadow: 0 1px 2px rgba(60, 40, 20, 0.08);
+  --shadow: none;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #15120f;
-    --veil: rgba(21, 18, 15, 0.86);
-    --panel: #221d19;
-    --text: #efe8df;
-    --dim: #b6aa9c;
-    --border: #3d342c;
+    --bg: #1c1c1c;
+    --veil: rgba(24, 24, 24, 0.8);
+    --panel: #313131;
+    --hi: #4e4e4e;
+    --lo: #161616;
+    --text: #f2f2f2;
+    --dim: #c4c4c4;
+    --border: #0e0e0e;
     --accent: #2f7a1f;
-    --accent-hover: #38902a;
-    --earth: #c29267;
-    --green: #4cc057;
-    --amber: #e0a52b;
-    --red: #f16a5f;
-    --gray: #9c9184;
-    --blue: #6ea8ff;
-    --purple: #b392f0;
-    --console-bg: #0d0b09;
-    --hover: rgba(255, 240, 220, 0.07);
+    --accent-hover: #3b8f27;
+    --accent-text: #ffffff;
+    --earth: #d6a77a;
+    --green: #6fd46f;
+    --amber: #f0b840;
+    --red: #ff8a80;
+    --gray: #a0a0a0;
+    --blue: #8ab8ff;
+    --purple: #c4a5f5;
+    --console-bg: #0b0b0b;
+    --console-text: #e6e6e6;
+    --hover: rgba(255, 255, 255, 0.07);
     --grass: var(--tex-grass-dark);
     --dirt: var(--tex-dirt-dark);
     --tear: #b26bff;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow: none;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #15120f;
-  --veil: rgba(21, 18, 15, 0.86);
-  --panel: #221d19;
-  --text: #efe8df;
-  --dim: #b6aa9c;
-  --border: #3d342c;
+  --bg: #1c1c1c;
+  --veil: rgba(24, 24, 24, 0.8);
+  --panel: #313131;
+  --hi: #4e4e4e;
+  --lo: #161616;
+  --text: #f2f2f2;
+  --dim: #c4c4c4;
+  --border: #0e0e0e;
   --accent: #2f7a1f;
-  --accent-hover: #38902a;
-  --earth: #c29267;
-  --green: #4cc057;
-  --amber: #e0a52b;
-  --red: #f16a5f;
-  --gray: #9c9184;
-  --blue: #6ea8ff;
-  --purple: #b392f0;
-  --console-bg: #0d0b09;
-  --hover: rgba(255, 240, 220, 0.07);
+  --accent-hover: #3b8f27;
+  --accent-text: #ffffff;
+  --earth: #d6a77a;
+  --green: #6fd46f;
+  --amber: #f0b840;
+  --red: #ff8a80;
+  --gray: #a0a0a0;
+  --blue: #8ab8ff;
+  --purple: #c4a5f5;
+  --console-bg: #0b0b0b;
+  --console-text: #e6e6e6;
+  --hover: rgba(255, 255, 255, 0.07);
   --grass: var(--tex-grass-dark);
   --dirt: var(--tex-dirt-dark);
   --tear: #b26bff;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: none;
   color-scheme: dark;
 }
 
@@ -484,3 +494,66 @@ body.client-mode .tabs { height: 0; overflow: hidden; }
 
 .dest { margin: 10px 0 4px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .dest .check { margin: 4px 0; }
+
+/* ================================================================ Minecraft-Look
+   Eigene Nachbildung des typischen Stils: eckige Flächen, 2-px-Pixelrand
+   (hell oben/links, dunkel unten/rechts), Knöpfe wie Steinplatten. */
+
+.card, .list, .status-row, .events, .form, .switches, .cf-box, .summary:not(:empty), .notice,
+#tab-backups > p, #tab-updates > p, #tab-mods > p, .table-wrap, .modal, .menu, .hint, .dest {
+  border-radius: 0;
+  border: 2px solid var(--border);
+  box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo);
+  background-color: var(--panel);
+}
+h3 { border-radius: 0; border: 2px solid var(--border); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo); background: var(--panel); }
+.hint { background-color: var(--panel); }
+.hint.error { border-color: var(--red); }
+.badge, .pill { border-radius: 0; }
+
+/* Knöpfe wie Stein */
+button {
+  border-radius: 0;
+  border: 2px solid #1a1a1a;
+  background: #6b6b6b;
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 1px 1px 0 #2e2e2e;
+  box-shadow: inset 2px 2px 0 #a3a3a3, inset -2px -2px 0 #434343;
+  padding: 6px 14px;
+}
+button:hover:not(:disabled) { background: #5866a8; box-shadow: inset 2px 2px 0 #8f9ad6, inset -2px -2px 0 #3a4579; outline: 2px solid #fff; outline-offset: -4px; }
+button:active:not(:disabled) { box-shadow: inset -2px -2px 0 #a3a3a3, inset 2px 2px 0 #434343; }
+button:disabled { opacity: 1; background: #3c3c3c; color: #b4b4b4; text-shadow: none; box-shadow: inset 2px 2px 0 #4f4f4f, inset -2px -2px 0 #2a2a2a; }
+button.primary { background: var(--accent); border-color: #10300a; box-shadow: inset 2px 2px 0 #5aa538, inset -2px -2px 0 #1f5214; color: #fff; }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: inset 2px 2px 0 #6cbf47, inset -2px -2px 0 #225c16; }
+button.danger { border-color: #05020a; box-shadow: inset 2px 2px 0 #3a2063, inset -2px -2px 0 #05020a; }
+.icon-btn { padding: 4px 10px; }
+
+/* Reiter: wie Steinknöpfe, der aktive ist „hell“ mit Obsidian-Linie */
+.tabs button { background: #6b6b6b; color: #fff; border: 2px solid #1a1a1a; box-shadow: inset 2px 2px 0 #a3a3a3, inset -2px -2px 0 #434343; }
+.tabs button:hover { background: #5866a8; color: #fff; }
+.tabs button.active { background: var(--panel); color: var(--text); text-shadow: none; box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo), inset 0 -5px 0 var(--tear); }
+.menu button { background: transparent; color: var(--text); text-shadow: none; border: none; box-shadow: none; }
+.menu button:hover:not(:disabled) { background: #5866a8; color: #fff; outline: none; }
+.mode-switch { border: 2px solid #1a1a1a; border-radius: 0; }
+.mode-switch button { border: none; color: #fff; background: #6b6b6b; }
+
+/* Textfelder wie in Minecraft: schwarz mit grauem Rand */
+input:not([type=checkbox]):not([type=radio]), select, textarea, #cl-code, #inv-code {
+  border-radius: 0;
+  background: #000;
+  color: #f2f2f2;
+  border: 2px solid #a0a0a0;
+}
+input::placeholder, textarea::placeholder { color: #9a9a9a; }
+select option { background: #000; color: #f2f2f2; }
+
+/* Schalter eckig */
+.switch span { border-radius: 0; border: 2px solid #1a1a1a; background: #6b6b6b; }
+.switch span::before { border-radius: 0; background: #d0d0d0; box-shadow: inset -2px -2px 0 #8a8a8a; top: 1px; left: 1px; }
+.switch input:checked + span { background: var(--accent); }
+
+.console { border-radius: 0; border: 2px solid #1a1a1a; }
+.dot { border-radius: 0; }
+.progress, .progress div { border-radius: 0; }

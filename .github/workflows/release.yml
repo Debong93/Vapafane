@@ -53,16 +53,15 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Vapafane ${{ github.ref_name }}"
           releaseBody: |
-            Vapafane – Minecraft-Serververwaltung für Linux und Windows.
+            Vapafane – eigener Minecraft-Server und Freunde einladen, ganz ohne Befehle.
 
-            **Windows:** `Vapafane_…_x64-setup.exe` (empfohlen) oder `.msi` herunterladen und starten.
-            Windows zeigt evtl. „Der Computer wurde durch Windows geschützt“ – auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken (das Programm ist nicht signiert).
+            **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Bei „Der Computer wurde durch Windows geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“.
 
-            **Linux:** `.AppImage` herunterladen, ausführbar machen und starten – oder das `.deb` installieren.
+            **Linux:** `.deb` herunterladen und `sudo apt install ./Vapafane_…_amd64.deb` – oder das `.AppImage` ausführbar machen und starten.
 
-            Java muss installiert sein (Minecraft 26.x braucht Java 25).
+            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25).
 
-            Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.
-            Kontakt und Fehlermeldungen: https://github.com/Debong93/Vapafane/issues
+            Kein offizielles Minecraft-Produkt. Nicht von Mojang oder Microsoft genehmigt und nicht mit ihnen verbunden.
+            Kontakt: https://github.com/Debong93/Vapafane/issues
           releaseDraft: false
           prerelease: false

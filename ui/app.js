@@ -180,10 +180,6 @@ async function refreshStatus() {
   try { st = await invoke("get_status"); } catch (e) { console.error(e); return; }
   status = st;
   busy = st.busy;
-  if (st.migration) {
-    addEvent("Umstieg von Redcraftserver auf Vapafane");
-    info("Willkommen bei Vapafane", "Redcraftserver heißt jetzt Vapafane. Übernommen wurde:\n\n" + st.migration);
-  }
   const state = st.state;
   const [label, color] = STATUS[state] || [state, "--gray"];
 
@@ -1351,14 +1347,13 @@ $("mode-client").onclick = () => setMode("client");
 $("btn-invite").onclick = async () => {
   let d;
   try { d = await invoke("invite_defaults"); } catch (e) { return error("Einladen", e); }
-  const body = `<p>Deine Freunde bekommen einen Code (oder eine Datei). Damit richtet Vapafane bei ihnen Minecraft mit genau den passenden Mods ein.</p>
+  const body = `<p>Schick deinen Freunden einen Code – Vapafane richtet damit bei ihnen Minecraft mit den passenden Mods ein.</p>
     <label for="inv-addr">Adresse, unter der deine Freunde den Server erreichen</label>
     <div class="row" style="margin:4px 0"><input id="inv-addr" value="${esc(d.lan)}" spellcheck="false"><button id="inv-public" type="button">Öffentliche Adresse ermitteln</button></div>
-    <p class="dim small">Vorbelegt ist die Adresse im Heimnetz – die passt nur, wenn alle im selben WLAN sind. Freunde von außen brauchen deine öffentliche Adresse
-      oder eine Domain (z. B. von DynDNS), und im Router muss der Port des Servers freigegeben sein. Es wird kein weiterer Port gebraucht.</p>
+    <p class="dim small">Vorbelegt ist die Heimnetz-Adresse (nur im selben WLAN). Für Freunde von außen: öffentliche Adresse ermitteln und im Router den Server-Port freigeben.</p>
     <div class="row"><button id="inv-make" class="primary" type="button">Code erzeugen</button><button id="inv-file" type="button">Als Datei speichern …</button></div>
     <div id="inv-out"></div>
-    <p class="dim small">Der Code enthält keine Passwörter, keine Ordner und keinen CurseForge-Schlüssel – nur Adresse, Version und die Mods, die Spieler brauchen.</p>`;
+    <p class="dim small">Der Code enthält keine Passwörter – nur Adresse, Version und Mods.</p>`;
   const show = (r, codeHtml) => {
     let t = codeHtml || "";
     t += `<p>${r.mods ? `${r.mods} Mods für die Spieler` + (r.optional ? ` (davon ${r.optional} optional)` : "") : "Keine Mods nötig – nur die Version " + esc(r.mc) + "."}</p>`;
@@ -1440,9 +1435,7 @@ async function checkInvite(source) {
       <p class="dim small">Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt.</p>
     </div>
     <div id="cl-dest-modrinth" class="hidden">
-      <p class="dim small">Vapafane baut daraus ein Modrinth-Paket (.mrpack) und öffnet es mit der Modrinth-App – dort nur noch den Import bestätigen.
-        Vapafane schreibt nichts in die Dateien der Modrinth-App. Wird der Server später aktualisiert, legt ein neuer Code in der App eine
-        <b>neue</b> Instanz an – die alte dann in der App löschen.</p>
+      <p class="dim small">Die Modrinth-App öffnet sich – dort nur noch den Import bestätigen. Nach einem Server-Update entsteht dort eine neue Instanz; die alte dann löschen.</p>
     </div>
     <div class="row"><button id="cl-install" class="primary">Einrichten</button></div>
     <div id="cl-result"></div>`;

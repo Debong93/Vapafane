@@ -15,14 +15,13 @@ use crate::util::{self, Result, err};
 
 pub const DISABLED: &str = ".disabled";
 const META_FILE: &str = ".vapafane.json";
-/// So hieß die Datei bis 0.3.0 (Redcraftserver) – wird weiter gelesen.
+/// Früherer Dateiname – wird beim Start einmalig übernommen (siehe convert_old_meta).
 const OLD_META_FILE: &str = ".redcraftserver.json";
 
 // ---------------------------------------------------------------- Gründe merken
 
 fn read_meta(dir: &Path) -> Map<String, Value> {
     fs::read_to_string(dir.join(META_FILE))
-        .or_else(|_| fs::read_to_string(dir.join(OLD_META_FILE)))
         .ok()
         .and_then(|t| serde_json::from_str::<Value>(&t).ok())
         .and_then(|v| v.as_object().cloned())
@@ -30,9 +29,46 @@ fn read_meta(dir: &Path) -> Map<String, Value> {
 }
 
 fn write_meta(dir: &Path, meta: &Map<String, Value>) -> Result<()> {
-    util::write_atomic(&dir.join(META_FILE), serde_json::to_string_pretty(meta)?.as_bytes())?;
-    let _ = fs::remove_file(dir.join(OLD_META_FILE)); // ist jetzt in der neuen Datei
-    Ok(())
+    util::write_atomic(&dir.join(META_FILE), serde_json::to_string_pretty(meta)?.as_bytes())
+}
+
+/// Einmalig beim Start: Mod-Notizen unter dem früheren Dateinamen in die neue Datei
+/// übernehmen (vorhandene Einträge der neuen Datei haben Vorrang) und die alte löschen.
+pub fn convert_old_meta(dir: &Path) {
+    let old = dir.join(OLD_META_FILE);
+    let Some(old_meta) = fs::read_to_string(&old)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| v.as_object().cloned())
+    else {
+        return;
+    };
+    let mut meta = read_meta(dir);
+    for (section, entries) in old_meta {
+        match (
+            meta.get_mut(&section).and_then(|v| v.as_object_mut()),
+            entries.as_object(),
+        ) {
+            (Some(target), Some(src)) => {
+                for (k, v) in src {
+                    target.entry(k.clone()).or_insert_with(|| v.clone());
+                }
+            }
+            _ => {
+                meta.entry(section).or_insert(entries);
+            }
+        }
+    }
+    if write_meta(dir, &meta).is_ok() {
+        let _ = fs::remove_file(old);
+    }
+}
+
+/// Für alle Server aus der Konfiguration.
+pub fn convert_old_meta_all() {
+    for s in crate::config::Config::load().servers {
+        convert_old_meta(Path::new(&s.path));
+    }
 }
 
 /// Grund zu einer Datei (Schlüssel: Pfad relativ zum Server, ohne `.disabled`).
@@ -267,6 +303,24 @@ pub fn disabled_in(dir: &Path, sub: &str) -> Vec<(String, PathBuf)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn converts_old_notes_once() {
+        let dir = std::env::temp_dir().join(format!("vapafane-alt-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join(OLD_META_FILE),
+            r#"{"mod_notes":{"mods/a.jar":"alt","mods/b.jar":"alt"}}"#,
+        )
+        .unwrap();
+        fs::write(dir.join(META_FILE), r#"{"mod_notes":{"mods/a.jar":"neu"}}"#).unwrap();
+        convert_old_meta(&dir);
+        assert!(!dir.join(OLD_META_FILE).exists());
+        assert_eq!(note(&dir, "mods/a.jar").as_deref(), Some("neu"));
+        assert_eq!(note(&dir, "mods/b.jar").as_deref(), Some("alt"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn toggle_and_reason() {

@@ -196,49 +196,6 @@ mod linux {
         assert!(service_text().contains("KillMode=process"));
     }
 
-    /// Units und Login-Autostart von „Redcraftserver“ (bis 0.3.0) durch die neuen ersetzen.
-    /// Der An/Aus-Zustand wird übernommen.
-    pub fn replace_old_units() -> Result<Vec<String>> {
-        let mut done = vec![];
-        let old_service = unit_dir().join("redcraftserver.service");
-        let old_start = unit_dir().join("redcraftserver-autostart.service");
-        if systemd_usable() && (old_service.exists() || old_start.exists()) {
-            let service_on = is_enabled("redcraftserver.service");
-            let start_on = is_enabled("redcraftserver-autostart.service");
-            // Der alte Dienst hat den Server schon sauber gestoppt (siehe migrate.rs)
-            let _ = systemctl(&[
-                "disable",
-                "--now",
-                "redcraftserver-autostart.service",
-                "redcraftserver.service",
-            ]);
-            let _ = fs::remove_file(&old_service);
-            let _ = fs::remove_file(&old_start);
-            systemctl(&["daemon-reload"])?;
-            install_unit()?;
-            if service_on || start_on {
-                apply_boot(start_on, true)?;
-            }
-            done.push(format!(
-                "Hintergrund-Dienst heißt jetzt vapafane.service{}.",
-                if start_on {
-                    " (Server startet weiter beim PC-Start)"
-                } else if service_on {
-                    " (startet weiter beim PC-Start)"
-                } else {
-                    ""
-                }
-            ));
-        }
-        let old_desktop = config::home().join(".config/autostart/redcraftserver.desktop");
-        if old_desktop.exists() {
-            set_window_autostart(true)?;
-            fs::remove_file(&old_desktop)?;
-            done.push("Das Fenster öffnet sich weiter beim Anmelden (jetzt als Vapafane).".into());
-        }
-        Ok(done)
-    }
-
     /// Altes Panel abschalten: Dienst und Backup-Timer stoppen und nicht mehr automatisch starten.
     /// Der Dienst stoppt den Server dabei sauber (sein ExecStop schickt „stop“ per RCON).
     /// Die Dateien des alten Panels bleiben liegen, man kann es jederzeit wieder einschalten.

@@ -28,9 +28,8 @@ pub fn home() -> PathBuf {
 
 /// Gesetzt, wenn im Testmodus gearbeitet wird.
 pub fn test_home() -> Option<PathBuf> {
-    ["VAPAFANE_HOME", "REDCRAFTSERVER_HOME"] // alter Name bis 0.3.0
-        .iter()
-        .find_map(|k| std::env::var_os(k).filter(|v| !v.is_empty()))
+    std::env::var_os("VAPAFANE_HOME")
+        .filter(|v| !v.is_empty())
         .map(PathBuf::from)
 }
 
@@ -61,11 +60,6 @@ pub fn config_file() -> PathBuf {
 /// Ordner für Laufzeit-Dateien des Hintergrund-Dienstes.
 pub fn state_dir() -> PathBuf {
     config_dir().join("vapafane")
-}
-
-/// Laufzeit-Ordner der Vorgängerversion (hieß bis 0.3.0 „Redcraftserver“).
-pub fn old_state_dir() -> PathBuf {
-    config_dir().join("redcraftserver")
 }
 
 pub fn servers_dir() -> PathBuf {
@@ -221,5 +215,18 @@ impl Config {
         }
         self.active = path.map(|p| p.to_string_lossy().into_owned());
         self.save()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Neuinstallation: Server-Autostart, tägliches Backup und Fenster-Autostart sind aus.
+    #[test]
+    fn autostart_is_off_by_default() {
+        let c = super::Config::default();
+        assert!(!c.autostart_server);
+        assert!(!c.daily_backup);
+        let c: super::Config = serde_json::from_str("{\"servers\":[]}").unwrap();
+        assert!(!c.autostart_server && !c.daily_backup);
     }
 }
