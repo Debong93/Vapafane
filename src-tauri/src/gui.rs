@@ -739,6 +739,19 @@ pub fn run() {
             crate::manage::cf_key_save,
             crate::manage::cf_key_delete,
             crate::manage::open_link,
+            crate::clients_gui::invite_defaults,
+            crate::clients_gui::invite_public_address,
+            crate::clients_gui::invite_code,
+            crate::clients_gui::invite_file,
+            crate::clients_gui::client_preview,
+            crate::clients_gui::client_pick_file,
+            crate::clients_gui::client_install,
+            crate::clients_gui::client_list,
+            crate::clients_gui::client_status,
+            crate::clients_gui::client_remove,
+            crate::clients_gui::client_open_folder,
+            crate::clients_gui::client_play,
+            crate::clients_gui::client_info,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");

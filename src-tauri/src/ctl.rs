@@ -30,6 +30,12 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   mod-install PROJEKT [--datapack]  Mod/Plugin/Datapack samt Pflicht-Abhängigkeiten installieren
   curseforge-schluessel [--loeschen]  CurseForge-Schlüssel von der Eingabe lesen und speichern
   curseforge-test   gespeicherten CurseForge-Schlüssel ausprobieren
+  einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
+  einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
+  einloesen CODE|DATEI [--ordner O] [--alle-optionalen]  Client für eine Einladung einrichten
+  clients                           eingerichtete Clients anzeigen
+  client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
+  ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
   mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
@@ -332,6 +338,101 @@ fn run_inner(args: &[String]) -> Result<()> {
                 "CurseForge-Schlüssel funktioniert ({}).",
                 crate::curseforge::masked().unwrap_or_default()
             );
+        }
+        "einladung" | "einladung-datei" => {
+            let cfg = Config::load();
+            let dir = cfg
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+            let (dest, addr) = if cmd == "einladung-datei" {
+                (args.get(1).cloned(), args.get(2).cloned())
+            } else {
+                (None, args.get(1).cloned())
+            };
+            let addr = addr.unwrap_or_else(|| crate::invite::lan_address(&dir));
+            let built = crate::invite::build(&dir, &addr)?;
+            if !built.server_only.is_empty() {
+                eprintln!(
+                    "Nur auf dem Server (nicht in der Einladung): {}",
+                    built.server_only.join(", ")
+                );
+            }
+            match dest {
+                Some(d) => {
+                    let inv = crate::invite::write_file(&built, std::path::Path::new(&d))?;
+                    println!("{d}: {} Mods ({} eingepackt)", inv.mods.len(), built.files.len());
+                }
+                None => {
+                    if !built.files.is_empty() {
+                        let names: Vec<&str> = built.files.iter().map(|(t, _)| t.as_str()).collect();
+                        eprintln!(
+                            "Ohne Quelle (nur in der Einladungs-Datei möglich): {}",
+                            names.join(", ")
+                        );
+                    }
+                    let code = crate::invite::encode(&built.invite)?;
+                    eprintln!("{} Mods, {} Zeichen", built.invite.mods.len(), code.len());
+                    println!("{code}");
+                }
+            }
+        }
+        "einloesen" => {
+            let what = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Code oder Datei angeben".into()))?;
+            let folder = args
+                .iter()
+                .position(|a| a == "--ordner")
+                .and_then(|i| args.get(i + 1))
+                .map(std::path::PathBuf::from);
+            let path = std::path::Path::new(what);
+            let (inv, zip) = if path.is_file() {
+                (crate::invite::read_file(path)?, Some(path))
+            } else {
+                (crate::invite::decode(what)?, None)
+            };
+            let pv = crate::client::preview(&inv, zip)?;
+            println!(
+                "Server: {} ({}) – Minecraft {} – {} {}",
+                inv.name, inv.address, inv.mc, inv.loader, inv.loader_version
+            );
+            println!("Status: {}", pv["ping"]);
+            for m in pv["mods"].as_array().into_iter().flatten() {
+                println!(
+                    "  {:<34} {:<16} {:>9}  {}{}",
+                    m["title"].as_str().unwrap_or(""),
+                    m["version"].as_str().unwrap_or(""),
+                    crate::util::fmt_bytes(m["size"].as_u64().unwrap_or(0)),
+                    m["source"].as_str().unwrap_or(""),
+                    if m["optional"].as_bool().unwrap_or(false) {
+                        " (optional)"
+                    } else {
+                        ""
+                    }
+                );
+            }
+            let selected: std::collections::HashSet<String> = if args.iter().any(|a| a == "--alle-optionalen") {
+                inv.mods.iter().map(|m| m.id.clone()).collect()
+            } else {
+                Default::default()
+            };
+            let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
+            let r = crate::client::install(&inv, zip, folder.as_deref(), &selected, &print)?;
+            println!("{}", serde_json::to_string_pretty(&r)?);
+        }
+        "clients" => println!("{}", serde_json::to_string_pretty(&crate::client::list())?),
+        "client-entfernen" => {
+            let d = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Ordner angeben".into()))?;
+            crate::client::remove(std::path::Path::new(d))?;
+            println!("Entfernt.");
+        }
+        "ping" => {
+            let a = args
+                .get(1)
+                .ok_or_else(|| crate::util::Error("Bitte Adresse angeben".into()))?;
+            println!("{}", crate::client::ping(a)?);
         }
         "mrpack" => {
             let cfg = Config::load();

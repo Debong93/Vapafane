@@ -246,6 +246,14 @@ pub fn search(kind: Kind, datapacks: bool, mc: &str, query: &str, index: u32) ->
     ))
 }
 
+/// Eine bestimmte Datei einer Mod.
+pub fn get_file(mod_id: u64, file_id: u64) -> Result<Value> {
+    Ok(get(&format!("/v1/mods/{mod_id}/files/{file_id}"), &[])?
+        .get("data")
+        .cloned()
+        .unwrap_or(Value::Null))
+}
+
 pub fn get_mod(id: u64) -> Result<Value> {
     Ok(get(&format!("/v1/mods/{id}"), &[])?
         .get("data")

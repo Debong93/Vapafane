@@ -1326,3 +1326,191 @@ async function init() {
 }
 
 init();
+
+// ------------------------------------------------------------------ Server | Client
+
+function setMode(mode) {
+  const client = mode === "client";
+  document.body.classList.toggle("client-mode", client);
+  $("mode-server").classList.toggle("active", !client);
+  $("mode-client").classList.toggle("active", client);
+  if (client) {
+    for (const s of document.querySelectorAll(".tab")) s.classList.toggle("active", s.id === "tab-client");
+    refreshClients();
+  } else {
+    const t = document.querySelector("#tabs button.active")?.dataset.tab || "overview";
+    showTab(t);
+  }
+  try { localStorage.setItem("modus", mode); } catch (_) { /* egal */ }
+}
+$("mode-server").onclick = () => setMode("server");
+$("mode-client").onclick = () => setMode("client");
+
+// ------------------------------------------------------------------ Freunde einladen (Server)
+
+$("btn-invite").onclick = async () => {
+  let d;
+  try { d = await invoke("invite_defaults"); } catch (e) { return error("Einladen", e); }
+  const body = `<p>Deine Freunde bekommen einen Code (oder eine Datei). Damit richtet Vapafane bei ihnen Minecraft mit genau den passenden Mods ein.</p>
+    <label for="inv-addr">Adresse, unter der deine Freunde den Server erreichen</label>
+    <div class="row" style="margin:4px 0"><input id="inv-addr" value="${esc(d.lan)}" spellcheck="false"><button id="inv-public" type="button">Öffentliche Adresse ermitteln</button></div>
+    <p class="dim small">Vorbelegt ist die Adresse im Heimnetz – die passt nur, wenn alle im selben WLAN sind. Freunde von außen brauchen deine öffentliche Adresse
+      oder eine Domain (z. B. von DynDNS), und im Router muss der Port des Servers freigegeben sein. Es wird kein weiterer Port gebraucht.</p>
+    <div class="row"><button id="inv-make" class="primary" type="button">Code erzeugen</button><button id="inv-file" type="button">Als Datei speichern …</button></div>
+    <div id="inv-out"></div>
+    <p class="dim small">Der Code enthält keine Passwörter, keine Ordner und keinen CurseForge-Schlüssel – nur Adresse, Version und die Mods, die Spieler brauchen.</p>`;
+  const show = (r, codeHtml) => {
+    let t = codeHtml || "";
+    t += `<p>${r.mods ? `${r.mods} Mods für die Spieler` + (r.optional ? ` (davon ${r.optional} optional)` : "") : "Keine Mods nötig – nur die Version " + esc(r.mc) + "."}</p>`;
+    if (r.server_only.length) t += `<p class="dim small">Nur auf dem Server (Spieler brauchen sie nicht): ${r.server_only.map(esc).join(", ")}</p>`;
+    if (r.files.length && codeHtml) t += `<p class="hint">Diese Mods gibt es weder auf Modrinth noch auf CurseForge: ${r.files.map(esc).join(", ")}. Sie passen nicht in den Code – bitte stattdessen „Als Datei speichern“ nehmen, dann sind sie eingepackt.</p>`;
+    $("inv-out").innerHTML = t;
+    if ($("inv-copy")) $("inv-copy").onclick = async () => {
+      const ta = $("inv-code");
+      try { await navigator.clipboard.writeText(ta.value); } catch (_) { ta.select(); document.execCommand("copy"); }
+      $("inv-copy").textContent = "✓ Kopiert";
+    };
+  };
+  await ask("Freunde einladen", body, [{ label: "Schließen", value: false, kind: "primary" }], {
+    html: true, wide: true, noFocus: true, onOpen: () => {
+      $("inv-public").onclick = async () => {
+        $("inv-public").disabled = true;
+        try { $("inv-addr").value = await invoke("invite_public_address"); } catch (e) { $("inv-out").innerHTML = `<p class="hint">${esc(e)}</p>`; }
+        $("inv-public").disabled = false;
+      };
+      $("inv-make").onclick = async () => {
+        try {
+          const r = await invoke("invite_code", { address: $("inv-addr").value });
+          show(r, `<label>Einladungs-Code (${r.code.length} Zeichen) – kopieren und z. B. per Messenger schicken:</label>
+            <textarea id="inv-code" rows="4" readonly>${esc(r.code)}</textarea><div class="row"><button id="inv-copy" class="primary" type="button">Kopieren</button></div>`);
+        } catch (e) { $("inv-out").innerHTML = `<p class="hint">${esc(e)}</p>`; }
+      };
+      $("inv-file").onclick = async () => {
+        try {
+          const r = await invoke("invite_file", { address: $("inv-addr").value });
+          if (r) show(r, `<p>✓ Gespeichert: <code>${esc(r.path)}</code> – diese Datei deinen Freunden schicken.</p>`);
+        } catch (e) { $("inv-out").innerHTML = `<p class="hint">${esc(e)}</p>`; }
+      };
+    },
+  });
+};
+
+// ------------------------------------------------------------------ Einladung einlösen (Client)
+
+const LOADER_NAMES = { fabric: "Fabric", neoforge: "NeoForge", paper: "Paper", vanilla: "Vanilla" };
+let clPreview = null;
+let clTarget = null;
+
+function pingPill(p, ok) {
+  if (!p || !p.online) return `<span class="pill bad">Server nicht erreichbar</span>`;
+  return ok ? `<span class="pill ok">Online · ${esc(p.version)} · ${p.players}/${p.max} Spieler</span>`
+    : `<span class="pill warn">Online, aber Version ${esc(p.version)} – passt nicht</span>`;
+}
+
+async function checkInvite(source) {
+  $("cl-preview").classList.remove("hidden");
+  $("cl-preview").innerHTML = `<p class="dim">Prüfe die Einladung …</p>`;
+  try { clPreview = await invoke("client_preview", { source }); }
+  catch (e) { $("cl-preview").innerHTML = `<p class="hint error">${esc(e)}</p>`; return; }
+  clTarget = null;
+  const p = clPreview, inv = p.invite;
+  const loader = LOADER_NAMES[inv.l] + (inv.lv ? ` ${inv.lv}` : "");
+  let rows = p.mods.map((m) => `<tr><td>${m.optional ? `<input type="checkbox" data-opt="${esc(m.key)}">` : "✓"}</td>
+    <td>${esc(m.title)}${m.optional ? ' <span class="badge">optional</span>' : ""}${m.source === "curseforge" ? ' <span class="badge src-cf">CurseForge</span>' : ""}
+      ${m.manual ? '<br><span class="dim small">nur im Browser ladbar (Link nach dem Einrichten)</span>' : ""}${m.missing_in_file ? '<br><span class="dim small">fehlt – nur in der Einladungs-Datei</span>' : ""}</td>
+    <td>${esc(m.version)}</td><td class="size">${m.size ? fmtBytes(m.size) : "–"}</td></tr>`).join("");
+  if (!rows) rows = `<tr><td colspan="4" class="dim">Keine Mods nötig – nur Minecraft ${esc(inv.m)}.</td></tr>`;
+  let warn = "";
+  if (!p.launcher) warn = `<p class="hint">Der offizielle Minecraft-Launcher wurde nicht gefunden. Du kannst trotzdem einrichten; das Profil wird angelegt, sobald der Launcher installiert ist und du hier „Aktualisieren“ drückst. <a href="#" id="cl-dl">Launcher herunterladen</a></p>`;
+  else if (!p.profiles) warn = `<p class="hint">Der Launcher wurde noch nie gestartet. Bitte einmal starten und wieder schließen, dann hier einrichten.</p>`;
+  $("cl-preview").innerHTML = `<div class="preview-head"><span class="big">${esc(inv.n)}</span> <code>${esc(inv.a)}</code>
+      ${pingPill(p.ping, p.version_ok)}</div>
+    <p>Minecraft <b>${esc(inv.m)}</b> · ${esc(loader)} · ${p.mods.length} Mods, zusammen ${fmtBytes(p.total)}</p>
+    ${p.ping.online && !p.version_ok ? `<p class="hint">Der Server meldet eine andere Version (${esc(p.ping.version)}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.</p>` : ""}
+    ${warn}
+    <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>Mod</th><th>Version</th><th>Größe</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="row"><span>Ordner:</span><code id="cl-dir" class="grow">${esc(p.default_dir)}</code><button id="cl-dir-btn">Anderer Ordner …</button></div>
+    <p class="dim small">Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt.</p>
+    <div class="row"><button id="cl-install" class="primary">Einrichten</button></div>
+    <div id="cl-result"></div>`;
+  if ($("cl-dl")) $("cl-dl").onclick = (e) => { e.preventDefault(); invoke("open_link", { target: "launcher-download" }); };
+  $("cl-dir-btn").onclick = async () => {
+    const d = await invoke("pick_folder", { title: "Ordner für dieses Minecraft wählen" });
+    if (d) { clTarget = d; $("cl-dir").textContent = d; }
+  };
+  $("cl-install").onclick = installClient;
+}
+
+async function installClient() {
+  const selected = [...document.querySelectorAll("#cl-preview [data-opt]")].filter((c) => c.checked).map((c) => c.dataset.opt);
+  $("cl-install").disabled = true;
+  let r;
+  try { r = await task("client_install", { source: clPreview.source, target: clTarget, selected }); }
+  catch (e) { $("cl-install").disabled = false; $("cl-result").innerHTML = `<p class="hint error">${esc(e)}</p>`; return; }
+  let t = `<p class="hint">✓ Eingerichtet: ${r.installed.length} Mods geladen.` + (r.profile ? ` Im Minecraft-Launcher gibt es jetzt das Profil <b>„Vapafane – ${esc(clPreview.invite.n)}“</b>.` : "") + `</p>`;
+  for (const n of r.notes) t += `<p class="hint">${esc(n)}</p>`;
+  if (r.manual.length) {
+    t += `<p><b>Bitte selbst herunterladen</b> und in den Ordner <code>mods</code> legen:</p><ul>` +
+      r.manual.map((m, i) => `<li>${esc(m.title)} – ${esc(m.reason)} ${m.page ? `<button data-man="${i}">Im Browser herunterladen ↗</button>` : ""}</li>`).join("") + `</ul>` +
+      `<button id="cl-res-folder">Ordner öffnen</button>`;
+  }
+  t += `<div class="row"><button id="cl-res-play" class="primary">Spielen (Launcher öffnen)</button></div>`;
+  $("cl-result").innerHTML = t;
+  for (const b of document.querySelectorAll("#cl-result [data-man]")) b.onclick = () => invoke("open_link", { target: r.manual[+b.dataset.man].page }).catch((e) => error("Link", e));
+  if ($("cl-res-folder")) $("cl-res-folder").onclick = () => invoke("client_open_folder", { dir: r.dir });
+  $("cl-res-play").onclick = playLauncher;
+  addEvent(`Client eingerichtet: ${clPreview.invite.n}`);
+  refreshClients();
+}
+
+async function playLauncher() {
+  try { await invoke("client_play"); }
+  catch (e) {
+    ask("Minecraft-Launcher nicht gefunden", `${esc(e)}`, [{ label: "Schließen", value: false }, { label: "Zur Download-Seite", value: true, kind: "primary" }], { html: true })
+      .then((ok) => { if (ok) invoke("open_link", { target: "launcher-download" }); });
+  }
+}
+
+$("btn-cl-check").onclick = () => { const c = $("cl-code").value.trim(); if (c) checkInvite(c); };
+$("btn-cl-file").onclick = async () => { const f = await invoke("client_pick_file"); if (f) checkInvite(f); };
+
+async function refreshClients() {
+  const info = await invoke("client_info").catch(() => ({}));
+  $("cl-launcher").innerHTML = info.launcher ? `<span class="pill ok">Minecraft-Launcher gefunden</span>`
+    : `<span class="pill warn">Kein Minecraft-Launcher gefunden</span> <a href="#" id="cl-dl2">Download</a>`;
+  if ($("cl-dl2")) $("cl-dl2").onclick = (e) => { e.preventDefault(); invoke("open_link", { target: "launcher-download" }); };
+  const list = await invoke("client_list").catch(() => []);
+  const box = $("cl-list");
+  box.innerHTML = list.length ? "" : `<div class="empty">Noch kein Server eingerichtet – oben eine Einladung einlösen.</div>`;
+  for (const c of list) {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `<div class="grow"><div><b>${esc(c.name)}</b> <code>${esc(c.address)}</code> <span class="st"><span class="pill">prüfe …</span></span></div>
+      <div class="sub">Minecraft ${esc(c.mc)} · ${esc(LOADER_NAMES[c.loader] || c.loader)} · ${c.mods} Mods · eingerichtet ${esc(c.updated || "")}</div></div>`;
+    for (const [label, fn, cls] of [
+      ["Spielen", playLauncher, "primary"],
+      ["Aktualisieren", () => { $("cl-code").focus(); info2("Aktualisieren", "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt."); }],
+      ["Ordner öffnen", () => invoke("client_open_folder", { dir: c.dir }).catch((e) => error("Ordner", e))],
+      ["Entfernen", async () => {
+        if (!(await confirmAsk(`„${c.name}“ entfernen?`, "Der Ordner mit Mods, Einstellungen und Einzelspieler-Welten dieses Profils wird gelöscht, und das Profil verschwindet aus dem Minecraft-Launcher.", "Entfernen"))) return;
+        try { await invoke("client_remove", { dir: c.dir }); } catch (e) { error("Entfernen", e); }
+        refreshClients();
+      }, "danger"],
+    ]) {
+      const b = document.createElement("button");
+      b.textContent = label;
+      if (cls) b.className = cls;
+      b.onclick = fn;
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+    invoke("client_status", { dir: c.dir }).then((s) => {
+      row.querySelector(".st").innerHTML = s.online ? (s.version_ok ? pingPill(s.ping, true)
+        : `<span class="pill warn">Server wurde aktualisiert (${esc(s.ping.version)}) – neuen Einladungs-Code beim Admin holen</span>`)
+        : `<span class="pill bad">gerade nicht erreichbar</span>`;
+    }).catch(() => {});
+  }
+}
+const info2 = (t, x) => info(t, x);
+
+try { if (localStorage.getItem("modus") === "client") setTimeout(() => setMode("client"), 50); } catch (_) { /* egal */ }

@@ -97,8 +97,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .topbar {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: "brand picker theme" "tabs tabs tabs";
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-areas: "brand mode picker theme" "tabs tabs tabs tabs";
   align-items: center;
   gap: 8px 14px;
   padding: 8px 14px 18px;
@@ -412,3 +412,19 @@ h3 { display: inline-block; background: var(--panel); border: 1px solid var(--bo
 .badge.exp { background: var(--amber); color: #fff; font-weight: 600; }
 :root[data-theme="dark"] .badge.exp { color: #1f1a14; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.exp { color: #1f1a14; } }
+
+/* Umschalter Server | Client */
+.mode-switch { grid-area: mode; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.mode-switch button { border: none; border-radius: 0; padding: 5px 14px; background: var(--panel); color: var(--dim); font-weight: 600; }
+.mode-switch button.active { background: var(--accent); color: var(--accent-text); }
+body.client-mode .picker, body.client-mode .tabs { visibility: hidden; }
+body.client-mode .tabs { height: 0; overflow: hidden; }
+.client-h { font-size: 17px; margin: 10px 0 4px; }
+#cl-code, #inv-code { width: 100%; font: 12.5px/1.4 ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; resize: vertical; word-break: break-all; }
+.preview-head { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.preview-head .big { font-size: 18px; font-weight: 700; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 12.5px; font-weight: 600; }
+.pill.ok { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+.pill.warn { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
+.pill.bad { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.modtable td.size { text-align: right; color: var(--dim); white-space: nowrap; }

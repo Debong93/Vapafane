@@ -8,7 +8,11 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><img src="icon.png" alt=""><span>Vapafane <small>das Minecraft-Servertool</small></span></div>
+    <div class="brand"><img src="icon.png" alt=""><span>Vapafane <small>Minecraft-Werkbank für Server &amp; Client</small></span></div>
+    <div class="mode-switch" role="tablist" aria-label="Bereich">
+      <button id="mode-server" class="active" role="tab">Server</button>
+      <button id="mode-client" role="tab">Client</button>
+    </div>
     <div class="picker">
       <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"></select>
       <button id="btn-add-server" class="icon-btn" title="Server hinzufügen">＋</button>
@@ -48,6 +52,7 @@
           <button id="btn-stop" class="danger">■ Stoppen</button>
           <button id="btn-restart">⟳ Neustart</button>
           <button id="btn-backup">Backup</button>
+          <button id="btn-invite" class="primary">Freunde einladen</button>
         </div>
       </div>
       <div id="overview-hint" class="hint hidden"></div>
@@ -233,11 +238,31 @@
       </div>
       <h3>Über Vapafane</h3>
       <div class="cf-box about">
-        <p><b>Vapafane – das Minecraft-Servertool</b> <span id="about" class="dim"></span></p>
+        <p><b>Vapafane – Minecraft-Werkbank für Server & Client</b> <span id="about" class="dim"></span></p>
         <p class="notice">Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.</p>
         <p>Minecraft ist eine Marke von Mojang/Microsoft. Mods und Plugins stammen von ihren jeweiligen Autoren (über Modrinth bzw. CurseForge).</p>
         <div class="row"><button data-link="issues">Kontakt &amp; Fehler melden (GitHub) ↗</button><button data-link="repo">Projektseite ↗</button></div>
       </div>
+    </section>
+    <!-- Client-Bereich: Einladung einlösen und Minecraft einrichten -->
+    <section id="tab-client" class="tab">
+      <div class="cf-box">
+        <h2 class="client-h">Einladung einlösen</h2>
+        <p class="dim">Hat dir jemand einen Einladungs-Code (beginnt mit <code>VPF1-</code>) oder eine Datei <code>.vapafane</code> geschickt?
+          Dann richtet Vapafane Minecraft passend für diesen Server ein – mit allen Mods – und legt im offiziellen Minecraft-Launcher
+          ein eigenes Profil an. Gespielt wird ganz normal über den Launcher.</p>
+        <textarea id="cl-code" rows="3" placeholder="Einladungs-Code hier einfügen (VPF1-…)" spellcheck="false"></textarea>
+        <div class="row">
+          <button id="btn-cl-check" class="primary">Einladung prüfen</button>
+          <button id="btn-cl-file">Einladungs-Datei öffnen …</button>
+          <span class="spacer"></span>
+          <span id="cl-launcher" class="small"></span>
+        </div>
+      </div>
+      <div id="cl-preview" class="cf-box hidden"></div>
+      <h3>Meine Server</h3>
+      <div id="cl-list" class="list"></div>
+      <p class="notice small">Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an – „Spielen“ öffnet den offiziellen Launcher.</p>
     </section>
   </main>
 

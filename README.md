@@ -1,4 +1,4 @@
-# Vapafane – das Minecraft-Servertool
+# Vapafane – Minecraft-Werkbank für Server & Client
 
 > **Hinweis:** Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder
 > Microsoft genehmigt und steht in keiner Verbindung zu ihnen.
@@ -57,6 +57,30 @@ Nachfolger des Python/GTK-Panels aus `~/MC_Panel`.
 - **Automatik:** Server beim PC-Start starten (auch ohne Anmeldung), Fenster beim
   Anmelden öffnen, tägliches Backup um 5:00 Uhr, Benachrichtigungen.
 
+## Freunde einladen (Server → Client)
+
+**Als Admin (Server-Seite):** In der Übersicht auf **„Freunde einladen“** klicken. Die
+Adresse prüfen – im Heimnetz passt die vorbelegte, für Freunde von außen „Öffentliche
+Adresse ermitteln“ oder deine Domain eintragen (dafür muss im Router der Server-Port
+freigegeben sein; einen weiteren Port braucht Vapafane nicht). Dann **„Code erzeugen“** und
+den Code (beginnt mit `VPF1-`, nur Buchstaben und Ziffern, bei 20 Mods etwa 650 Zeichen)
+per Messenger schicken – oder **„Als Datei speichern“**: Die `.vapafane`-Datei enthält
+zusätzlich Mods, die es weder auf Modrinth noch auf CurseForge gibt.
+Der Code enthält keine Passwörter, keine Ordner und keinen CurseForge-Schlüssel. Reine
+Server-Mods kommen nicht hinein, optionale Client-Mods sind als „optional“ markiert.
+
+**Als Spieler (Client-Seite):** Vapafane installieren, oben auf **„Client“** umschalten,
+den Code einfügen (oder die Datei öffnen) und **„Einladung prüfen“**. Die Vorschau zeigt
+Server, Version, Loader, die Mods mit Größe und ob der Server gerade erreichbar ist.
+**„Einrichten“** legt ein eigenes Minecraft-Verzeichnis an (Linux
+`~/.local/share/vapafane/clients/<Name>`, Windows `%APPDATA%\vapafane\clients\<Name>`),
+installiert den Loader (Fabric/NeoForge) in den offiziellen Launcher, lädt die Mods (mit
+Prüfsumme), trägt den Server ein und legt im Launcher das Profil **„Vapafane – <Server>“**
+an (vorher wird eine Sicherheitskopie von `launcher_profiles.json` gemacht, andere Profile
+bleiben unberührt). **„Spielen“** öffnet den offiziellen Launcher – Vapafane startet
+Minecraft nicht selbst und fasst kein Microsoft-Konto an.
+Wird der Server aktualisiert, zeigt Vapafane das an; dann einfach den neuen Code einlösen.
+
 ## Installieren
 
 Die Installer gibt es unter **Releases** auf GitHub.
@@ -71,7 +95,7 @@ Java installieren, z. B. [Temurin von adoptium.net](https://adoptium.net)
 Eigenschaften → „Als Programm ausführen“) und starten – oder das `.deb` installieren:
 
 ```bash
-sudo apt install ./Vapafane_0.4.1_amd64.deb
+sudo apt install ./Vapafane_0.5.0_amd64.deb
 ```
 
 Java: `sudo apt install openjdk-25-jre-headless`
@@ -109,7 +133,7 @@ An/Aus-Zustand wird übernommen), der Login-Autostart `vapafane.desktop`. Die
 Konfiguration und alle Server bleiben, wie sie sind.
 
 ```bash
-sudo apt install ./Vapafane_0.4.1_amd64.deb
+sudo apt install ./Vapafane_0.5.0_amd64.deb
 sudo apt remove redcraftserver
 ```
 

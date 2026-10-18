@@ -43,6 +43,17 @@ pub fn config_dir() -> PathBuf {
         .join("mc-server-panel")
 }
 
+/// Ordner für Daten von Vapafane (z. B. eingerichtete Clients):
+/// Linux ~/.local/share/vapafane, Windows %APPDATA%\vapafane.
+pub fn data_dir() -> PathBuf {
+    if let Some(h) = test_home() {
+        return h.join(".local").join("share").join("vapafane");
+    }
+    dirs::data_dir()
+        .unwrap_or_else(|| home().join(".local").join("share"))
+        .join("vapafane")
+}
+
 pub fn config_file() -> PathBuf {
     config_dir().join("config.json")
 }

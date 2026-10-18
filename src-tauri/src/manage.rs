@@ -372,6 +372,7 @@ pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
         "cf-terms" => crate::curseforge::TERMS_URL.to_string(),
         "issues" => "https://github.com/Debong93/Vapafane/issues".to_string(),
         "repo" => "https://github.com/Debong93/Vapafane".to_string(),
+        "launcher-download" => crate::client::LAUNCHER_DOWNLOAD.to_string(),
         u if u.starts_with("https://www.curseforge.com/") || u.starts_with("https://modrinth.com/") => u.to_string(),
         _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
     };

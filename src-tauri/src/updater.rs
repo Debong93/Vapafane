@@ -238,7 +238,7 @@ pub(crate) fn newest_for_project(project_id: &str, loaders: &[&str], target: &st
         .cloned())
 }
 
-fn project_infos(ids: &HashSet<String>) -> Result<HashMap<String, Value>> {
+pub(crate) fn project_infos(ids: &HashSet<String>) -> Result<HashMap<String, Value>> {
     let mut out = HashMap::new();
     let ids: Vec<&String> = ids.iter().collect();
     for chunk in ids.chunks(100) {
