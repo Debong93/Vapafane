@@ -215,6 +215,8 @@ pub async fn get_settings() -> Cmd<Value> {
             "total_memory": procs::total_memory(),
             "notify": cfg.notify,
             "daily": cfg.daily_backup,
+            "daily_time": cfg.daily_backup_time,
+            "reach_check": cfg.reach_check,
             "window": autostart::window_autostart_enabled(),
             "linger": autostart::linger_enabled(),
             "systemd": autostart::systemd_usable(),
@@ -319,6 +321,48 @@ pub async fn set_daily_backup(on: bool) -> Cmd<()> {
     .await
 }
 
+/// Uhrzeit für das tägliche Backup („HH:MM“).
+#[tauri::command]
+pub fn set_daily_time(time: String) -> Cmd<String> {
+    let t = chrono::NaiveTime::parse_from_str(time.trim(), "%H:%M")
+        .map_err(|_| "Bitte eine Uhrzeit wie 05:00 angeben.".to_string())?;
+    let mut cfg = Config::load();
+    cfg.daily_backup_time = t.format("%H:%M").to_string();
+    cfg.save().map_err(|e| e.0)?;
+    Ok(cfg.daily_backup_time)
+}
+
+#[tauri::command]
+pub fn set_reach_check(on: bool) -> Cmd<()> {
+    let mut cfg = Config::load();
+    cfg.reach_check = on;
+    cfg.save().map_err(|e| e.0)
+}
+
+/// Erreichbarkeit von außen prüfen (Reiter „Erreichbarkeit“).
+#[tauri::command]
+pub async fn reach_check() -> Cmd<crate::reach::Report> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = cfg
+            .active_path()
+            .ok_or_else(|| Error("Noch kein Server angelegt.".into()))?;
+        crate::reach::check(&dir)
+    })
+    .await
+}
+
+/// Letztes Ergebnis und ob beim Wechsel in den Server-Bereich geprüft werden soll.
+#[tauri::command]
+pub fn reach_last() -> Value {
+    let cfg = Config::load();
+    let last = crate::reach::last().filter(|r| {
+        cfg.active_path()
+            .is_some_and(|d| crate::reach::server_port(&d) == r.port)
+    });
+    json!({"report": last, "auto": crate::reach::should_check_on_start(&cfg)})
+}
+
 #[tauri::command]
 pub fn set_notify(on: bool) -> Cmd<()> {
     let mut cfg = Config::load();
@@ -374,6 +418,7 @@ pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
         "repo" => "https://github.com/Debong93/Vapafane".to_string(),
         "launcher-download" => crate::client::LAUNCHER_DOWNLOAD.to_string(),
         "modrinth-download" => "https://modrinth.com/app".to_string(),
+        "portforward" => crate::reach::GUIDE_URL.to_string(),
         u if u.starts_with("https://www.curseforge.com/") || u.starts_with("https://modrinth.com/") => u.to_string(),
         _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
     };

@@ -6,12 +6,12 @@
   <title>Vapafane</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="client-mode">
   <header class="topbar">
     <div class="brand"><img src="icon.png" alt=""><span>Vapafane <small>Minecraft-Werkbank für Server &amp; Client</small></span></div>
     <div class="mode-switch" role="tablist" aria-label="Bereich">
-      <button id="mode-server" class="active" role="tab">Server</button>
-      <button id="mode-client" role="tab">Client</button>
+      <button id="mode-server" role="tab">Server</button>
+      <button id="mode-client" class="active" role="tab">Client</button>
     </div>
     <div class="picker">
       <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"></select>
@@ -31,6 +31,7 @@
       <button data-tab="mods">Mods/Plugins</button>
       <button data-tab="updates">Updates</button>
       <button data-tab="backups">Backups</button>
+      <button data-tab="reach" id="reach-tab"><span class="reach-dot" id="reach-dot"></span>Erreichbarkeit</button>
       <button data-tab="settings">Einstellungen</button>
     </nav>
     <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
@@ -62,6 +63,7 @@
         <div class="card"><div class="card-title">CPU</div><div class="card-value" id="c-cpu">–</div><div class="card-sub" id="c-cpu-sub"></div><svg class="spark" id="s-cpu" viewBox="0 0 150 34" preserveAspectRatio="none"></svg></div>
         <div class="card"><div class="card-title">Arbeitsspeicher</div><div class="card-value" id="c-ram">–</div><div class="card-sub" id="c-ram-sub"></div><svg class="spark" id="s-ram" viewBox="0 0 150 34" preserveAspectRatio="none"></svg></div>
         <div class="card"><div class="card-title">Server-Ordner</div><div class="card-value" id="c-size">–</div><div class="card-sub" id="c-size-sub"></div></div>
+        <div class="card"><div class="card-title">Von außen</div><div class="card-value" id="c-reach">–</div><div class="card-sub" id="c-reach-sub"></div></div>
         <div class="card"><div class="card-title">Adresse (Heimnetz)</div><div class="card-value" id="c-addr">–</div><div class="card-sub" id="c-addr-sub"></div></div>
         <div class="card"><div class="card-title">Letztes Backup</div><div class="card-value" id="c-backup">–</div><div class="card-sub" id="c-backup-sub"></div></div>
         <div class="card"><div class="card-title">Version</div><div class="card-value" id="c-version">–</div><div class="card-sub" id="c-version-sub"></div></div>
@@ -158,6 +160,28 @@
       <div id="backup-list" class="list"></div>
     </section>
 
+    <!-- Erreichbarkeit -->
+    <section id="tab-reach" class="tab">
+      <div class="reach-top">
+        <div class="ampel" aria-hidden="true"><span class="lamp red"></span><span class="lamp yellow"></span><span class="lamp green"></span></div>
+        <div class="reach-msg">
+          <div id="reach-title" class="reach-title">Noch nicht geprüft</div>
+          <div id="reach-text" class="dim"></div>
+        </div>
+      </div>
+      <div class="reach-rows">
+        <div class="reach-row"><span>IPv4</span><span id="reach-v4" class="pill">–</span></div>
+        <div class="reach-row"><span>IPv6</span><span id="reach-v6" class="pill">–</span></div>
+        <p class="dim small">IPv4 ist die klassische Internet-Adresse, IPv6 die neue mit eigener Adresse für jedes Gerät. Bei DS-Lite teilt dein Anbieter die IPv4-Adresse, dann geht nur IPv6.</p>
+      </div>
+      <div class="row">
+        <button id="btn-reach" class="primary">Erneut prüfen</button>
+        <button id="btn-reach-guide" class="hidden">Anleitung Portfreigabe ↗</button>
+        <span id="reach-when" class="dim small"></span>
+      </div>
+      <p class="dim small">Zum Prüfen fragt Vapafane einen Prüfdienst im Internet (ifconfig.co), ob der Server-Port von außen offen ist. Abschalten: Einstellungen → Automatik.</p>
+    </section>
+
     <!-- Einstellungen -->
     <section id="tab-settings" class="tab">
       <h3>Spiel (dieser Server)</h3>
@@ -185,7 +209,8 @@
       <div class="switches">
         <div class="sw-row"><div><div>Aktiven Server beim PC-Start automatisch starten</div><div class="dim small" id="autostart-sub"></div></div><label class="switch"><input type="checkbox" id="sw-autostart"><span></span></label></div>
         <div class="sw-row"><div><div>Dieses Fenster beim Anmelden öffnen</div></div><label class="switch"><input type="checkbox" id="sw-window"><span></span></label></div>
-        <div class="sw-row"><div><div>Tägliches Backup um 5:00 Uhr (ganzer Server als ZIP)</div><div class="dim small">Macht der Hintergrund-Dienst. Holt es nach, falls der PC um 5 Uhr aus war.</div></div><label class="switch"><input type="checkbox" id="sw-daily"><span></span></label></div>
+        <div class="sw-row"><div><div>Tägliches Backup um <input id="daily-time" type="time" class="time" aria-label="Uhrzeit für das tägliche Backup"> Uhr (ganzer Server als ZIP)</div><div class="dim small">Macht der Hintergrund-Dienst. Holt es nach, falls der PC zu der Zeit aus war.</div></div><label class="switch"><input type="checkbox" id="sw-daily"><span></span></label></div>
+        <div class="sw-row"><div><div>Erreichbarkeit von außen prüfen</div><div class="dim small">Beim Wechsel in den Server-Bereich. Fragt dafür einen Prüfdienst im Internet.</div></div><label class="switch"><input type="checkbox" id="sw-reach"><span></span></label></div>
         <div class="sw-row"><div><div>Benachrichtigungen</div><div class="dim small">Wenn jemand beitritt oder geht und wenn der Server abstürzt (solange das Fenster offen ist).</div></div><label class="switch"><input type="checkbox" id="sw-notify"><span></span></label></div>
       </div>
       <div id="old-panel-box" class="hint hidden"></div>

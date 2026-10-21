@@ -657,3 +657,32 @@ a { color: var(--blue); }
 @media (prefers-reduced-motion: reduce) {
   button, .switch span, .switch span::before { transition: none; }
 }
+
+/* Erreichbarkeit: Ampel nur für den eigenen Server */
+.reach-top { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.ampel { display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 10px 0; background: #111; border: 2px solid var(--border); box-shadow: inset 2px 2px 0 #2a2a2a, inset -2px -2px 0 #000; }
+.lamp { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #000; background: #2a2a2a; }
+.ampel[data-light="red"] .lamp.red { background: #e5483f; box-shadow: 0 0 10px #e5483f; }
+.ampel[data-light="yellow"] .lamp.yellow { background: #f0b840; box-shadow: 0 0 10px #f0b840; }
+.ampel[data-light="green"] .lamp.green { background: #3fbf3f; box-shadow: 0 0 10px #3fbf3f; }
+.reach-msg { background: var(--panel); border: 2px solid var(--border); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo); padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.reach-title { font-size: 17px; font-weight: 700; }
+.reach-rows { margin: 14px 0; background: var(--panel); border: 2px solid var(--border); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo); padding: 8px 14px; }
+.reach-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); }
+.reach-rows p { margin: 8px 0 2px; }
+.reach-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; border: 1px solid #000; background: var(--gray); vertical-align: 0; }
+.reach-dot[data-light="green"] { background: #3fbf3f; }
+.reach-dot[data-light="yellow"] { background: #f0b840; }
+.reach-dot[data-light="red"] { background: #e5483f; }
+.reach-dot[data-light="none"] { display: none; }
+/* Reiter blinkt bei Gelb/Rot, bis man ihn einmal anschaut */
+.tabs button.alarm { --ac: #f0b840; animation: alarm 1.1s steps(2, jump-none) infinite; }
+.tabs button.alarm.red { --ac: #e5483f; }
+@keyframes alarm {
+  from { }
+  to { background: color-mix(in srgb, var(--ac) 55%, #2a1c00); box-shadow: inset 2px 2px 0 color-mix(in srgb, var(--ac) 75%, #fff), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--ac); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabs button.alarm { animation: none; box-shadow: inset 2px 2px 0 var(--bhi), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--ac); }
+}
+input.time { width: auto; padding: 1px 4px; margin: 0 2px; font: inherit; }

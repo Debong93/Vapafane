@@ -4442,7 +4442,7 @@ dependencies = [
 
 [[package]]
 name = "vapafane"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "base64 0.22.1",
  "bs58",
@@ -4459,6 +4459,7 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2",
+ "socket2",
  "sysinfo",
  "tar",
  "tauri",

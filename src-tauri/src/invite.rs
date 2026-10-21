@@ -69,6 +69,12 @@ pub struct Invite {
     pub loader_version: String,
     #[serde(rename = "x", default, skip_serializing_if = "Vec::is_empty")]
     pub mods: Vec<InviteMod>,
+    /// Zusätzlich die IPv6-Adresse des Servers: [IPv6]:Port (ältere Versionen ignorieren das)
+    #[serde(rename = "a6", default, skip_serializing_if = "String::is_empty")]
+    pub address6: String,
+    /// Server ist laut letzter Prüfung nur über IPv6 erreichbar
+    #[serde(rename = "o6", default, skip_serializing_if = "is_false")]
+    pub only_v6: bool,
 }
 
 /// Was beim Erstellen herauskam (für die Anzeige beim Admin).
@@ -125,6 +131,7 @@ pub fn check(inv: &Invite) -> Result<()> {
         || !ok_text(&inv.address, 260)
         || !ok_text(&inv.mc, 40)
         || !ok_text(&inv.loader_version, 60)
+        || !(inv.address6.is_empty() || (inv.address6.starts_with('[') && ok_text(&inv.address6, 60)))
     {
         return err("Die Einladung enthält ungültige Angaben.");
     }
@@ -163,6 +170,8 @@ pub fn build(dir: &Path, address: &str) -> Result<Built> {
         loader: kind.id().into(),
         loader_version: info.loader.clone(),
         mods: vec![],
+        address6: crate::reach::invite_v6(dir).unwrap_or_default(),
+        only_v6: crate::reach::last().is_some_and(|r| r.v6_only && r.port == crate::reach::server_port(dir)),
     };
     let mut built = Built {
         invite: inv.clone(),
@@ -359,6 +368,8 @@ mod tests {
                     slug: String::new(),
                 })
                 .collect(),
+            address6: String::new(),
+            only_v6: false,
         }
     }
 
@@ -387,6 +398,20 @@ mod tests {
         assert_eq!(decode(&broken).unwrap(), inv);
         println!("Code-Länge bei 20 Mods: {} Zeichen", code.len());
         assert!(code.len() < 1200);
+    }
+
+    #[test]
+    fn ipv6_zusatz() {
+        let mut inv = sample(0);
+        inv.address6 = "[2a02:8071::1]:25565".into();
+        inv.only_v6 = true;
+        let back = decode(&encode(&inv).unwrap()).unwrap();
+        assert_eq!(back, inv);
+        // Ohne Zusatz bleibt der Code wie bisher (ältere Versionen lesen ihn weiter)
+        let plain = serde_json::to_string(&sample(0)).unwrap();
+        assert!(!plain.contains("a6") && !plain.contains("o6"));
+        inv.address6 = "evil.example:1".into();
+        assert!(check(&inv).is_err());
     }
 
     #[test]

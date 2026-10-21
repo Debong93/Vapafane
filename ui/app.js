@@ -104,6 +104,7 @@ function showTab(name) {
   if (name === "mods") refreshMods();
   if (name === "settings") loadSettings();
   if (name === "updates") refreshUpdateTab();
+  if (name === "reach") reachSeen();
 }
 
 function applyTheme() {
@@ -218,6 +219,7 @@ async function refreshStatus() {
     } else if (state === "running" && lastState !== "running") {
       addEvent("Server ist bereit");
       refreshLive();
+      if (reach && reach.server_off) runReach();
     } else if (state === "stopped" && lastState !== "none") {
       addEvent("Server gestoppt");
     }
@@ -671,6 +673,8 @@ $("server-select").onchange = async (e) => {
   }
   e.target.dataset.key = "";
   refreshStatus();
+  reachChecked = false;
+  reachInit();
 };
 
 const addMenu = $("add-menu");
@@ -845,6 +849,8 @@ async function loadSettings() {
   $("sw-autostart").checked = s.autostart;
   $("sw-window").checked = s.window;
   $("sw-daily").checked = s.daily;
+  $("daily-time").value = s.daily_time || "05:00";
+  $("sw-reach").checked = s.reach_check;
   $("sw-notify").checked = s.notify;
   const autoOk = s.systemd || s.windows;
   $("sw-autostart").disabled = !autoOk;
@@ -937,6 +943,11 @@ bindSwitch("sw-autostart", "set_autostart", async (on) => { if (on && settings &
 bindSwitch("sw-window", "set_window_autostart");
 bindSwitch("sw-daily", "set_daily_backup");
 bindSwitch("sw-notify", "set_notify");
+bindSwitch("sw-reach", "set_reach_check");
+$("daily-time").onchange = async (e) => {
+  try { e.target.value = await invoke("set_daily_time", { time: e.target.value }); }
+  catch (er) { error("Uhrzeit", er); loadSettings(); }
+};
 for (const b of document.querySelectorAll("[data-open]")) {
   b.onclick = () => invoke("open_folder", { which: b.dataset.open }).catch((e) => error("Ordner", e));
 }
@@ -1345,11 +1356,79 @@ function setMode(mode) {
   } else {
     const t = document.querySelector("#tabs button.active")?.dataset.tab || "overview";
     showTab(t);
+    reachInit();
   }
-  try { localStorage.setItem("modus", mode); } catch (_) { /* egal */ }
 }
 $("mode-server").onclick = () => setMode("server");
 $("mode-client").onclick = () => setMode("client");
+
+// ------------------------------------------------------------------ Erreichbarkeit (Server)
+
+let reach = null;         // letztes Ergebnis (kommt fertig aus Rust)
+let reachChecked = false; // in dieser Sitzung schon automatisch geprüft?
+let reachBusy = false;
+
+const REACH_PILL = { ok: "ok", warn: "warn", bad: "bad", none: "" };
+
+function renderReach() {
+  const r = reach;
+  const light = r ? r.light : "none";
+  document.querySelector(".ampel").dataset.light = light;
+  $("reach-dot").dataset.light = r ? light : "none";
+  $("reach-title").textContent = r ? r.title : "Noch nicht geprüft";
+  $("reach-text").textContent = r ? r.text : "";
+  for (const k of ["v4", "v6"]) {
+    $(`reach-${k}`).textContent = r ? r[k] : "–";
+    $(`reach-${k}`).className = "pill " + (r ? REACH_PILL[r[`${k}_state`]] : "");
+  }
+  $("btn-reach-guide").classList.toggle("hidden", !(r && r.guide));
+  if (!reachBusy) $("reach-when").textContent = r && r.checked
+    ? "Geprüft um " + new Date(r.checked * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
+  const card = { green: "Erreichbar", yellow: "Nur IPv6", red: "Nicht erreichbar", gray: "–" };
+  $("c-reach").textContent = r ? card[light] : "–";
+  $("c-reach").style.color = r ? ({ green: "var(--green)", yellow: "var(--amber)", red: "var(--red)" }[light] || "") : "";
+  $("c-reach-sub").textContent = r ? (light === "gray" ? r.title : (r.ds_lite ? "DS-Lite" : light === "green" ? (r.v6_state === "ok" ? "IPv4 und IPv6" : "über IPv4") : light === "red" ? "Portfreigabe prüfen" : "")) : "";
+  // Blinken bei Gelb/Rot, bis der Reiter einmal angeschaut wurde
+  let seen = null;
+  try { seen = localStorage.getItem("reach_seen"); } catch (_) { /* egal */ }
+  const tab = $("reach-tab");
+  const alarm = r && ["yellow", "red"].includes(light) && seen !== light;
+  tab.classList.toggle("alarm", !!alarm);
+  tab.classList.toggle("red", light === "red");
+}
+
+function reachSeen() {
+  try { localStorage.setItem("reach_seen", reach ? reach.light : ""); } catch (_) { /* egal */ }
+  renderReach();
+}
+
+async function runReach() {
+  if (reachBusy) return;
+  reachBusy = true;
+  $("btn-reach").disabled = true;
+  $("reach-when").textContent = "Wird geprüft …";
+  try { reach = await invoke("reach_check"); }
+  catch (e) { $("reach-when").textContent = String(e); }
+  reachBusy = false;
+  $("btn-reach").disabled = false;
+  renderReach();
+  if ($("tab-reach").classList.contains("active")) reachSeen();
+}
+
+/** Beim Wechsel in den Server-Bereich: letztes Ergebnis zeigen und einmal pro Start still prüfen. */
+async function reachInit() {
+  let d;
+  try { d = await invoke("reach_last"); } catch (_) { return; }
+  reach = d.report;
+  renderReach();
+  if (d.auto && !reachChecked) {
+    reachChecked = true;
+    runReach();
+  }
+}
+
+$("btn-reach").onclick = runReach;
+$("btn-reach-guide").onclick = () => invoke("open_link", { target: "portforward" }).catch((e) => error("Link", e));
 
 // ------------------------------------------------------------------ Freunde einladen (Server)
 
@@ -1366,6 +1445,7 @@ $("btn-invite").onclick = async () => {
   const show = (r, codeHtml) => {
     let t = codeHtml || "";
     t += `<p>${r.mods ? `${r.mods} Mods für die Spieler` + (r.optional ? ` (davon ${r.optional} optional)` : "") : "Keine Mods nötig – nur die Version " + esc(r.mc) + "."}</p>`;
+    if (r.address6) t += `<p class="dim small">Enthält zusätzlich deine IPv6-Adresse ${esc(r.address6)}${r.only_v6 ? " – dein Server ist laut Prüfung nur über IPv6 erreichbar" : ""}.</p>`;
     if (r.server_only.length) t += `<p class="dim small">Nur auf dem Server (Spieler brauchen sie nicht): ${r.server_only.map(esc).join(", ")}</p>`;
     if (r.files.length && codeHtml) t += `<p class="hint">Diese Mods gibt es weder auf Modrinth noch auf CurseForge: ${r.files.map(esc).join(", ")}. Sie passen nicht in den Code – bitte stattdessen „Als Datei speichern“ nehmen, dann sind sie eingepackt.</p>`;
     $("inv-out").innerHTML = t;
@@ -1431,6 +1511,7 @@ async function checkInvite(source) {
   $("cl-preview").innerHTML = `<div class="preview-head"><span class="big">${esc(inv.n)}</span> <code>${esc(inv.a)}</code>
       ${pingPill(p.ping, p.version_ok)}</div>
     <p>Minecraft <b>${esc(inv.m)}</b> · ${esc(loader)} · ${p.mods.length} Mods, zusammen ${fmtBytes(p.total)}</p>
+    ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ""}
     ${p.ping.online && !p.version_ok ? `<p class="hint">Der Server meldet eine andere Version (${esc(p.ping.version)}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.</p>` : ""}
     ${warn}
     <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>Mod</th><th>Version</th><th>Größe</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -1550,10 +1631,11 @@ async function refreshClients() {
     invoke("client_status", { dir: c.dir }).then((s) => {
       row.querySelector(".st").innerHTML = s.online ? (s.version_ok ? pingPill(s.ping, true)
         : `<span class="pill warn">Server wurde aktualisiert (${esc(s.ping.version)}) – neuen Einladungs-Code beim Admin holen</span>`)
-        : `<span class="pill bad">gerade nicht erreichbar</span>`;
+        : `<span class="pill bad">gerade nicht erreichbar</span>` + (s.hint ? `<div class="dim small">${esc(s.hint)}</div>` : "");
     }).catch(() => {});
   }
 }
 const info2 = (t, x) => info(t, x);
 
-try { if (localStorage.getItem("modus") === "client") setTimeout(() => setMode("client"), 50); } catch (_) { /* egal */ }
+// Vapafane startet immer im Client-Bereich (Server: oben umschalten)
+setMode("client");

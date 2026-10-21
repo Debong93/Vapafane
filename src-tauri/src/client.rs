@@ -441,10 +441,36 @@ pub fn resolve(inv: &Invite, zip: Option<&Path>) -> Result<Vec<Resolved>> {
     Ok(out)
 }
 
+/// Adresse, unter der der Server gerade antwortet: erst die normale, dann die IPv6-Adresse
+/// aus der Einladung. Liefert (Adresse, Ping-Ergebnis, Hinweis für den Spieler).
+pub fn best_address(inv: &Invite) -> (String, Value, Option<String>) {
+    match ping(&inv.address) {
+        Ok(p) => (inv.address.clone(), p, None),
+        Err(e) => {
+            if !inv.address6.is_empty()
+                && let Ok(p) = ping(&inv.address6)
+            {
+                return (inv.address6.clone(), p, None);
+            }
+            let hint = crate::reach::client_hint(inv.only_v6, crate::reach::has_ipv6());
+            (inv.address.clone(), json!({"online": false, "error": e.0}), hint)
+        }
+    }
+}
+
+/// Adresse für die Serverliste im Spiel (mit IPv6 als Ausweich-Adresse).
+fn game_address(inv: &Invite) -> String {
+    if inv.address6.is_empty() {
+        inv.address.clone()
+    } else {
+        best_address(inv).0
+    }
+}
+
 /// Vorschau für die Anzeige.
 pub fn preview(inv: &Invite, zip: Option<&Path>) -> Result<Value> {
     let mods = resolve(inv, zip)?;
-    let ping = ping(&inv.address).unwrap_or_else(|e| json!({"online": false, "error": e.0}));
+    let (address, ping, hint) = best_address(inv);
     let ok = version_matches(&ping, &inv.mc);
     Ok(json!({
         "invite": inv,
@@ -455,6 +481,8 @@ pub fn preview(inv: &Invite, zip: Option<&Path>) -> Result<Value> {
         })).collect::<Vec<_>>(),
         "total": mods.iter().map(|m| m.size).sum::<u64>(),
         "ping": ping,
+        "address": address,
+        "hint": hint,
         "version_ok": ok,
         "launcher": !launcher_dirs().is_empty(),
         "profiles": !profile_files().is_empty(),
@@ -736,7 +764,7 @@ pub fn install(
     };
 
     progress(0.9, "Trage den Server ein …");
-    write_servers_dat(&game_dir, &inv.name, &inv.address)?;
+    write_servers_dat(&game_dir, &inv.name, &game_address(inv))?;
     let key = profile_key(&inv.name);
     let files = profile_files();
     for f in &files {
@@ -1077,7 +1105,7 @@ pub fn install_mrpack(
         z.start_file("modrinth.index.json", o)?;
         z.write_all(serde_json::to_string_pretty(&index)?.as_bytes())?;
         // servers.dat mit dem Server-Eintrag
-        write_servers_dat(&dir, &inv.name, &inv.address)?;
+        write_servers_dat(&dir, &inv.name, &game_address(inv))?;
         z.start_file("overrides/servers.dat", o)?;
         z.write_all(&fs::read(dir.join("servers.dat"))?)?;
         for (path, data) in &overrides {

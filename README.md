@@ -21,7 +21,7 @@ Die Dateien gibt es unter **Releases** (rechts auf dieser Seite).
 Software-Verwaltung installiert sie dann. Oder im Terminal (Datei liegt im Download-Ordner):
 
 ```bash
-sudo apt install ~/Downloads/Vapafane_0.7.0_amd64.deb
+sudo apt install ~/Downloads/Vapafane_0.8.0_amd64.deb
 ```
 
 Alternativ das `.AppImage` ausführbar machen (Rechtsklick → Eigenschaften →

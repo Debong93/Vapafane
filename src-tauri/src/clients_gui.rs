@@ -42,6 +42,8 @@ fn built_info(b: &invite::Built) -> Value {
         "files": b.files.iter().map(|(t, _)| t.clone()).collect::<Vec<_>>(),
         "loader": b.invite.loader,
         "mc": b.invite.mc,
+        "address6": b.invite.address6,
+        "only_v6": b.invite.only_v6,
     })
 }
 
@@ -159,9 +161,11 @@ pub async fn client_list() -> Cmd<Vec<Value>> {
 pub async fn client_status(dir: String) -> Cmd<Value> {
     blocking(move || {
         let inv = client::invite_of(Path::new(&dir))?;
-        Ok(match client::ping(&inv.address) {
-            Ok(p) => json!({"online": true, "version_ok": client::version_matches(&p, &inv.mc), "ping": p}),
-            Err(e) => json!({"online": false, "error": e.0}),
+        let (_, p, hint) = client::best_address(&inv);
+        Ok(if p["online"] == true {
+            json!({"online": true, "version_ok": client::version_matches(&p, &inv.mc), "ping": p})
+        } else {
+            json!({"online": false, "error": p["error"], "hint": hint})
         })
     })
     .await

@@ -37,6 +37,7 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   clients                           eingerichtete Clients anzeigen
   client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
   ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
+  erreichbarkeit    prüfen, ob der Server von außen erreichbar ist (IPv4/IPv6, DS-Lite)
   mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
   quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
 
@@ -430,6 +431,13 @@ fn run_inner(args: &[String]) -> Result<()> {
                 crate::client::install(&inv, zip, folder.as_deref(), &selected, &print)?
             };
             println!("{}", serde_json::to_string_pretty(&r)?);
+        }
+        "erreichbarkeit" => {
+            let dir = Config::load()
+                .active_path()
+                .ok_or_else(|| crate::util::Error("Kein aktiver Server.".into()))?;
+            let r = crate::reach::check(&dir)?;
+            println!("{}: {}\n{}\nIPv4: {}\nIPv6: {}", r.light, r.title, r.text, r.v4, r.v6);
         }
         "clients" => println!("{}", serde_json::to_string_pretty(&crate::client::list())?),
         "client-entfernen" => {

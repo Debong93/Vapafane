@@ -95,6 +95,9 @@ pub struct Config {
     pub daily_backup: bool,
     #[serde(default = "default_daily_time")]
     pub daily_backup_time: String,
+    /// Erreichbarkeit von außen prüfen, wenn man in den Server-Bereich wechselt.
+    #[serde(default = "default_true")]
+    pub reach_check: bool,
     /// Zuletzt gewähltes Ziel beim Einrichten eines Clients: "launcher" oder "modrinth"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_target: Option<String>,
