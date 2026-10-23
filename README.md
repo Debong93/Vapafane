@@ -18,13 +18,15 @@ Die Dateien gibt es unter **[Releases](https://github.com/Debong93/Vapafane/rele
 „Der Computer wurde durch Windows geschützt“, auf **„Weitere Informationen“** →
 **„Trotzdem ausführen“** klicken (das Programm ist nicht signiert).
 
-**Linux (Ubuntu, Debian, Mint …):** die `.deb`-Datei herunterladen und im Dateimanager
-**doppelklicken** – die Software-Verwaltung installiert sie dann. Oder im Terminal
-(Datei liegt im Download-Ordner):
+**Linux (Ubuntu, Debian, Mint …):** direkt im Terminal – lädt immer die neueste Version
+von GitHub und installiert sie (auch zum Aktualisieren):
 
 ```bash
-sudo apt install ~/Downloads/Vapafane_0.9.0_amd64.deb
+wget -O /tmp/vapafane.deb https://github.com/Debong93/Vapafane/releases/latest/download/Vapafane_amd64.deb && sudo apt install /tmp/vapafane.deb
 ```
+
+Oder die `.deb`-Datei unter Releases herunterladen und im Dateimanager **doppelklicken** –
+die Software-Verwaltung installiert sie dann.
 
 **Nur wer selbst einen Server betreibt,** braucht zusätzlich Java (Minecraft 26.x braucht
 Java 25): Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
