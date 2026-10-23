@@ -1,7 +1,7 @@
 [package]
 name = "vapafane-shared"
 version = "0.9.0"
-description = "Datentypen, die Vapafane-Backend und -Oberfläche austauschen"
+description = "Gemeinsame Datentypen von Vapafane-Programm und -Oberfläche"
 license = "MIT"
 edition = "2024"
 rust-version = "1.89"

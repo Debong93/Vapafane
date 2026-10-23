@@ -11,57 +11,81 @@ damit ihr Minecraft passend zum Server ein.
 
 ## Installieren
 
-Die Dateien gibt es unter **Releases** (rechts auf dieser Seite).
+Die Dateien gibt es unter **[Releases](https://github.com/Debong93/Vapafane/releases)**
+(rechts auf dieser Seite) – jeweils die neueste Version nehmen.
 
 **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Erscheint
 „Der Computer wurde durch Windows geschützt“, auf **„Weitere Informationen“** →
 **„Trotzdem ausführen“** klicken (das Programm ist nicht signiert).
 
-**Linux:** die `.deb`-Datei herunterladen und im Dateimanager **doppelklicken** – die
-Software-Verwaltung installiert sie dann. Oder im Terminal (Datei liegt im Download-Ordner):
+**Linux (Ubuntu, Debian, Mint …):** die `.deb`-Datei herunterladen und im Dateimanager
+**doppelklicken** – die Software-Verwaltung installiert sie dann. Oder im Terminal
+(Datei liegt im Download-Ordner):
 
 ```bash
 sudo apt install ~/Downloads/Vapafane_0.9.0_amd64.deb
 ```
 
-Alternativ das `.AppImage` ausführbar machen (Rechtsklick → Eigenschaften →
-„Als Programm ausführen“) und starten.
+**Nur wer selbst einen Server betreibt,** braucht zusätzlich Java (Minecraft 26.x braucht
+Java 25): Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
+`sudo apt install openjdk-25-jre-headless`. Zum Mitspielen bei Freunden ist kein Java nötig.
 
-**Für einen Server** brauchst du außerdem Java (Minecraft 26.x braucht Java 25):
-Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
-`sudo apt install openjdk-25-jre-headless`. Zum Mitspielen bei Freunden ist Java nicht nötig.
+## So benutzt du Vapafane
 
-## Erste Schritte
+Oben im Fenster wählst du zwischen **Client** (mitspielen) und **Server** (selbst einen
+Server betreiben). Vapafane startet immer im Client-Bereich. Das **Zahnrad** oben rechts
+öffnet die Einstellungen des jeweiligen Bereichs, der Knopf daneben wechselt zwischen hell
+und dunkel.
 
-1. **Server anlegen:** oben auf **„+“** klicken, Typ wählen (Fabric, Paper, NeoForge oder
-   Vanilla) und einen Namen eingeben – oder einen vorhandenen Server-Ordner hinzufügen.
-2. **Starten:** in der **Übersicht** auf **„Starten“**. Das Fenster darf danach zu – der
-   Server läuft im Hintergrund weiter. Mods findest du unter **Mods/Plugins → Mods hinzufügen**.
-3. **Freunde einladen:** in der Übersicht auf **„Freunde einladen“** → **„Code erzeugen“** und
-   den Code per Messenger schicken. Für Freunde außerhalb deines Heimnetzes zuerst
-   „Öffentliche Adresse ermitteln“ und im Router den Server-Port freigeben.
-4. **Client einrichten (bei deinen Freunden):** Vapafane installieren, oben auf **„Client“**
-   umschalten, Code einfügen, **„Einladung prüfen“** → **„Einrichten“**. Danach mit
-   **„Spielen“** den Minecraft-Launcher (oder wahlweise die Modrinth-App) öffnen.
+### Eigenen Server erstellen
 
-Backups, Updates und Einstellungen findest du in den Reitern oben. Unter **Einstellungen →
-Aussehen** wählst du zwischen „Grasblock“ (hell/dunkel) und „Crying Obsidian“. Server-Autostart beim
-PC-Start ist anfangs aus und lässt sich unter **Einstellungen** einschalten.
+1. Oben auf **„Server“** umschalten.
+2. Auf **„+“** klicken (es leuchtet, solange es noch keinen Server gibt) und
+   **„Neuen Server erstellen“** wählen. Typ aussuchen – *Vanilla* (ohne Mods),
+   *Fabric* oder *NeoForge* (mit Mods), *Paper* (mit Plugins) –, Minecraft-Version und
+   Namen angeben und die Minecraft-EULA bestätigen. Einen vorhandenen Server-Ordner oder
+   ein Backup fügst du über dasselbe Menü hinzu.
+3. In der **Übersicht** auf **„▶ Starten“** klicken. Das Fenster darf danach zu – der
+   Server läuft im Hintergrund weiter.
+4. Links findest du alles Weitere: **Konsole**, **Spieler** (Whitelist, OP),
+   **Mods/Plugins** („Mods hinzufügen …“ sucht auf Modrinth), **Version & Updates**,
+   **Backups** und **Erreichbarkeit**.
+
+### Freunde einladen
+
+1. In der Übersicht auf **„Freunde einladen“** klicken.
+2. Für Freunde im selben WLAN passt die vorgeschlagene Adresse. Für Freunde von außen
+   **„Öffentliche Adresse ermitteln“** klicken und im Router den Server-Port freigeben
+   (Anleitung für alle Router: [portforward.com](https://portforward.com/minecraft-java-edition-server/)).
+3. **„Code erzeugen“** und den Code z. B. per Messenger schicken.
+
+Unter **Erreichbarkeit** zeigt eine Ampel, ob dein Server von außen erreichbar ist –
+grün über IPv4 und IPv6, gelb nur über IPv6 (z. B. bei DS-Lite), rot gar nicht.
+
+### Mit dem Client einem Server beitreten
+
+1. Vapafane installieren und im Bereich **„Client“** bleiben.
+2. Den Einladungs-Code einfügen und **„Einladung prüfen“** klicken (oder eine
+   `.vapafane`-Datei öffnen). Vapafane zeigt Server, Version und Mods.
+3. Wählen, wofür eingerichtet wird – **Minecraft-Launcher** oder **Modrinth-App** – und
+   **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
+4. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
+   online ist, siehst du direkt daneben.
+
+Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an.
 
 ## Kontakt
 
 Fragen und Fehler bitte als [GitHub-Issue](https://github.com/Debong93/Vapafane/issues) melden.
 
-## Technisches (kurz)
+## Aufbau (für Entwickler)
 
-- Komplett in Rust: Backend mit [Tauri 2](https://tauri.app), Oberfläche mit
-  [Leptos](https://leptos.dev) (WebAssembly). Die Pixel-Texturen sind eigene Pixel-Art
-  (`werkzeuge`, `cargo run --bin texturen`), keine Dateien aus Minecraft.
-- Ein Programm, drei Rollen: Fenster, Hintergrund-Dienst (`--service`, unter Linux als
-  systemd-Benutzerdienst) und Befehlszeile (`--ctl help`).
-- Mods kommen von Modrinth; CurseForge ist optional mit eigenem API-Schlüssel.
-- Liest die Daten des alten Panels weiter (`~/.config/mc-server-panel/config.json`).
-- Selbst bauen: `rustup target add wasm32-unknown-unknown`, `cargo install tauri-cli trunk --locked`,
-  dann `cd src-tauri && cargo tauri build`.
-  Testmodus ohne echte Daten: `VAPAFANE_HOME=/tmp/test vapafane`.
-- Ein Release entsteht beim Push eines Tags `v…` (GitHub Actions).
+Komplett in Rust; jede Komponente hat eine eigene kurze README:
+
+- [`src-tauri/`](src-tauri/README.md) – das Programm: Fenster, Hintergrund-Dienst, Befehlszeile
+- [`frontend/`](frontend/README.md) – die Oberfläche (Leptos/WebAssembly)
+- [`shared/`](shared/README.md) – gemeinsame Datentypen
+- [`werkzeuge/`](werkzeuge/README.md) – erzeugt die Pixel-Texturen
+
+Selbst bauen: `rustup target add wasm32-unknown-unknown`, `cargo install tauri-cli trunk --locked`,
+dann `cd src-tauri && cargo tauri build`. Testmodus ohne echte Daten: `VAPAFANE_HOME=/tmp/test vapafane`.
