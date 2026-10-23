@@ -95,7 +95,10 @@ for (const btn of document.querySelectorAll("#tabs button")) {
   btn.onclick = () => showTab(btn.dataset.tab);
 }
 
+let serverTab = "overview"; // zuletzt gezeigter Bereich im Server-Teil
 function showTab(name) {
+  serverTab = name;
+  $("btn-gear").classList.toggle("on", name === "settings");
   for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("active", b.dataset.tab === name);
   for (const s of document.querySelectorAll(".tab")) s.classList.toggle("active", s.id === `tab-${name}`);
   if (name === "console") scrollConsole(true);
@@ -205,6 +208,8 @@ async function refreshStatus() {
       sel.appendChild(o);
     }
   }
+  $("btn-add-server").classList.toggle("glow", !st.servers.length);
+  $("btn-add-server").title = st.servers.length ? "Server hinzufügen" : "Hier neuen Server erstellen";
   const newPath = st.server ? st.server.path : null;
   if (newPath !== serverPath) {
     serverPath = newPath;
@@ -1358,14 +1363,28 @@ function setMode(mode) {
   $("mode-server").classList.toggle("active", !client);
   $("mode-client").classList.toggle("active", client);
   if (client) {
-    for (const s of document.querySelectorAll(".tab")) s.classList.toggle("active", s.id === "tab-client");
+    showClientPage("tab-client");
     refreshClients();
   } else {
-    const t = document.querySelector("#tabs button.active")?.dataset.tab || "overview";
-    showTab(t);
+    showTab(serverTab);
     reachInit();
   }
 }
+
+function showClientPage(id) {
+  for (const s of document.querySelectorAll(".tab")) s.classList.toggle("active", s.id === id);
+  $("btn-gear").classList.toggle("on", id === "tab-client-settings");
+  if (id === "tab-client-settings") loadClientSettings();
+}
+
+// Zahnrad: Einstellungen des jeweiligen Bereichs (Server bzw. Client)
+$("btn-gear").onclick = () => {
+  if (document.body.classList.contains("client-mode")) {
+    showClientPage($("tab-client-settings").classList.contains("active") ? "tab-client" : "tab-client-settings");
+  } else {
+    showTab(serverTab === "settings" ? "overview" : "settings");
+  }
+};
 $("mode-server").onclick = () => setMode("server");
 $("mode-client").onclick = () => setMode("client");
 
@@ -1438,19 +1457,36 @@ function blockBreak(color) {
   }, 520);
 }
 
-/** Der Enderman teleportiert sich ab und zu ein Stück weiter. */
-function endermanLoop() {
-  const e = $("enderman");
-  const jump = () => {
-    if (!calm() && e.offsetParent) {
-      e.classList.add("weg");
-      setTimeout(() => { e.style.right = `${40 + Math.round(Math.random() * 180)}px`; e.classList.remove("weg"); }, 600);
+/** Figuren auf dem Gras: Kopf bzw. Augen schauen zur Maus (in Pixelschritten). */
+let lookFrame = 0;
+document.addEventListener("mousemove", (e) => {
+  if (lookFrame) return;
+  lookFrame = requestAnimationFrame(() => {
+    lookFrame = 0;
+    for (const m of document.querySelectorAll(".mob")) {
+      const r = m.getBoundingClientRect();
+      if (!r.width) continue;
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + 8);
+      m.style.setProperty("--lx", Math.abs(dx) < 30 ? 0 : Math.sign(dx));
+      m.style.setProperty("--ly", Math.abs(dy) < 30 ? 0 : Math.sign(dy));
     }
-    setTimeout(jump, 25000 + Math.random() * 20000);
-  };
-  setTimeout(jump, 20000);
+  });
+});
+document.documentElement.addEventListener("mouseleave", () => {
+  for (const m of document.querySelectorAll(".mob")) { m.style.setProperty("--lx", 0); m.style.setProperty("--ly", 0); }
+});
+
+/** Der Enderman teleportiert sich ab und zu – bei Crying Obsidian öfter. */
+function teleportLoop() {
+  const obsidian = document.documentElement.dataset.skin === "obsidian";
+  const mobs = $("mobs"), ender = mobs.querySelector(".ender");
+  if (!calm() && document.visibilityState === "visible" && getComputedStyle(ender).display !== "none" && mobs.offsetParent) {
+    mobs.classList.add("weg");
+    setTimeout(() => { mobs.style.right = `${110 + Math.round(Math.random() * (obsidian ? 260 : 140))}px`; mobs.classList.remove("weg"); }, 450);
+  }
+  setTimeout(teleportLoop, obsidian ? 7000 + Math.random() * 7000 : 25000 + Math.random() * 20000);
 }
-endermanLoop();
+setTimeout(teleportLoop, 8000);
 
 // ------------------------------------------------------------------ Erreichbarkeit (Server)
 
@@ -1584,7 +1620,9 @@ function pingPill(p, ok) {
     : `<span class="pill warn">Online, aber Version ${esc(p.version)} – passt nicht</span>`;
 }
 
+let clSource = null;
 async function checkInvite(source) {
+  clSource = source;
   $("cl-preview").classList.remove("hidden");
   $("cl-preview").innerHTML = `<p class="dim">Prüfe die Einladung …</p>`;
   try { clPreview = await invoke("client_preview", { source }); }
@@ -1685,6 +1723,37 @@ async function playLauncher(target) {
 $("btn-cl-check").onclick = () => { const c = $("cl-code").value.trim(); if (c) checkInvite(c); };
 $("btn-cl-file").onclick = async () => { const f = await invoke("client_pick_file"); if (f) checkInvite(f); };
 
+/** Status-Anzeige eines eingerichteten Servers (kommt vom Client-Wächter in Rust). */
+function clientPill(s) {
+  return s.online ? (s.version_ok ? pingPill(s.ping, true)
+    : `<span class="pill warn">Server wurde aktualisiert (${esc(s.ping.version)}) – neuen Einladungs-Code beim Admin holen</span>`)
+    : `<span class="pill bad">gerade nicht erreichbar</span>` + (s.hint ? `<div class="dim small">${esc(s.hint)}</div>` : "");
+}
+
+let watchBusy = false;
+/** Alle eingerichteten Server prüfen (und eine gerade angezeigte Einladung). */
+async function clientWatch() {
+  if (watchBusy) return;
+  watchBusy = true;
+  try {
+    const list = await invoke("client_watch");
+    for (const s of list) {
+      const row = document.querySelector(`#cl-list .item[data-dir="${CSS.escape(s.dir)}"] .st`);
+      if (row) row.innerHTML = clientPill(s);
+    }
+    if (clSource && clPreview && !$("cl-preview").classList.contains("hidden")) {
+      const p = await invoke("client_preview_ping", { source: clSource });
+      const pill = $("cl-preview").querySelector(".preview-head .pill");
+      if (pill) pill.outerHTML = pingPill(p.ping, p.version_ok);
+    }
+  } catch (_) { /* nächster Versuch in 20 s */ }
+  watchBusy = false;
+}
+// Still im Hintergrund: alle 20 s, nur wenn die Client-Ansicht sichtbar ist (nicht minimiert, nicht im Server-Bereich)
+setInterval(() => {
+  if (document.body.classList.contains("client-mode") && document.visibilityState === "visible" && $("tab-client").classList.contains("active")) clientWatch();
+}, 20000);
+
 async function refreshClients() {
   const info = await invoke("client_info").catch(() => ({}));
   clInfo = info;
@@ -1698,6 +1767,7 @@ async function refreshClients() {
   for (const c of list) {
     const row = document.createElement("div");
     row.className = "item";
+    row.dataset.dir = c.dir;
     row.innerHTML = `<div class="grow"><div><b>${esc(c.name)}</b> <code>${esc(c.address)}</code> <span class="st"><span class="pill">prüfe …</span></span></div>
       <div class="sub">Minecraft ${esc(c.mc)} · ${esc(LOADER_NAMES[c.loader] || c.loader)} · ${c.mods} Mods · ${c.target === "modrinth" ? "Modrinth-App" : "Minecraft-Launcher"} · eingerichtet ${esc(c.updated || "")}</div></div>`;
     for (const [label, fn, cls] of [
@@ -1720,14 +1790,34 @@ async function refreshClients() {
       row.appendChild(b);
     }
     box.appendChild(row);
-    invoke("client_status", { dir: c.dir }).then((s) => {
-      row.querySelector(".st").innerHTML = s.online ? (s.version_ok ? pingPill(s.ping, true)
-        : `<span class="pill warn">Server wurde aktualisiert (${esc(s.ping.version)}) – neuen Einladungs-Code beim Admin holen</span>`)
-        : `<span class="pill bad">gerade nicht erreichbar</span>` + (s.hint ? `<div class="dim small">${esc(s.hint)}</div>` : "");
-    }).catch(() => {});
   }
+  if (list.length) clientWatch();
 }
 const info2 = (t, x) => info(t, x);
+
+// ------------------------------------------------------------------ Client: Einstellungen
+
+async function loadClientSettings() {
+  const c = await invoke("client_settings").catch(() => ({}));
+  $("cs-notify").checked = !!c.notify;
+  $("cs-target").value = c.target || "launcher";
+  $("cs-version").textContent = c.version || "";
+  let t = null, skin = null;
+  try { t = localStorage.getItem("theme"); skin = localStorage.getItem("skin"); } catch (_) { /* egal */ }
+  $("cs-theme").value = skin === "obsidian" ? "obsidian" : (t || "auto");
+}
+$("cs-theme").onchange = (e) => {
+  const v = e.target.value;
+  try {
+    localStorage.setItem("skin", v === "obsidian" ? "obsidian" : "grass");
+    if (v === "light" || v === "dark") localStorage.setItem("theme", v);
+    else if (v === "auto") localStorage.removeItem("theme");
+  } catch (_) { /* egal */ }
+  applyTheme();
+};
+$("cs-target").onchange = (e) => invoke("set_client_target", { target: e.target.value }).catch((er) => error("Einstellung", er));
+$("cs-notify").onchange = (e) => invoke("set_client_notify", { on: e.target.checked }).catch((er) => error("Einstellung", er));
+$("cs-folder").onclick = () => invoke("client_open_base").catch((e) => error("Ordner", e));
 
 // Vapafane startet immer im Client-Bereich (Server: oben umschalten)
 setMode("client");

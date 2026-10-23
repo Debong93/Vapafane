@@ -24,6 +24,7 @@ mod launcher;
 mod manage;
 mod mods;
 mod net;
+mod notify;
 mod ops;
 mod procs;
 mod rcon;

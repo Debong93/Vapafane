@@ -12,7 +12,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use regex::Regex;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::archive;
@@ -638,9 +637,9 @@ pub fn open_folder(app: AppHandle, which: String) -> Cmd<()> {
 }
 
 #[tauri::command]
-pub fn notify(app: AppHandle, title: String, body: String) {
+pub fn notify(title: String, body: String) {
     if Config::load().notify {
-        let _ = app.notification().builder().title(title).body(body).show();
+        crate::notify::silent(&title, &body);
     }
 }
 
@@ -747,6 +746,12 @@ pub fn run() {
             crate::clients_gui::client_open_folder,
             crate::clients_gui::client_play,
             crate::clients_gui::client_info,
+            crate::clients_gui::client_watch,
+            crate::clients_gui::client_preview_ping,
+            crate::clients_gui::client_settings,
+            crate::clients_gui::set_client_notify,
+            crate::clients_gui::set_client_target,
+            crate::clients_gui::client_open_base,
         ])
         .run(tauri::generate_context!())
         .expect("Fenster konnte nicht gestartet werden");

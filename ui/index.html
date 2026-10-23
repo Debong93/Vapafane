@@ -24,20 +24,27 @@
         <button data-add="remove">Ausgewählten Server aus der Liste entfernen</button>
       </div>
     </div>
-    <nav class="tabs" id="tabs">
-      <button data-tab="overview" class="active">Übersicht</button>
-      <button data-tab="console">Konsole</button>
-      <button data-tab="players">Spieler</button>
-      <button data-tab="mods">Mods/Plugins</button>
-      <button data-tab="updates">Updates</button>
-      <button data-tab="backups">Backups</button>
-      <button data-tab="reach" id="reach-tab"><span class="reach-dot" id="reach-dot"></span>Erreichbarkeit</button>
-      <button data-tab="settings">Einstellungen</button>
-    </nav>
-    <div class="enderman" id="enderman" aria-hidden="true"></div>
-    <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+    <div class="mobs" id="mobs" aria-hidden="true">
+      <div class="mob creeper"><i class="head"></i><i class="body"></i></div>
+      <div class="mob ender"><i class="head"><i class="eyes"></i></i><i class="body"></i></div>
+    </div>
+    <button id="btn-gear" class="icon-btn" title="Einstellungen" aria-label="Einstellungen"><span class="px-ico ico-settings"></span></button>
+    <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"><span class="px-ico"></span></button>
   </header>
 
+  <div class="shell">
+  <aside class="side" id="tabs" aria-label="Bereiche">
+    <div class="side-h">Betrieb</div>
+    <button data-tab="overview" class="active"><span class="px-ico ico-overview"></span><span class="lbl">Übersicht</span></button>
+    <button data-tab="console"><span class="px-ico ico-console"></span><span class="lbl">Konsole</span></button>
+    <button data-tab="players"><span class="px-ico ico-players"></span><span class="lbl">Spieler</span></button>
+    <div class="side-h">Inhalte</div>
+    <button data-tab="mods"><span class="px-ico ico-mods"></span><span class="lbl">Mods/Plugins</span></button>
+    <button data-tab="updates"><span class="px-ico ico-updates"></span><span class="lbl">Version &amp; Updates</span></button>
+    <button data-tab="backups"><span class="px-ico ico-backups"></span><span class="lbl">Backups</span></button>
+    <div class="side-h">Netzwerk</div>
+    <button data-tab="reach" id="reach-tab"><span class="px-ico ico-reach"></span><span class="lbl">Erreichbarkeit</span><span class="reach-dot" id="reach-dot"></span></button>
+  </aside>
   <main>
     <!-- Übersicht -->
     <section id="tab-overview" class="tab active">
@@ -284,7 +291,30 @@
       <div id="cl-list" class="list"></div>
       <p class="notice small">Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an – „Spielen“ öffnet den offiziellen Launcher bzw. die Modrinth-App.</p>
     </section>
+    <!-- Client: Einstellungen (Zahnrad) -->
+    <section id="tab-client-settings" class="tab">
+      <h3>Aussehen</h3>
+      <div class="switches">
+        <div class="sw-row"><div><div>Thema</div><div class="dim small">Grasblock (hell oder dunkel) oder Crying Obsidian</div></div>
+          <select id="cs-theme"><option value="auto">Grasblock – wie das System</option><option value="light">Grasblock – hell</option><option value="dark">Grasblock – dunkel</option><option value="obsidian">Crying Obsidian</option></select></div>
+      </div>
+      <h3>Einrichten</h3>
+      <div class="switches">
+        <div class="sw-row"><div><div>Standard-Ziel</div><div class="dim small">Wo neue Server eingerichtet werden</div></div>
+          <select id="cs-target"><option value="launcher">Offizieller Minecraft-Launcher</option><option value="modrinth">Modrinth-App</option></select></div>
+        <div class="sw-row"><div><div>Ordner der eingerichteten Server</div><div class="dim small">Mods und Einstellungen je Server</div></div><button id="cs-folder">Ordner öffnen</button></div>
+      </div>
+      <h3>Benachrichtigungen</h3>
+      <div class="switches">
+        <div class="sw-row"><div><div>Melden, wenn ein Server online oder offline geht</div><div class="dim small">Stille Meldung ohne Ton, solange Vapafane offen ist</div></div><label class="switch"><input type="checkbox" id="cs-notify"><span></span></label></div>
+      </div>
+      <h3>Über Vapafane</h3>
+      <div class="switches">
+        <div class="sw-row"><div><div>Version <span id="cs-version"></span></div><div class="dim small">Kein offizielles Minecraft-Produkt; nicht von Mojang oder Microsoft genehmigt oder mit ihnen verbunden.</div></div><button data-link="issues">Kontakt (GitHub) ↗</button></div>
+      </div>
+    </section>
   </main>
+  </div>
 
   <footer id="taskbar" class="taskbar hidden">
     <div class="spinner"></div>

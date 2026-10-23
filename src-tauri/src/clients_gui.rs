@@ -171,6 +171,115 @@ pub async fn client_status(dir: String) -> Cmd<Value> {
     .await
 }
 
+/// Zuletzt gesehener Zustand je Client (online?) – für die Meldung beim Wechsel.
+static LAST_ONLINE: std::sync::Mutex<Vec<(String, bool)>> = std::sync::Mutex::new(Vec::new());
+
+/// Client-Wächter: prüft alle eingerichteten Server (das Fenster ruft ihn alle 20 s auf,
+/// solange die Client-Ansicht sichtbar ist) und meldet still, wenn einer online/offline geht.
+#[tauri::command]
+pub async fn client_watch() -> Cmd<Vec<Value>> {
+    blocking(|| {
+        let dirs: Vec<String> = client::list()
+            .iter()
+            .filter_map(|c| c.get("dir").and_then(|d| d.as_str()).map(str::to_string))
+            .collect();
+        let checks: Vec<_> = dirs
+            .into_iter()
+            .map(|dir| {
+                std::thread::spawn(move || {
+                    let inv = client::invite_of(Path::new(&dir)).ok()?;
+                    let (_, p, hint) = client::best_address(&inv);
+                    let online = p["online"] == true;
+                    Some((
+                        dir,
+                        inv.name.clone(),
+                        online,
+                        client::version_matches(&p, &inv.mc),
+                        p,
+                        hint,
+                    ))
+                })
+            })
+            .collect();
+        let notify = Config::load().client_notify;
+        let mut last = LAST_ONLINE.lock().unwrap_or_else(|e| e.into_inner());
+        let mut out = vec![];
+        for (dir, name, online, version_ok, p, hint) in checks.into_iter().filter_map(|t| t.join().ok().flatten()) {
+            match last.iter_mut().find(|(d, _)| *d == dir) {
+                Some((_, was)) => {
+                    if *was != online && notify {
+                        let text = if online {
+                            format!("„{name}“ ist jetzt online.")
+                        } else {
+                            format!("„{name}“ ist gerade nicht erreichbar.")
+                        };
+                        crate::notify::silent("Vapafane", &text);
+                    }
+                    *was = online;
+                }
+                None => last.push((dir.clone(), online)),
+            }
+            out.push(if online {
+                json!({"dir": dir, "online": true, "version_ok": version_ok, "ping": p})
+            } else {
+                json!({"dir": dir, "online": false, "error": p["error"], "hint": hint})
+            });
+        }
+        Ok(out)
+    })
+    .await
+}
+
+/// Erreichbarkeit des Servers einer gerade angezeigten Einladung (Code oder Datei).
+#[tauri::command]
+pub async fn client_preview_ping(source: String) -> Cmd<Value> {
+    blocking(move || {
+        let (inv, _) = load(&source)?;
+        let (address, p, hint) = client::best_address(&inv);
+        Ok(json!({"ping": p, "version_ok": client::version_matches(&p, &inv.mc), "address": address, "hint": hint}))
+    })
+    .await
+}
+
+/// Einstellungen für den Client-Bereich.
+#[tauri::command]
+pub fn client_settings() -> Value {
+    let cfg = Config::load();
+    json!({
+        "notify": cfg.client_notify,
+        "target": client_info()["target"],
+        "version": env!("CARGO_PKG_VERSION"),
+    })
+}
+
+#[tauri::command]
+pub fn set_client_notify(on: bool) -> Cmd<()> {
+    let mut cfg = Config::load();
+    cfg.client_notify = on;
+    cfg.save().map_err(|e| e.0)
+}
+
+#[tauri::command]
+pub fn set_client_target(target: String) -> Cmd<()> {
+    if !matches!(target.as_str(), "launcher" | "modrinth") {
+        return Err("Unbekanntes Ziel".into());
+    }
+    let mut cfg = Config::load();
+    cfg.client_target = Some(target);
+    cfg.save().map_err(|e| e.0)
+}
+
+/// Ordner, in dem Vapafane die eingerichteten Server ablegt.
+#[tauri::command]
+pub fn client_open_base(app: AppHandle) -> Cmd<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let base = client::clients_base();
+    let _ = std::fs::create_dir_all(&base);
+    app.opener()
+        .open_path(base.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn client_remove(dir: String) -> Cmd<()> {
     blocking(move || client::remove(Path::new(&dir))).await

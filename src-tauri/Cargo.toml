@@ -1,6 +1,6 @@
 [package]
 name = "vapafane"
-version = "0.8.1"
+version = "0.8.2"
 description = "Vapafane – Minecraft-Werkbank für Server & Client"
 authors = ["Debong93"]
 license = "MIT"
@@ -39,6 +39,7 @@ regex = "1"
 walkdir = "2"
 base64 = "0.22"
 socket2 = "0.6"
+notify-rust = "4"
 bs58 = "0.5"
 
 [target.'cfg(unix)'.dependencies]
