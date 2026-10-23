@@ -4469,9 +4469,17 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "ureq",
+ "vapafane-shared",
  "walkdir",
  "windows-sys 0.60.2",
  "zip",
+]
+
+[[package]]
+name = "vapafane-shared"
+version = "0.9.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -32,10 +32,22 @@ jobs:
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: "./src-tauri -> target"
+          workspaces: |
+            ./src-tauri -> target
+            ./frontend -> target
+
+      - name: Oberfläche bauen
+        working-directory: frontend
+        run: trunk build --release
 
       - name: Tauri-Werkzeug installieren
         run: cargo install tauri-cli --version "^2" --locked

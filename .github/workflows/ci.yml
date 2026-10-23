@@ -24,10 +24,30 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+          targets: wasm32-unknown-unknown
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: "./src-tauri -> target"
+          workspaces: |
+            ./src-tauri -> target
+            ./frontend -> target
+
+      # Die Oberfläche (Rust/WebAssembly) muss vor dem Backend gebaut sein – Tauri bettet sie ein
+      - name: Oberfläche bauen
+        working-directory: frontend
+        run: trunk build --release
+
+      - name: Clippy Oberfläche
+        working-directory: frontend
+        run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Tests gemeinsame Typen
+        working-directory: shared
+        run: cargo test --locked
 
       - name: Clippy
         working-directory: src-tauri

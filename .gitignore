@@ -17,3 +17,6 @@ server.properties
 
 # Lokale Werkzeug-Einstellungen
 .claude/
+
+# Gebaute Oberfläche (trunk)
+/frontend/dist/

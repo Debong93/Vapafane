@@ -55,12 +55,7 @@ fn now_secs() -> u64 {
 
 // ---------------------------------------------------------------- Status
 
-#[derive(Serialize)]
-struct ServerItem {
-    name: String,
-    path: String,
-    active: bool,
-}
+use vapafane_shared::ServerItem;
 
 #[tauri::command]
 pub async fn get_status(gui: State<'_, Gui>) -> Cmd<Value> {
