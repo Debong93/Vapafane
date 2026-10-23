@@ -11,8 +11,8 @@ damit ihr Minecraft passend zum Server ein.
 
 ## Installieren
 
-Die Dateien gibt es unter **[Releases](https://github.com/Debong93/Vapafane/releases)**
-(rechts auf dieser Seite) – jeweils die neueste Version nehmen.
+Die Dateien gibt es unter **[neueste Version](../../releases/latest)**
+(rechts auf dieser Seite unter „Releases“).
 
 **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Erscheint
 „Der Computer wurde durch Windows geschützt“, auf **„Weitere Informationen“** →
@@ -78,7 +78,7 @@ Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an.
 
 ## Kontakt
 
-Fragen und Fehler bitte als [GitHub-Issue](https://github.com/Debong93/Vapafane/issues) melden.
+Fragen und Fehler bitte als [GitHub-Issue](../../issues) melden.
 
 ## Aufbau (für Entwickler)
 
