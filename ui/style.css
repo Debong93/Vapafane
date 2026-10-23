@@ -191,9 +191,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 #btn-theme { grid-area: theme; }
 .tabs { grid-area: tabs; }
 
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; letter-spacing: 0.3px; }
-.brand small { font-weight: 500; color: var(--dim); font-size: 12px; letter-spacing: 0; }
-.brand img { width: 26px; height: 26px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand img { width: 38px; height: 38px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)); }
+.brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-name { font-weight: 800; font-size: 20px; letter-spacing: 0.6px; text-shadow: 2px 2px 0 var(--lo); }
+.brand small { font-weight: 500; color: var(--dim); font-size: 11.5px; letter-spacing: 0.2px; }
 
 .picker { position: relative; display: flex; gap: 6px; align-items: center; }
 .picker select { min-width: 180px; }
@@ -686,3 +688,66 @@ a { color: var(--blue); }
   .tabs button.alarm { animation: none; box-shadow: inset 2px 2px 0 var(--bhi), inset -2px -2px 0 var(--blo), 0 4px 0 var(--bd), 0 4px 0 2px var(--ac); }
 }
 input.time { width: auto; padding: 1px 4px; margin: 0 2px; font: inherit; }
+
+/* ================================================================ 0.8.1: Himmel, Portal, Animationen
+   Alles eigene Pixel-Art (SVG), nichts aus Minecraft kopiert. */
+:root {
+  --svg-cloud: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='40' shape-rendering='crispEdges'%3E%3Crect x='10' y='14' width='28' height='8' fill='%23ffffff'/%3E%3Crect x='16' y='8' width='16' height='6' fill='%23ffffff'/%3E%3Crect x='14' y='22' width='32' height='4' fill='%23e8f3ff'/%3E%3Crect x='60' y='22' width='22' height='6' fill='%23ffffff'/%3E%3Crect x='64' y='18' width='12' height='4' fill='%23ffffff'/%3E%3Crect x='62' y='28' width='24' height='3' fill='%23e8f3ff'/%3E%3C/svg%3E");
+  --svg-stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='48' shape-rendering='crispEdges'%3E%3Crect x='8' y='6' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='40' y='18' width='1' height='1' fill='%23cfd8ff'/%3E%3Crect x='70' y='8' width='2' height='2' fill='%23fff6c8'/%3E%3Crect x='22' y='30' width='1' height='1' fill='%23ffffff'/%3E%3Crect x='86' y='34' width='1' height='1' fill='%23cfd8ff'/%3E%3Crect x='56' y='40' width='2' height='2' fill='%23ffffff'/%3E%3Crect x='2' y='42' width='1' height='1' fill='%23fff6c8'/%3E%3C/svg%3E");
+  --svg-enderman: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='24' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='8' height='8' fill='%23161616'/%3E%3Crect x='0' y='7' width='8' height='1' fill='%230b0b0b'/%3E%3Crect x='1' y='4' width='2' height='1' fill='%23cc5cf5'/%3E%3Crect x='5' y='4' width='2' height='1' fill='%23cc5cf5'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%23f2c6ff'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%23f2c6ff'/%3E%3Crect x='2' y='8' width='4' height='8' fill='%230b0b0b'/%3E%3Crect x='2' y='8' width='4' height='1' fill='%23161616'/%3E%3Crect x='1' y='8' width='1' height='13' fill='%23161616'/%3E%3Crect x='6' y='8' width='1' height='13' fill='%23161616'/%3E%3Crect x='2' y='16' width='1' height='8' fill='%23161616'/%3E%3Crect x='5' y='16' width='1' height='8' fill='%23161616'/%3E%3C/svg%3E");
+  --svg-crack1: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='4' y='3' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='6' y='5' width='1' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3C/svg%3E");
+  --svg-crack2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='4' y='3' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='6' y='5' width='1' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='6' y='3' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='8' y='4' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='2' y='5' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='3' y='6' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3C/svg%3E");
+  --svg-crack3: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='4' y='3' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='6' y='5' width='1' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='6' y='3' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='8' y='4' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='2' y='5' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='3' y='6' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='3' y='8' width='1' height='3' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='5' y='7' width='1' height='4' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='0' y='4' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='9' y='7' width='2' height='1' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='7' y='8' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3Crect x='1' y='1' width='1' height='2' fill='rgba%280%2C0%2C0%2C0.75%29'/%3E%3C/svg%3E");
+  /* Grasblock: oben Himmel (hell: Tag mit Wolken) */
+  --sky: var(--svg-cloud) 0 4px / 192px 80px repeat-x, linear-gradient(180deg, #6fb6ff 0%, #a9d8ff 100%);
+  --brand-ink: #0f2e4d; --brand-shine: rgba(255, 255, 255, 0.55); --brand-sub: #1d4468;
+  --ender-glow: none;
+  --edge-h: 22px; --edge-size: 44px 22px;
+  /* Farben der Pixel-Partikel bei Start/Stopp */
+  --p1: #5d9e37; --p2: #78c04c; --p3: #7d573a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sky: var(--svg-stars) 0 0 / 192px 96px repeat-x, linear-gradient(180deg, #0a1030 0%, #1b2752 100%);
+    --brand-ink: #f2f5ff; --brand-shine: #000; --brand-sub: #b9c6ef;
+    --ender-glow: drop-shadow(0 0 3px #cc5cf5);
+  }
+}
+:root[data-theme="dark"] {
+  --sky: var(--svg-stars) 0 0 / 192px 96px repeat-x, linear-gradient(180deg, #0a1030 0%, #1b2752 100%);
+  --brand-ink: #f2f5ff; --brand-shine: #000; --brand-sub: #b9c6ef;
+  --ender-glow: drop-shadow(0 0 3px #cc5cf5);
+}
+.topbar { background: var(--sky); padding-bottom: 30px; }
+.brand-name { color: var(--brand-ink); text-shadow: 2px 2px 0 var(--brand-shine); }
+.brand small { color: var(--brand-sub); }
+main { background-image: radial-gradient(140% 120% at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.3) 100%), linear-gradient(var(--veil), var(--veil)), var(--bg-tex); background-size: auto, auto, 64px 64px; }
+
+/* Kleiner Enderman am Rand, steht auf dem Gras und teleportiert sich ab und zu */
+.enderman { position: absolute; right: 90px; bottom: calc(var(--edge-h) - 2px); width: 16px; height: 48px; background: var(--svg-enderman) 0 0 / 100% 100%; image-rendering: pixelated; filter: var(--ender-glow); pointer-events: none; z-index: 0; transition: opacity 0.25s steps(3); }
+.enderman.weg { opacity: 0; }
+.topbar > :not(.enderman) { position: relative; z-index: 1; }
+:root[data-skin="obsidian"] .enderman { display: none; }
+@media (max-width: 1000px) { .enderman { display: none; } }
+
+/* Crying Obsidian „Portal“: tiefviolette Leiste mit wanderndem Schimmer, gröberes Muster, atmendes Leuchten */
+:root[data-skin="obsidian"] { --veil: rgba(9, 3, 18, 0.8); --edge-h: 4px; --edge-glow: 0 0 14px 2px rgba(190, 110, 255, 0.8); --panel: #1b1033; --p1: #b45cff; --p2: #e3b8ff; --p3: #3a2063; }
+:root[data-skin="obsidian"] .topbar { background: radial-gradient(60% 140% at 15% 0%, rgba(150, 60, 255, 0.35), transparent 60%), linear-gradient(180deg, #24104a 0%, #120828 100%); padding-bottom: 24px; }
+:root[data-skin="obsidian"] .topbar::after { background: linear-gradient(90deg, #3a1470 0%, #b45cff 20%, #f0d2ff 25%, #b45cff 30%, #3a1470 55%, #3a1470 100%) 0 0 / 300% 100%; animation: schimmer 7s linear infinite; }
+@keyframes schimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+:root[data-skin="obsidian"] main { background-image: linear-gradient(var(--veil), var(--veil)), var(--bg-tex); background-size: auto, 192px 192px; }
+:root[data-skin="obsidian"] main::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(40% 35% at 20% 85%, rgba(170, 70, 255, 0.22), transparent 70%), radial-gradient(35% 30% at 85% 70%, rgba(120, 50, 230, 0.2), transparent 70%); animation: atmen 9s ease-in-out infinite alternate; }
+@keyframes atmen { from { opacity: 0.45; } to { opacity: 1; } }
+:root[data-skin="obsidian"] .card, :root[data-skin="obsidian"] .status-row, :root[data-skin="obsidian"] .events, :root[data-skin="obsidian"] h3 { background-color: rgba(27, 16, 51, 0.86); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo), 0 0 0 1px rgba(170, 100, 255, 0.25); }
+:root[data-skin="obsidian"] .brand-name { background: linear-gradient(180deg, #ffffff 0%, #d9b8ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(2px 2px 0 #08040f); }
+:root[data-skin="obsidian"] .brand small { color: var(--dim); }
+
+/* Start: Block wird gesetzt · Stopp: Block bekommt Risse und zerfällt in Pixel */
+.status { position: relative; }
+.fx-px { position: absolute; width: 5px; height: 5px; pointer-events: none; z-index: 3; }
+.fx-ghost { position: absolute; pointer-events: none; z-index: 2; image-rendering: pixelated; background-size: 100% 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-px, .fx-ghost { display: none; }
+  :root[data-skin="obsidian"] .topbar::after, :root[data-skin="obsidian"] main::before { animation: none; }
+}
+:root[data-skin="obsidian"] .tab { position: relative; z-index: 1; }

@@ -8,10 +8,10 @@
 </head>
 <body class="client-mode">
   <header class="topbar">
-    <div class="brand"><img src="icon.png" alt=""><span>Vapafane <small>Minecraft-Werkbank für Server &amp; Client</small></span></div>
+    <div class="brand"><img src="icon.png" alt=""><span class="brand-text"><span class="brand-name">Vapafane</span><small>Minecraft-Werkbank für Server &amp; Client</small></span></div>
     <div class="mode-switch" role="tablist" aria-label="Bereich">
-      <button id="mode-server" role="tab">Server</button>
       <button id="mode-client" class="active" role="tab">Client</button>
+      <button id="mode-server" role="tab">Server</button>
     </div>
     <div class="picker">
       <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"></select>
@@ -34,6 +34,7 @@
       <button data-tab="reach" id="reach-tab"><span class="reach-dot" id="reach-dot"></span>Erreichbarkeit</button>
       <button data-tab="settings">Einstellungen</button>
     </nav>
+    <div class="enderman" id="enderman" aria-hidden="true"></div>
     <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
   </header>
 

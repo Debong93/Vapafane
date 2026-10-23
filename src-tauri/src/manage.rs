@@ -360,7 +360,7 @@ pub fn reach_last() -> Value {
         cfg.active_path()
             .is_some_and(|d| crate::reach::server_port(&d) == r.port)
     });
-    json!({"report": last, "auto": crate::reach::should_check_on_start(&cfg)})
+    json!({"report": last, "auto": crate::reach::should_check_on_start(&cfg), "server": cfg.active_path().is_some()})
 }
 
 #[tauri::command]

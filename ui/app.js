@@ -224,13 +224,20 @@ async function refreshStatus() {
       addEvent("Server gestoppt");
     }
   }
+  const dot = $("status-dot");
+  // Kleine Animation: Block setzen, wenn der Server bereit ist; Block abbauen, wenn er aus ist
+  if (lastState && state !== lastState) {
+    if (state === "running" && ["starting", "restarting", "stopped", "failed"].includes(lastState)) blockPlace();
+    else if (["stopped", "none"].includes(state) && ["running", "stopping", "external"].includes(lastState)) blockBreak(getComputedStyle(dot).backgroundColor);
+  }
   lastState = state;
 
-  const dot = $("status-dot");
   dot.style.background = `var(${color})`;
   dot.classList.toggle("pulse", ["starting", "stopping", "restarting"].includes(state));
   $("status-label").textContent = label;
   document.title = st.server ? `${st.server.name} – ${label} · Vapafane` : "Vapafane";
+  // Server angelegt oder entfernt: Erreichbarkeit neu bewerten
+  if (!document.body.classList.contains("client-mode") && !!st.server !== reachServer) { reachChecked = false; reachInit(); }
 
   const sub = [];
   if (st.uptime && ["running", "starting", "stopping", "external"].includes(state)) sub.push(`seit ${fmtDuration(st.uptime)}`);
@@ -1362,11 +1369,95 @@ function setMode(mode) {
 $("mode-server").onclick = () => setMode("server");
 $("mode-client").onclick = () => setMode("client");
 
+// ------------------------------------------------------------------ Animationen
+
+const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/** Pixel-Partikel um den Status-Block: erst hoch, dann fallen sie. */
+function pixelBurst(colors, n, spread, fall) {
+  const box = document.querySelector(".status"), dot = $("status-dot");
+  const cx = dot.offsetLeft + dot.offsetWidth / 2, cy = dot.offsetTop + dot.offsetHeight / 2;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("span");
+    p.className = "fx-px";
+    p.style.background = colors[i % colors.length];
+    p.style.left = `${cx - 2}px`; p.style.top = `${cy - 2}px`;
+    box.appendChild(p);
+    const a = (Math.PI * 2 * i) / n + Math.random() * 0.4, d = spread * (0.6 + Math.random() * 0.5);
+    const dx = Math.cos(a) * d, up = Math.sin(a) * d * 0.5 - 12;
+    p.animate([
+      { transform: "translate(0, 0)", opacity: 1 },
+      { transform: `translate(${dx * 0.8}px, ${up}px)`, opacity: 1, offset: 0.4 },
+      { transform: `translate(${dx}px, ${up + fall}px)`, opacity: 0 },
+    ], { duration: 650 + Math.random() * 250, easing: "steps(9)" }).onfinish = () => p.remove();
+  }
+}
+
+/** Ein Element genau über den Status-Block legen (bleibt unabhängig von dessen Aktualisierung). */
+function ghostBlock(bg) {
+  const dot = $("status-dot"), g = document.createElement("span");
+  g.className = "fx-ghost";
+  Object.assign(g.style, { left: `${dot.offsetLeft}px`, top: `${dot.offsetTop}px`, width: `${dot.offsetWidth}px`, height: `${dot.offsetHeight}px`, background: bg });
+  if (bg !== "transparent") g.style.boxShadow = getComputedStyle(dot).boxShadow;
+  document.querySelector(".status").appendChild(g);
+  return g;
+}
+
+/** Start: der Block fällt an seinen Platz, Partikel stieben, kurzes Leuchten. */
+function blockPlace() {
+  if (calm()) return;
+  const dot = $("status-dot");
+  dot.animate([
+    { transform: "translateY(-24px) scale(0.5)", opacity: 0 },
+    { transform: "translateY(2px) scale(1.12)", opacity: 1, offset: 0.7 },
+    { transform: "none", opacity: 1 },
+  ], { duration: 420, easing: "steps(7)" });
+  setTimeout(() => {
+    pixelBurst([cssVar("--p1"), cssVar("--p2"), cssVar("--p3")], 12, 30, 20);
+    dot.animate([{ boxShadow: `0 0 0 3px var(--panel), 0 0 14px 5px ${cssVar("--p2")}` }, { boxShadow: "0 0 0 3px var(--panel), 0 0 0 4px var(--border)" }], { duration: 900 });
+  }, 300);
+}
+
+/** Stopp: Risse in drei Stufen mit leichtem Wackeln, dann zerfällt der Block in Pixel. */
+function blockBreak(color) {
+  if (calm()) return;
+  const g = ghostBlock(color);
+  const crack = ghostBlock("transparent");
+  const stages = ["--svg-crack1", "--svg-crack2", "--svg-crack3"];
+  stages.forEach((v, i) => setTimeout(() => { crack.style.backgroundImage = cssVar(v); }, i * 170));
+  for (const el of [g, crack]) {
+    el.animate([{ transform: "none" }, { transform: "translate(1px, -1px)" }, { transform: "translate(-1px, 1px)" }, { transform: "none" }],
+      { duration: 170, iterations: 3, easing: "steps(4)" });
+  }
+  setTimeout(() => {
+    crack.remove();
+    g.remove();
+    pixelBurst([color, cssVar("--p3"), "#555"], 14, 26, 26);
+    $("status-dot").animate([{ transform: "scale(0)" }, { transform: "scale(1)" }], { duration: 300, delay: 250, easing: "steps(4)", fill: "backwards" });
+  }, 520);
+}
+
+/** Der Enderman teleportiert sich ab und zu ein Stück weiter. */
+function endermanLoop() {
+  const e = $("enderman");
+  const jump = () => {
+    if (!calm() && e.offsetParent) {
+      e.classList.add("weg");
+      setTimeout(() => { e.style.right = `${40 + Math.round(Math.random() * 180)}px`; e.classList.remove("weg"); }, 600);
+    }
+    setTimeout(jump, 25000 + Math.random() * 20000);
+  };
+  setTimeout(jump, 20000);
+}
+endermanLoop();
+
 // ------------------------------------------------------------------ Erreichbarkeit (Server)
 
 let reach = null;         // letztes Ergebnis (kommt fertig aus Rust)
 let reachChecked = false; // in dieser Sitzung schon automatisch geprüft?
 let reachBusy = false;
+let reachServer = true;  // ist überhaupt ein Server angelegt?
 
 const REACH_PILL = { ok: "ok", warn: "warn", bad: "bad", none: "" };
 
@@ -1375,8 +1466,9 @@ function renderReach() {
   const light = r ? r.light : "none";
   document.querySelector(".ampel").dataset.light = light;
   $("reach-dot").dataset.light = r ? light : "none";
-  $("reach-title").textContent = r ? r.title : "Noch nicht geprüft";
-  $("reach-text").textContent = r ? r.text : "";
+  $("reach-title").textContent = r ? r.title : reachServer ? "Noch nicht geprüft" : "Kein Server ausgewählt";
+  $("reach-text").textContent = r ? r.text : reachServer ? "" : "Leg oben mit „+“ einen Server an oder wähl einen aus, dann wird geprüft.";
+  $("btn-reach").disabled = reachBusy || !reachServer;
   for (const k of ["v4", "v6"]) {
     $(`reach-${k}`).textContent = r ? r[k] : "–";
     $(`reach-${k}`).className = "pill " + (r ? REACH_PILL[r[`${k}_state`]] : "");
@@ -1410,7 +1502,6 @@ async function runReach() {
   try { reach = await invoke("reach_check"); }
   catch (e) { $("reach-when").textContent = String(e); }
   reachBusy = false;
-  $("btn-reach").disabled = false;
   renderReach();
   if ($("tab-reach").classList.contains("active")) reachSeen();
 }
@@ -1420,6 +1511,7 @@ async function reachInit() {
   let d;
   try { d = await invoke("reach_last"); } catch (_) { return; }
   reach = d.report;
+  reachServer = d.server;
   renderReach();
   if (d.auto && !reachChecked) {
     reachChecked = true;
