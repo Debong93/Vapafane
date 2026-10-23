@@ -178,9 +178,9 @@ pub fn run(start_now: bool) -> i32 {
     }
 
     // Warten, bis jemand „quit“ sagt
-    let mut q = sup.quit.lock().unwrap();
+    let mut q = crate::util::lock(&sup.quit);
     while !*q {
-        q = sup.changed.wait(q).unwrap();
+        q = sup.changed.wait(q).unwrap_or_else(|e| e.into_inner());
     }
     drop(q);
     let _ = fs::remove_file(ipc::service_file());
@@ -190,12 +190,12 @@ pub fn run(start_now: bool) -> i32 {
 }
 
 fn shutdown(sup: &Sup) {
-    let running = sup.inner.lock().unwrap().pid.is_some();
+    let running = crate::util::lock(&sup.inner).pid.is_some();
     if running {
         stop(sup, 0, false);
         wait_until_stopped(sup, STOP_TIMEOUT + Duration::from_secs(15));
     }
-    *sup.quit.lock().unwrap() = true;
+    *crate::util::lock(&sup.quit) = true;
     sup.changed.notify_all();
     // Falls run() gerade nicht wartet (z. B. beim Signal), sicher beenden
     std::thread::sleep(Duration::from_millis(300));
@@ -205,13 +205,17 @@ fn shutdown(sup: &Sup) {
 
 fn wait_until_stopped(sup: &Sup, timeout: Duration) -> bool {
     let end = Instant::now() + timeout;
-    let mut g = sup.inner.lock().unwrap();
+    let mut g = crate::util::lock(&sup.inner);
     while g.pid.is_some() {
         let left = end.saturating_duration_since(Instant::now());
         if left.is_zero() {
             return false;
         }
-        g = sup.changed.wait_timeout(g, left.min(Duration::from_secs(1))).unwrap().0;
+        g = sup
+            .changed
+            .wait_timeout(g, left.min(Duration::from_secs(1)))
+            .unwrap_or_else(|e| e.into_inner())
+            .0;
     }
     true
 }
@@ -261,10 +265,10 @@ fn dispatch(sup: &Sup, cmd: &str, arg: &Value) -> Result<Value> {
         }
         "stop" | "restart" => {
             let warn = arg.get("warn").and_then(|v| v.as_u64()).unwrap_or(0);
-            let st = sup.inner.lock().unwrap().state;
+            let st = crate::util::lock(&sup.inner).state;
             if !matches!(st, Some(State::Running | State::Starting | State::Restarting)) {
                 if st == Some(State::Failed) {
-                    let mut g = sup.inner.lock().unwrap();
+                    let mut g = crate::util::lock(&sup.inner);
                     g.state = Some(State::Stopped);
                     sup.changed.notify_all();
                     return Ok(Value::Null);
@@ -286,7 +290,7 @@ fn dispatch(sup: &Sup, cmd: &str, arg: &Value) -> Result<Value> {
 }
 
 fn status(sup: &Sup) -> Value {
-    let g = sup.inner.lock().unwrap();
+    let g = crate::util::lock(&sup.inner);
     json!({
         "state": g.state.unwrap_or(State::Stopped),
         "dir": g.dir,
@@ -325,7 +329,7 @@ fn adopt_running(sup: &Sup) {
     }
     log(&format!("Laufenden Server übernommen (PID {pid})."));
     let generation = {
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         g.state = Some(if rcon::once(&dir, "list").is_ok() {
             State::Running
         } else {
@@ -345,14 +349,14 @@ fn adopt_running(sup: &Sup) {
 fn watch_adopted(sup: Sup, pid: u32, dir: PathBuf, generation: u64) {
     loop {
         std::thread::sleep(Duration::from_secs(2));
-        if sup.inner.lock().unwrap().generation != generation {
+        if crate::util::lock(&sup.inner).generation != generation {
             return;
         }
         if !procs::pid_alive(pid) {
             on_exit(&sup, generation, None);
             return;
         }
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         if g.state == Some(State::Starting) && rcon::once(&dir, "list").is_ok() {
             g.state = Some(State::Running);
             sup.changed.notify_all();
@@ -362,7 +366,7 @@ fn watch_adopted(sup: Sup, pid: u32, dir: PathBuf, generation: u64) {
 
 fn start(sup: &Sup) -> Result<()> {
     {
-        let g = sup.inner.lock().unwrap();
+        let g = crate::util::lock(&sup.inner);
         if g.pid.is_some() {
             return Ok(()); // läuft schon
         }
@@ -424,7 +428,7 @@ fn spawn_server(sup: &Sup, dir: &Path, is_restart: bool) -> Result<()> {
     let _ = fs::write(pid_file(), json!({"pid": pid, "dir": dir}).to_string());
 
     let generation = {
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         g.state = Some(State::Starting);
         g.dir = Some(dir.to_path_buf());
         g.pid = Some(pid);
@@ -465,9 +469,9 @@ fn spawn_server(sup: &Sup, dir: &Path, is_restart: bool) -> Result<()> {
             for line in reader.split(b'\n').map_while(|l| l.ok()) {
                 let line = String::from_utf8_lossy(&line).trim_end().to_string();
                 if let Some(f) = &out_file {
-                    let _ = writeln!(f.lock().unwrap(), "{line}");
+                    let _ = writeln!(crate::util::lock(f), "{line}");
                 }
-                let mut g = sup.inner.lock().unwrap();
+                let mut g = crate::util::lock(&sup.inner);
                 if g.generation != generation {
                     continue;
                 }
@@ -494,7 +498,7 @@ fn spawn_server(sup: &Sup, dir: &Path, is_restart: bool) -> Result<()> {
 
 /// Server-Prozess ist beendet. `code`: None = unbekannt (übernommener Prozess).
 fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
-    let mut g = sup.inner.lock().unwrap();
+    let mut g = crate::util::lock(&sup.inner);
     if g.generation != generation {
         return;
     }
@@ -559,7 +563,7 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
     let sup = sup.clone();
     std::thread::spawn(move || {
         std::thread::sleep(RESTART_DELAY);
-        let g = sup.inner.lock().unwrap();
+        let g = crate::util::lock(&sup.inner);
         // Inzwischen gestoppt oder anders gestartet?
         if g.generation != my_gen || g.state != Some(State::Restarting) {
             return;
@@ -570,7 +574,7 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
             && let Err(e) = spawn_server(&sup, &dir, true)
         {
             log(&format!("Neustart fehlgeschlagen: {e}"));
-            let mut g = sup.inner.lock().unwrap();
+            let mut g = crate::util::lock(&sup.inner);
             g.state = Some(State::Failed);
             g.last_exit = Some(e.0);
             sup.changed.notify_all();
@@ -613,7 +617,7 @@ fn crash_reason(output: &VecDeque<String>) -> String {
 /// Erst wenn das nicht klappt: „stop“ über die Konsole, ganz zuletzt hart beenden.
 fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
     let (dir, pid) = {
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         if g.state == Some(State::Restarting) {
             // Wartet gerade auf Neustart nach Absturz – einfach abbrechen
             g.state = Some(State::Stopped);
@@ -650,7 +654,7 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
     }
 
     {
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         g.state = Some(State::Stopping);
         g.countdown = None;
         sup.changed.notify_all();
@@ -658,7 +662,7 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
     log(&format!("Stoppe Server (PID {pid}) per RCON …"));
     let mut sent = rcon.command("stop").is_ok();
     if !sent {
-        let mut g = sup.inner.lock().unwrap();
+        let mut g = crate::util::lock(&sup.inner);
         if let Some(stdin) = g.stdin.as_mut() {
             log("RCON nicht erreichbar – sende „stop“ über die Konsole.");
             sent = stdin.write_all(b"stop\n").and_then(|_| stdin.flush()).is_ok();
@@ -684,7 +688,7 @@ fn countdown_sleep(sup: &Sup, secs: u64, then: u64, word: &str) {
 }
 
 fn set_countdown(sup: &Sup, text: Option<String>) {
-    sup.inner.lock().unwrap().countdown = text;
+    crate::util::lock(&sup.inner).countdown = text;
 }
 
 // ---------------------------------------------------------------- Tägliches Backup
@@ -711,7 +715,7 @@ fn daily_backup_loop(sup: Sup) {
             continue;
         }
         let time = NaiveTime::parse_from_str(&cfg.daily_backup_time, "%H:%M")
-            .unwrap_or_else(|_| NaiveTime::from_hms_opt(5, 0, 0).unwrap());
+            .unwrap_or_else(|_| NaiveTime::from_hms_opt(5, 0, 0).unwrap_or(NaiveTime::MIN));
         let now = Local::now();
         let Some(due) = Local.from_local_datetime(&now.date_naive().and_time(time)).earliest() else {
             continue;
@@ -728,7 +732,7 @@ fn daily_backup_loop(sup: Sup) {
             continue; // später nochmal versuchen
         };
         let running = {
-            let mut g = sup.inner.lock().unwrap();
+            let mut g = crate::util::lock(&sup.inner);
             g.job = Some("Tägliches Backup".into());
             g.state == Some(State::Running) && g.dir.as_deref() == Some(dir.as_path())
         };
@@ -738,7 +742,7 @@ fn daily_backup_loop(sup: Sup) {
             Ok(p) => log(&format!("Tägliches Backup fertig: {}", p.display())),
             Err(e) => log(&format!("Tägliches Backup fehlgeschlagen: {e}")),
         }
-        sup.inner.lock().unwrap().job = None;
+        crate::util::lock(&sup.inner).job = None;
         last = Local::now().timestamp();
         let _ = fs::write(daily_state_file(), json!({"last": last}).to_string());
     }

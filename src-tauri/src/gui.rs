@@ -60,7 +60,7 @@ use vapafane_shared::ServerItem;
 #[tauri::command]
 pub async fn get_status(gui: State<'_, Gui>) -> Cmd<Value> {
     let cfg = Config::load();
-    let busy = gui.busy.lock().unwrap().clone();
+    let busy = crate::util::lock(&gui.busy).clone();
     let mut st = tauri::async_runtime::spawn_blocking({
         let cfg = cfg.clone();
         move || server_state(&cfg)
@@ -97,7 +97,7 @@ pub async fn get_status(gui: State<'_, Gui>) -> Cmd<Value> {
         st["uptime"] = json!(now_secs().saturating_sub(started));
     }
     let pid = st.get("pid").and_then(|p| p.as_u64()).map(|p| p as u32);
-    let mut meter = gui.meter.lock().unwrap();
+    let mut meter = crate::util::lock(&gui.meter);
     st["ncpu"] = json!(meter.ncpu());
     if let Some(pid) = pid {
         let (cpu, ram) = meter.sample(pid);
@@ -147,20 +147,21 @@ pub async fn get_live(app: AppHandle) -> Cmd<Value> {
         let gui = app.state::<Gui>();
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
-        let mut guard = gui.rcon.lock().unwrap();
+        let mut guard = crate::util::lock(&gui.rcon);
         if guard.as_ref().map(|r| r.dir() != dir.as_path()).unwrap_or(true) {
             *guard = Some(Rcon::new(&dir).with_timeout(Duration::from_secs(4)));
         }
-        let rcon = guard.as_mut().unwrap();
+        let Some(rcon) = guard.as_mut() else {
+            return err("Keine RCON-Verbindung");
+        };
         let list = rcon.command("list")?;
         let tick = rcon.command("tick query").unwrap_or_default();
-        static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"There are (\d+) of a max of (\d+) players online:?\s*(.*)").unwrap()
-        });
-        static TICK: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"Average time per tick:\s*([\d.,]+)\s*ms").unwrap());
+        static LIST: std::sync::LazyLock<Option<Regex>> =
+            std::sync::LazyLock::new(|| util::regex(r"There are (\d+) of a max of (\d+) players online:?\s*(.*)"));
+        static TICK: std::sync::LazyLock<Option<Regex>> =
+            std::sync::LazyLock::new(|| util::regex(r"Average time per tick:\s*([\d.,]+)\s*ms"));
         let mut out = json!({"ok": true});
-        if let Some(c) = LIST.captures(&list) {
+        if let Some(c) = LIST.as_ref().and_then(|r| r.captures(&list)) {
             let names: Vec<String> = c[3]
                 .split(',')
                 .map(|n| n.trim().to_string())
@@ -170,7 +171,7 @@ pub async fn get_live(app: AppHandle) -> Cmd<Value> {
             out["max"] = json!(c[2].parse::<u32>().unwrap_or(0));
             out["players"] = json!(names);
         }
-        if let Some(c) = TICK.captures(&tick) {
+        if let Some(c) = TICK.as_ref().and_then(|r| r.captures(&tick)) {
             let mspt: f64 = c[1].replace(',', ".").parse().unwrap_or(0.0);
             let tps = if mspt > 0.0 { (1000.0 / mspt).min(20.0) } else { 20.0 };
             out["mspt"] = json!(mspt);
@@ -265,11 +266,14 @@ pub async fn send_command(app: AppHandle, cmd: String) -> Cmd<String> {
         let gui = app.state::<Gui>();
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
-        let mut guard = gui.rcon.lock().unwrap();
+        let mut guard = crate::util::lock(&gui.rcon);
         if guard.as_ref().map(|r| r.dir() != dir.as_path()).unwrap_or(true) {
             *guard = Some(Rcon::new(&dir).with_timeout(Duration::from_secs(8)));
         }
-        guard.as_mut().unwrap().command(c)
+        match guard.as_mut() {
+            Some(r) => r.command(c),
+            None => err("Keine RCON-Verbindung"),
+        }
     })
     .await
 }
@@ -436,7 +440,7 @@ pub(crate) fn run_task(
 ) -> Result<()> {
     let gui = app.state::<Gui>();
     {
-        let mut busy = gui.busy.lock().unwrap();
+        let mut busy = crate::util::lock(&gui.busy);
         if let Some(b) = busy.as_ref() {
             return err(format!("Es läuft gerade schon: {b}"));
         }
@@ -445,7 +449,7 @@ pub(crate) fn run_task(
     let lock = match ops::JobLock::acquire(title) {
         Ok(l) => l,
         Err(e) => {
-            *gui.busy.lock().unwrap() = None;
+            *crate::util::lock(&gui.busy) = None;
             return Err(e);
         }
     };
@@ -455,7 +459,7 @@ pub(crate) fn run_task(
     std::thread::spawn(move || {
         let last = Mutex::new(std::time::Instant::now() - Duration::from_secs(1));
         let progress = |frac: f64, text: &str| {
-            let mut l = last.lock().unwrap();
+            let mut l = crate::util::lock(&last);
             if l.elapsed() < Duration::from_millis(150) && frac < 1.0 {
                 return;
             }
@@ -474,7 +478,7 @@ pub(crate) fn run_task(
         };
         let res = f(&progress);
         drop(lock);
-        *busy.lock().unwrap() = None;
+        *crate::util::lock(&busy) = None;
         let (error, result) = match res {
             Ok(v) => (None, v),
             Err(e) => (Some(e.0), Value::Null),
@@ -648,7 +652,7 @@ pub fn get_config() -> Value {
 
 // ---------------------------------------------------------------- Start
 
-pub fn run() {
+pub fn run() -> i32 {
     let busy = Arc::new(Mutex::new(None));
     let reset_flag = Arc::new(AtomicBool::new(true));
     let gui = Gui {
@@ -657,7 +661,7 @@ pub fn run() {
         busy,
         log_reset: reset_flag.clone(),
     };
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -747,6 +751,12 @@ pub fn run() {
             crate::clients_gui::set_client_target,
             crate::clients_gui::client_open_base,
         ])
-        .run(tauri::generate_context!())
-        .expect("Fenster konnte nicht gestartet werden");
+        .run(tauri::generate_context!());
+    match result {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln!("Fenster konnte nicht gestartet werden: {e}");
+            1
+        }
+    }
 }

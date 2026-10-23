@@ -39,7 +39,11 @@ pub fn backup_server(dir: &Path, name: &str, cfg: &Config, progress: Progress) -
         let sec = chrono::Local::now().format("%S");
         final_path = dest_dir.join(format!("{safe}_{}-{sec}.zip", util::now_stamp()));
     }
-    let tmp = dest_dir.join(format!(".{}.part", final_path.file_name().unwrap().to_string_lossy()));
+    let file = final_path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "backup.zip".into());
+    let tmp = dest_dir.join(format!(".{file}.part"));
 
     let root_name = util::canonical(dir)
         .file_name()
@@ -393,12 +397,12 @@ pub fn restore_backup(archive: &Path, dir: &Path, progress: Progress) -> Result<
 pub fn backup_label(path: &Path) -> String {
     use regex::Regex;
     use std::sync::LazyLock;
-    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})").unwrap());
+    static RE: LazyLock<Option<Regex>> = LazyLock::new(|| util::regex(r"(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})"));
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    if let Some(c) = RE.captures(&name) {
+    if let Some(c) = RE.as_ref().and_then(|r| r.captures(&name)) {
         return format!("{}.{}.{}  {}:{} Uhr", &c[3], &c[2], &c[1], &c[4], &c[5]);
     }
     fs::metadata(path)

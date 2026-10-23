@@ -1,5 +1,7 @@
 //! Schreibt frontend/style/textures.css neu: `cargo run --bin texturen [ZIELDATEI]`
 
+#![deny(unsafe_code, clippy::unwrap_used, clippy::expect_used)]
+
 use std::process::ExitCode;
 
 fn main() -> ExitCode {

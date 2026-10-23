@@ -366,7 +366,7 @@ pub fn stable_ipv6() -> Option<Ipv6Addr> {
     }
     #[cfg(windows)]
     {
-        win::stable_ipv6()
+        stable_ipv6_windows()
     }
     #[cfg(not(any(target_os = "linux", windows)))]
     {
@@ -405,59 +405,28 @@ pub fn outgoing_ipv6() -> Option<Ipv6Addr> {
     }
 }
 
+/// Windows: feste IPv6-Adresse über PowerShell abfragen (ohne unsicheren Systemaufruf).
+/// „Random“ sind die wechselnden temporären Adressen – die werden übersprungen.
 #[cfg(windows)]
-mod win {
-    use std::net::Ipv6Addr;
-    use windows_sys::Win32::NetworkManagement::IpHelper::{
-        GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST, GetAdaptersAddresses,
-        IP_ADAPTER_ADDRESSES_LH,
-    };
-    use windows_sys::Win32::NetworkManagement::Ndis::IfOperStatusUp;
-    use windows_sys::Win32::Networking::WinSock::{AF_INET6, IpDadStatePreferred, IpSuffixOriginRandom, SOCKADDR_IN6};
+fn stable_ipv6_windows() -> Option<Ipv6Addr> {
+    let out = crate::util::command("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-NetIPAddress -AddressFamily IPv6 -AddressState Preferred | Where-Object { $_.SuffixOrigin -ne 'Random' } | ForEach-Object { $_.IPAddress }",
+        ])
+        .output()
+        .ok()?;
+    parse_ip_lines(&String::from_utf8_lossy(&out.stdout))
+}
 
-    pub fn stable_ipv6() -> Option<Ipv6Addr> {
-        let flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
-        let mut size: u32 = 32 * 1024;
-        for _ in 0..3 {
-            // u64-Puffer, damit die Strukturen richtig ausgerichtet sind
-            let mut buf = vec![0u64; (size as usize).div_ceil(8)];
-            let first = buf.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH;
-            // SAFETY: Puffer ist `size` Bytes groß und beschreibbar; Windows füllt ihn.
-            let rc = unsafe { GetAdaptersAddresses(AF_INET6 as u32, flags, std::ptr::null(), first, &mut size) };
-            if rc == 111 {
-                continue; // ERROR_BUFFER_OVERFLOW: `size` enthält jetzt die nötige Größe
-            }
-            if rc != 0 {
-                return None;
-            }
-            let mut ad = first as *const IP_ADAPTER_ADDRESSES_LH;
-            // SAFETY: verkettete Liste aus dem Puffer oben, gültig solange `buf` lebt.
-            unsafe {
-                while !ad.is_null() {
-                    if (*ad).OperStatus == IfOperStatusUp {
-                        let mut ua = (*ad).FirstUnicastAddress;
-                        while !ua.is_null() {
-                            let sa = (*ua).Address.lpSockaddr;
-                            if !sa.is_null()
-                                && (*sa).sa_family == AF_INET6
-                                && (*ua).SuffixOrigin != IpSuffixOriginRandom
-                                && (*ua).DadState == IpDadStatePreferred
-                            {
-                                let a = Ipv6Addr::from((*(sa as *const SOCKADDR_IN6)).sin6_addr.u.Byte);
-                                if super::global_v6(&a) {
-                                    return Some(a);
-                                }
-                            }
-                            ua = (*ua).Next;
-                        }
-                    }
-                    ad = (*ad).Next;
-                }
-            }
-            return None;
-        }
-        None
-    }
+/// Erste öffentliche IPv6 aus einer Liste (eine Adresse pro Zeile, evtl. mit %Zone).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn parse_ip_lines(text: &str) -> Option<Ipv6Addr> {
+    text.lines()
+        .filter_map(|l| l.trim().split('%').next()?.parse::<Ipv6Addr>().ok())
+        .find(global_v6)
 }
 
 // ---------------------------------------------------------------- Router fragen (UPnP, nur lesend)
@@ -651,6 +620,16 @@ mod tests {
             parse_if_inet6("2a0280716c74b0201fa9313414b7c37a 02 40 00 01 enp2s0"),
             None
         );
+    }
+
+    #[test]
+    fn ipv6_aus_powershell() {
+        let text = "fe80::1%12\r\nfd03::5\r\n2a02:8071:6c74:b020:3a05:25ff:fe34:c61d\r\n";
+        assert_eq!(
+            parse_ip_lines(text),
+            Some("2a02:8071:6c74:b020:3a05:25ff:fe34:c61d".parse().unwrap())
+        );
+        assert_eq!(parse_ip_lines("fe80::1\n"), None);
     }
 
     #[test]

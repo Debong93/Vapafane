@@ -79,7 +79,7 @@ pub fn read_env(dir: &Path) -> BTreeMap<String, String> {
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
     .collect();
-    static KEY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^MC_[A-Z_]+$").unwrap());
+    static KEY: LazyLock<Option<Regex>> = LazyLock::new(|| crate::util::regex(r"^MC_[A-Z_]+$"));
     if let Ok(text) = fs::read_to_string(dir.join(ENV_NAME)) {
         for line in text.lines() {
             let line = line.trim();
@@ -88,7 +88,7 @@ pub fn read_env(dir: &Path) -> BTreeMap<String, String> {
             }
             if let Some((k, v)) = line.split_once('=') {
                 let k = k.trim();
-                if KEY.is_match(k) {
+                if KEY.as_ref().is_some_and(|r| r.is_match(k)) {
                     let v = v.trim();
                     let v = v.strip_prefix('"').unwrap_or(v);
                     let v = v.strip_suffix('"').unwrap_or(v);
@@ -250,18 +250,18 @@ pub fn detect_server(dir: &Path) -> ServerInfo {
     }
 
     // Version: zuerst aus dem Log, dann aus .mcpanel.env, dann aus den Jars
-    static FABRIC_RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"Loading Minecraft (\S+) with Fabric Loader (\S+)").unwrap());
-    static VANILLA_RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"Starting minecraft server version (\S+)").unwrap());
+    static FABRIC_RE: LazyLock<Option<Regex>> =
+        LazyLock::new(|| crate::util::regex(r"Loading Minecraft (\S+) with Fabric Loader (\S+)"));
+    static VANILLA_RE: LazyLock<Option<Regex>> =
+        LazyLock::new(|| crate::util::regex(r"Starting minecraft server version (\S+)"));
     if let Ok(mut f) = fs::File::open(dir.join("logs").join("latest.log")) {
         let mut buf = vec![0u8; 6000];
         let n = f.read(&mut buf).unwrap_or(0);
         let head = String::from_utf8_lossy(&buf[..n]);
-        if let Some(c) = FABRIC_RE.captures(&head) {
+        if let Some(c) = FABRIC_RE.as_ref().and_then(|r| r.captures(&head)) {
             info.version = c[1].to_string();
             info.loader = c[2].to_string();
-        } else if let Some(c) = VANILLA_RE.captures(&head) {
+        } else if let Some(c) = VANILLA_RE.as_ref().and_then(|r| r.captures(&head)) {
             info.version = c[1].to_string();
         }
     }
@@ -273,12 +273,12 @@ pub fn detect_server(dir: &Path) -> ServerInfo {
         info.loader = env.get("MC_LOADER_VERSION").cloned().unwrap_or_default();
     }
     if info.version.is_empty() && info.kind == "fabric" && !info.jar.is_empty() {
-        static INTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"intermediary/([^/\s]+)/").unwrap());
+        static INTER: LazyLock<Option<Regex>> = LazyLock::new(|| crate::util::regex(r"intermediary/([^/\s]+)/"));
         let cp = jar_manifest(&dir.join(&info.jar))
             .get("Class-Path")
             .cloned()
             .unwrap_or_default();
-        if let Some(c) = INTER.captures(&cp) {
+        if let Some(c) = INTER.as_ref().and_then(|r| r.captures(&cp)) {
             info.version = c[1].to_string();
         }
     }

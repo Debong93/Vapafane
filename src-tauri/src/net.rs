@@ -60,7 +60,10 @@ fn header_u64(resp: &Response, name: &str) -> Option<u64> {
 
 /// Vor der Anfrage warten, falls der Dienst gebeten hat zu bremsen.
 fn wait_if_paused(host: &str) {
-    let until = PAUSE.lock().unwrap().iter().find(|(h, _)| h == host).map(|(_, t)| *t);
+    let until = crate::util::lock(&PAUSE)
+        .iter()
+        .find(|(h, _)| h == host)
+        .map(|(_, t)| *t);
     if let Some(t) = until {
         let left = t.saturating_duration_since(std::time::Instant::now());
         if !left.is_zero() {
@@ -71,7 +74,7 @@ fn wait_if_paused(host: &str) {
 
 fn pause(host: &str, secs: u64) {
     let until = std::time::Instant::now() + Duration::from_secs(secs.clamp(1, 60));
-    let mut p = PAUSE.lock().unwrap();
+    let mut p = crate::util::lock(&PAUSE);
     p.retain(|(h, _)| h != host);
     p.push((host.to_string(), until));
 }

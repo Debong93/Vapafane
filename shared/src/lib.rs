@@ -1,6 +1,10 @@
 //! Datentypen, die Backend (Tauri-Befehle) und Oberfläche (Leptos/WASM) austauschen.
 //! Beide Seiten nutzen dieselben Strukturen – passt ein Feld nicht, fällt das beim Bauen auf.
 
+// Kein unwrap/expect und kein unsafe – Fehler werden sauber behandelt.
+#![deny(unsafe_code, clippy::unwrap_used, clippy::expect_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
 use serde::{Deserialize, Serialize};
 
 /// Ein Server aus der Liste (Auswahl oben).

@@ -98,11 +98,10 @@ pub fn server_state(cfg: &Config) -> Value {
         .unwrap_or("stopped")
         .to_string();
     st["service"] = json!(svc.is_some());
-    if dir.is_none() {
+    let Some(dir) = dir else {
         st["state"] = json!("none");
         return st;
-    }
-    let dir = dir.unwrap();
+    };
     // Dienst kümmert sich um einen anderen Server als den ausgewählten?
     if matches!(svc_state.as_str(), "running" | "starting" | "stopping" | "restarting")
         && svc_dir

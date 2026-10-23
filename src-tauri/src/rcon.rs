@@ -75,7 +75,7 @@ impl Rcon {
         }
         let mut data = vec![0u8; len as usize];
         sock.read_exact(&mut data)?;
-        let id = i32::from_le_bytes(data[0..4].try_into().unwrap());
+        let id = i32::from_le_bytes([data[0], data[1], data[2], data[3]]);
         let body = String::from_utf8_lossy(&data[8..data.len() - 2]).into_owned();
         Ok((id, body))
     }

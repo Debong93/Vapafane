@@ -23,6 +23,17 @@ impl<E: std::error::Error> From<E> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Mutex sperren – auch wenn ein anderer Thread dabei abgestürzt ist (dann mit dem
+/// letzten Stand weiterarbeiten statt selbst abzustürzen).
+pub fn lock<T>(m: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Feste Regex. `None` nur, wenn das Muster selbst fehlerhaft wäre – dann trifft sie nie.
+pub fn regex(pattern: &str) -> Option<regex::Regex> {
+    regex::Regex::new(pattern).ok()
+}
+
 /// Fehler aus einem Text.
 pub fn err<T>(msg: impl Into<String>) -> Result<T> {
     Err(Error(msg.into()))

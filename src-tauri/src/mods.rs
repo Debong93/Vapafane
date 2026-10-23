@@ -87,7 +87,9 @@ pub fn set_note(dir: &Path, rel: &str, reason: Option<&str>) -> Result<()> {
     if !notes.is_object() {
         *notes = json!({});
     }
-    let notes = notes.as_object_mut().unwrap();
+    let Some(notes) = notes.as_object_mut() else {
+        return write_meta(dir, &meta);
+    };
     match reason {
         Some(r) => {
             notes.insert(rel.to_string(), json!(r));
@@ -106,7 +108,9 @@ pub fn set_source(dir: &Path, rel: &str, source: Option<Value>) -> Result<()> {
     if !all.is_object() {
         *all = json!({});
     }
-    let all = all.as_object_mut().unwrap();
+    let Some(all) = all.as_object_mut() else {
+        return write_meta(dir, &meta);
+    };
     match source {
         Some(v) => {
             all.insert(rel.to_string(), v);

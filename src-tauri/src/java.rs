@@ -38,8 +38,8 @@ pub fn java_major(java: &str) -> u32 {
 }
 
 fn parse_major(text: &str) -> u32 {
-    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"version "(\d+)(?:\.(\d+))?"#).unwrap());
-    let Some(c) = RE.captures(text) else {
+    static RE: LazyLock<Option<Regex>> = LazyLock::new(|| crate::util::regex(r#"version "(\d+)(?:\.(\d+))?"#));
+    let Some(c) = RE.as_ref().and_then(|r| r.captures(text)) else {
         return 0;
     };
     let major: u32 = c[1].parse().unwrap_or(0);

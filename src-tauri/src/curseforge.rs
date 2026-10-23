@@ -180,7 +180,7 @@ pub fn test_key(k: &str) -> Result<()> {
 static CLASSES: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 
 fn class_id(slug: &str) -> Result<u64> {
-    let mut g = CLASSES.lock().unwrap();
+    let mut g = crate::util::lock(&CLASSES);
     if g.is_none() {
         let v = get(
             "/v1/categories",

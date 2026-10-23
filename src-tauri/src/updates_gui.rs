@@ -27,9 +27,7 @@ use crate::{catalog, cleanup, ipc, launcher, mods};
 static PLAN: Mutex<Option<Plan>> = Mutex::new(None);
 
 fn take_plan(dir: &Path) -> Result<Plan> {
-    let plan = PLAN
-        .lock()
-        .unwrap()
+    let plan = crate::util::lock(&PLAN)
         .clone()
         .ok_or_else(|| Error("Bitte zuerst „Prüfen“ drücken.".into()))?;
     if util::canonical(&plan.dir) != util::canonical(dir) {
@@ -85,13 +83,13 @@ pub async fn upd_versions() -> Cmd<Vec<String>> {
 
 #[tauri::command]
 pub fn upd_check(app: AppHandle, target: String) -> Cmd<()> {
-    *PLAN.lock().unwrap() = None;
+    *crate::util::lock(&PLAN) = None;
     run_task(&app, &format!("Prüfe Mods für {target}"), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let plan = updater::check(&dir, &target, progress)?;
         let out = json!({"plan": plan, "has_work": plan.has_work()});
-        *PLAN.lock().unwrap() = Some(plan);
+        *crate::util::lock(&PLAN) = Some(plan);
         Ok(out)
     })
     .map_err(|e| e.0)
@@ -151,7 +149,7 @@ pub fn upd_run(app: AppHandle, disable_missing: bool, disable_unknown: bool) -> 
         let dir = active_dir(&cfg)?;
         let plan = take_plan(&dir)?;
         let r = do_update(&dir, &plan, disable_missing, disable_unknown, progress)?;
-        *PLAN.lock().unwrap() = None;
+        *crate::util::lock(&PLAN) = None;
         Ok(r)
     })
     .map_err(|e| e.0)
@@ -469,10 +467,7 @@ fn trial_inner(
         let lines = lines.clone();
         std::thread::spawn(move || {
             for l in BufReader::new(stream).split(b'\n').map_while(|l| l.ok()) {
-                lines
-                    .lock()
-                    .unwrap()
-                    .push(String::from_utf8_lossy(&l).trim_end().to_string());
+                crate::util::lock(&lines).push(String::from_utf8_lossy(&l).trim_end().to_string());
             }
         });
     }
@@ -486,7 +481,7 @@ fn trial_inner(
             exited = Some(status.code());
             break;
         }
-        let l = lines.lock().unwrap();
+        let l = crate::util::lock(&lines);
         if l.iter().any(|x| x.contains("]: Done (")) {
             ready = Some(started.elapsed().as_secs());
             break;
@@ -515,7 +510,7 @@ fn trial_inner(
         let _ = child.wait();
     }
 
-    let all = lines.lock().unwrap().clone();
+    let all = crate::util::lock(&lines).clone();
     let problems: Vec<String> = all
         .iter()
         .filter(|l| l.contains("/ERROR]") || l.contains("Exception") || l.contains("Incompatible mod"))

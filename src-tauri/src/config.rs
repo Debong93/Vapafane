@@ -130,7 +130,20 @@ fn default_daily_time() -> String {
 
 impl Default for Config {
     fn default() -> Self {
-        serde_json::from_str("{}").expect("leere Konfiguration")
+        Config {
+            servers: vec![],
+            notify: default_true(),
+            stop_warning: default_stop_warning(),
+            backup_dir: default_backup_dir(),
+            backup_keep: default_keep(),
+            daily_backup: false,
+            daily_backup_time: default_daily_time(),
+            reach_check: default_true(),
+            client_target: None,
+            autostart_server: false,
+            active: None,
+            extra: Map::new(),
+        }
     }
 }
 

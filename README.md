@@ -21,7 +21,7 @@ Die Dateien gibt es unter **Releases** (rechts auf dieser Seite).
 Software-Verwaltung installiert sie dann. Oder im Terminal (Datei liegt im Download-Ordner):
 
 ```bash
-sudo apt install ~/Downloads/Vapafane_0.8.3_amd64.deb
+sudo apt install ~/Downloads/Vapafane_0.9.0_amd64.deb
 ```
 
 Alternativ das `.AppImage` ausführbar machen (Rechtsklick → Eigenschaften →
@@ -54,12 +54,14 @@ Fragen und Fehler bitte als [GitHub-Issue](https://github.com/Debong93/Vapafane/
 
 ## Technisches (kurz)
 
-- Rust + [Tauri 2](https://tauri.app), Oberfläche in HTML/CSS/JS. Die Pixel-Texturen sind
-  eigene Pixel-Art (`assets/make_textures.py`), keine Dateien aus Minecraft.
+- Komplett in Rust: Backend mit [Tauri 2](https://tauri.app), Oberfläche mit
+  [Leptos](https://leptos.dev) (WebAssembly). Die Pixel-Texturen sind eigene Pixel-Art
+  (`werkzeuge`, `cargo run --bin texturen`), keine Dateien aus Minecraft.
 - Ein Programm, drei Rollen: Fenster, Hintergrund-Dienst (`--service`, unter Linux als
   systemd-Benutzerdienst) und Befehlszeile (`--ctl help`).
 - Mods kommen von Modrinth; CurseForge ist optional mit eigenem API-Schlüssel.
 - Liest die Daten des alten Panels weiter (`~/.config/mc-server-panel/config.json`).
-- Selbst bauen: `cargo install tauri-cli --locked`, dann `cd src-tauri && cargo tauri build`.
+- Selbst bauen: `rustup target add wasm32-unknown-unknown`, `cargo install tauri-cli trunk --locked`,
+  dann `cd src-tauri && cargo tauri build`.
   Testmodus ohne echte Daten: `VAPAFANE_HOME=/tmp/test vapafane`.
 - Ein Release entsteht beim Push eines Tags `v…` (GitHub Actions).

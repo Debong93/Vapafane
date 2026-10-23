@@ -173,10 +173,11 @@ fn paper_versions() -> Result<Vec<String>> {
 
 /// Alle NeoForge-Versionen als (NeoForge-Version, Minecraft-Version, Beta?).
 fn neoforge_versions() -> Result<Vec<(String, String, bool)>> {
-    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<version>([^<]+)</version>").unwrap());
+    static RE: LazyLock<Option<Regex>> = LazyLock::new(|| crate::util::regex(r"<version>([^<]+)</version>"));
     let xml = net::get_text("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")?;
     Ok(RE
-        .captures_iter(&xml)
+        .iter()
+        .flat_map(|r| r.captures_iter(&xml))
         .filter_map(|c| {
             let v = c[1].to_string();
             let mc = neoforge_mc_version(&v)?;
@@ -301,7 +302,9 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
                 matching.retain(|(_, _, b)| !b);
             }
             matching.sort_by(|a, b| cmp_versions(&a.0, &b.0));
-            let (v, _, beta) = matching.last().unwrap();
+            let Some((v, _, beta)) = matching.last() else {
+                return err(format!("Für Minecraft {game} gibt es kein NeoForge."));
+            };
             let base =
                 format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{v}/neoforge-{v}-installer.jar");
             let sha1 = net::get_text(&format!("{base}.sha1"))?

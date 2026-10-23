@@ -1,6 +1,10 @@
 //! Vapafane-Oberfläche in Rust (Leptos). Läuft als WebAssembly im Tauri-Fenster und
 //! spricht über Tauri-Befehle mit dem Rust-Backend.
 
+// Kein unwrap/expect und kein unsafe – Fehler werden sauber behandelt.
+#![deny(unsafe_code, clippy::unwrap_used, clippy::expect_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
 mod dialog;
 mod header;
 mod mobs;
