@@ -2,6 +2,7 @@
 
 use leptos::prelude::*;
 
+use crate::pages::reach;
 use crate::state::{Page, use_app};
 
 #[component]
@@ -9,10 +10,12 @@ pub fn Sidebar() -> impl IntoView {
     let app = use_app();
     let item = move |page: Page, icon: &'static str, label: &'static str| {
         view! {
-            <button class:active=move || app.page.get() == page on:click=move |_| app.show(page)>
+            <button class:active=move || app.page.get() == page on:click=move |_| app.show(page)
+                class:alarm=move || page == Page::Reach && reach::alarm(app)
+                class:red=move || page == Page::Reach && reach::light(app) == "red">
                 <span class=format!("px-ico ico-{icon}")></span>
                 <span class="lbl">{label}</span>
-                {(page == Page::Reach).then(|| view! { <span class="reach-dot" data-light="none"></span> })}
+                {(page == Page::Reach).then(|| view! { <span class="reach-dot" data-light=move || reach::light(app)></span> })}
             </button>
         }
     };

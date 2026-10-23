@@ -1,0 +1,10 @@
+[package]
+name = "vapafane-werkzeuge"
+version = "0.9.0"
+description = "Hilfsprogramme für die Entwicklung von Vapafane (z. B. Pixel-Texturen erzeugen)"
+license = "MIT"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[dependencies]

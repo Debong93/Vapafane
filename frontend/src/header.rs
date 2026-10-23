@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use vapafane_shared::ServerItem;
 
 use crate::mobs::Mobs;
+use crate::pages::server_dialogs;
 use crate::state::{Mode, Page, toggle_light_dark, use_app};
 use crate::tauri;
 
@@ -36,17 +37,28 @@ pub fn Header() -> impl IntoView {
         if path.is_empty() || path == active_path() {
             return;
         }
+        let name = app
+            .status
+            .get_untracked()
+            .servers
+            .iter()
+            .find(|s| s.path == path)
+            .map(|s| s.name.clone())
+            .unwrap_or_default();
         leptos::task::spawn_local(async move {
-            let _ = tauri::invoke::<()>("select_server", serde_json::json!({ "path": path })).await;
+            match tauri::invoke::<()>("select_server", serde_json::json!({ "path": path })).await {
+                Ok(()) => app.add_event(format!("Server gewechselt: {name}")),
+                Err(e) => crate::dialog::error("Umschalten nicht möglich", e).await,
+            }
             app.refresh_status();
         });
     };
 
-    let menu_item = move |label: &'static str| {
+    let menu_item = move |label: &'static str, action: fn()| {
         view! {
             <button on:click=move |_| {
                 menu_open.set(false);
-                crate::pages::not_yet(label);
+                action();
             }>{label}</button>
         }
     };
@@ -86,11 +98,11 @@ pub fn Header() -> impl IntoView {
                     }>"＋"</button>
                 <div id="add-menu" class="menu" class:hidden=move || !menu_open.get()
                     on:click=|e| e.stop_propagation()>
-                    {menu_item("Vorhandenen Ordner hinzufügen …")}
-                    {menu_item("Server aus ZIP/Backup importieren …")}
-                    {menu_item("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …")}
+                    {menu_item("Vorhandenen Ordner hinzufügen …", server_dialogs::add_folder)}
+                    {menu_item("Server aus ZIP/Backup importieren …", server_dialogs::add_archive)}
+                    {menu_item("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …", server_dialogs::add_new)}
                     <hr/>
-                    {menu_item("Ausgewählten Server aus der Liste entfernen")}
+                    {menu_item("Ausgewählten Server aus der Liste entfernen", server_dialogs::remove_server)}
                 </div>
             </div>
             <Mobs/>

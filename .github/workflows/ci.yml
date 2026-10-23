@@ -49,6 +49,10 @@ jobs:
         working-directory: shared
         run: cargo test --locked
 
+      - name: Tests Werkzeuge (Texturen)
+        working-directory: werkzeuge
+        run: cargo test --locked
+
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --locked -- -D warnings

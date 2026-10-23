@@ -37,6 +37,8 @@ pub struct Status {
     pub ram: Option<u64>,
     pub ram_limit_gb: Option<f64>,
     pub eula: Option<bool>,
+    /// Letzte Fehlermeldung beim Beenden (nach Absturz)
+    pub last_exit: Option<String>,
     pub service: bool,
 }
 
