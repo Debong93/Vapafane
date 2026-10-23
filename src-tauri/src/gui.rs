@@ -749,7 +749,6 @@ pub fn run() {
             crate::clients_gui::client_watch,
             crate::clients_gui::client_preview_ping,
             crate::clients_gui::client_settings,
-            crate::clients_gui::set_client_notify,
             crate::clients_gui::set_client_target,
             crate::clients_gui::client_open_base,
         ])

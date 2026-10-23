@@ -171,61 +171,27 @@ pub async fn client_status(dir: String) -> Cmd<Value> {
     .await
 }
 
-/// Zuletzt gesehener Zustand je Client (online?) – für die Meldung beim Wechsel.
-static LAST_ONLINE: std::sync::Mutex<Vec<(String, bool)>> = std::sync::Mutex::new(Vec::new());
-
 /// Client-Wächter: prüft alle eingerichteten Server (das Fenster ruft ihn alle 20 s auf,
-/// solange die Client-Ansicht sichtbar ist) und meldet still, wenn einer online/offline geht.
+/// solange die Client-Ansicht sichtbar ist).
 #[tauri::command]
 pub async fn client_watch() -> Cmd<Vec<Value>> {
     blocking(|| {
-        let dirs: Vec<String> = client::list()
+        let checks: Vec<_> = client::list()
             .iter()
             .filter_map(|c| c.get("dir").and_then(|d| d.as_str()).map(str::to_string))
-            .collect();
-        let checks: Vec<_> = dirs
-            .into_iter()
             .map(|dir| {
                 std::thread::spawn(move || {
                     let inv = client::invite_of(Path::new(&dir)).ok()?;
                     let (_, p, hint) = client::best_address(&inv);
-                    let online = p["online"] == true;
-                    Some((
-                        dir,
-                        inv.name.clone(),
-                        online,
-                        client::version_matches(&p, &inv.mc),
-                        p,
-                        hint,
-                    ))
+                    Some(if p["online"] == true {
+                        json!({"dir": dir, "online": true, "version_ok": client::version_matches(&p, &inv.mc), "ping": p})
+                    } else {
+                        json!({"dir": dir, "online": false, "error": p["error"], "hint": hint})
+                    })
                 })
             })
             .collect();
-        let notify = Config::load().client_notify;
-        let mut last = LAST_ONLINE.lock().unwrap_or_else(|e| e.into_inner());
-        let mut out = vec![];
-        for (dir, name, online, version_ok, p, hint) in checks.into_iter().filter_map(|t| t.join().ok().flatten()) {
-            match last.iter_mut().find(|(d, _)| *d == dir) {
-                Some((_, was)) => {
-                    if *was != online && notify {
-                        let text = if online {
-                            format!("„{name}“ ist jetzt online.")
-                        } else {
-                            format!("„{name}“ ist gerade nicht erreichbar.")
-                        };
-                        crate::notify::silent("Vapafane", &text);
-                    }
-                    *was = online;
-                }
-                None => last.push((dir.clone(), online)),
-            }
-            out.push(if online {
-                json!({"dir": dir, "online": true, "version_ok": version_ok, "ping": p})
-            } else {
-                json!({"dir": dir, "online": false, "error": p["error"], "hint": hint})
-            });
-        }
-        Ok(out)
+        Ok(checks.into_iter().filter_map(|t| t.join().ok().flatten()).collect())
     })
     .await
 }
@@ -244,19 +210,10 @@ pub async fn client_preview_ping(source: String) -> Cmd<Value> {
 /// Einstellungen für den Client-Bereich.
 #[tauri::command]
 pub fn client_settings() -> Value {
-    let cfg = Config::load();
     json!({
-        "notify": cfg.client_notify,
         "target": client_info()["target"],
         "version": env!("CARGO_PKG_VERSION"),
     })
-}
-
-#[tauri::command]
-pub fn set_client_notify(on: bool) -> Cmd<()> {
-    let mut cfg = Config::load();
-    cfg.client_notify = on;
-    cfg.save().map_err(|e| e.0)
 }
 
 #[tauri::command]

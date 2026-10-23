@@ -1799,24 +1799,11 @@ const info2 = (t, x) => info(t, x);
 
 async function loadClientSettings() {
   const c = await invoke("client_settings").catch(() => ({}));
-  $("cs-notify").checked = !!c.notify;
   $("cs-target").value = c.target || "launcher";
   $("cs-version").textContent = c.version || "";
-  let t = null, skin = null;
-  try { t = localStorage.getItem("theme"); skin = localStorage.getItem("skin"); } catch (_) { /* egal */ }
-  $("cs-theme").value = skin === "obsidian" ? "obsidian" : (t || "auto");
-}
-$("cs-theme").onchange = (e) => {
-  const v = e.target.value;
-  try {
-    localStorage.setItem("skin", v === "obsidian" ? "obsidian" : "grass");
-    if (v === "light" || v === "dark") localStorage.setItem("theme", v);
-    else if (v === "auto") localStorage.removeItem("theme");
-  } catch (_) { /* egal */ }
   applyTheme();
-};
+}
 $("cs-target").onchange = (e) => invoke("set_client_target", { target: e.target.value }).catch((er) => error("Einstellung", er));
-$("cs-notify").onchange = (e) => invoke("set_client_notify", { on: e.target.checked }).catch((er) => error("Einstellung", er));
 $("cs-folder").onclick = () => invoke("client_open_base").catch((e) => error("Ordner", e));
 
 // Vapafane startet immer im Client-Bereich (Server: oben umschalten)

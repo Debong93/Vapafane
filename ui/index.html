@@ -294,19 +294,15 @@
     <!-- Client: Einstellungen (Zahnrad) -->
     <section id="tab-client-settings" class="tab">
       <h3>Aussehen</h3>
-      <div class="switches">
-        <div class="sw-row"><div><div>Thema</div><div class="dim small">Grasblock (hell oder dunkel) oder Crying Obsidian</div></div>
-          <select id="cs-theme"><option value="auto">Grasblock – wie das System</option><option value="light">Grasblock – hell</option><option value="dark">Grasblock – dunkel</option><option value="obsidian">Crying Obsidian</option></select></div>
+      <div class="skins" role="radiogroup" aria-label="Aussehen">
+        <label class="skin-choice"><span class="swatch grass"></span><span><input type="radio" name="skin" value="grass"> Grasblock</span><span class="dim small">Hell oder dunkel (Knopf oben rechts)</span></label>
+        <label class="skin-choice"><span class="swatch obsidian"></span><span><input type="radio" name="skin" value="obsidian"> Crying Obsidian</span><span class="dim small">Immer dunkel</span></label>
       </div>
       <h3>Einrichten</h3>
       <div class="switches">
         <div class="sw-row"><div><div>Standard-Ziel</div><div class="dim small">Wo neue Server eingerichtet werden</div></div>
           <select id="cs-target"><option value="launcher">Offizieller Minecraft-Launcher</option><option value="modrinth">Modrinth-App</option></select></div>
         <div class="sw-row"><div><div>Ordner der eingerichteten Server</div><div class="dim small">Mods und Einstellungen je Server</div></div><button id="cs-folder">Ordner öffnen</button></div>
-      </div>
-      <h3>Benachrichtigungen</h3>
-      <div class="switches">
-        <div class="sw-row"><div><div>Melden, wenn ein Server online oder offline geht</div><div class="dim small">Stille Meldung ohne Ton, solange Vapafane offen ist</div></div><label class="switch"><input type="checkbox" id="cs-notify"><span></span></label></div>
       </div>
       <h3>Über Vapafane</h3>
       <div class="switches">
