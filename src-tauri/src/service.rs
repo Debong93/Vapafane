@@ -106,12 +106,12 @@ pub fn run(start_now: bool) -> i32 {
     {
         Ok(f) => f,
         Err(e) => {
-            log(&format!("Kann Sperrdatei nicht öffnen: {e}"));
+            log(&format!("Cannot open lock file: {e}"));
             return 1;
         }
     };
     if lock.try_lock().is_err() {
-        log("Dienst läuft schon.");
+        log("Service already running.");
         if start_now {
             let _ = ipc::call("start", Value::Null);
         }
@@ -121,7 +121,7 @@ pub fn run(start_now: bool) -> i32 {
     let listener = match TcpListener::bind("127.0.0.1:0") {
         Ok(l) => l,
         Err(e) => {
-            log(&format!("Kann keinen Port öffnen: {e}"));
+            log(&format!("Cannot open a port: {e}"));
             return 1;
         }
     };
@@ -133,10 +133,10 @@ pub fn run(start_now: bool) -> i32 {
         pid: std::process::id(),
         version: env!("CARGO_PKG_VERSION").into(),
     }) {
-        log(&format!("Kann service.json nicht schreiben: {e}"));
+        log(&format!("Cannot write service.json: {e}"));
         return 1;
     }
-    log(&format!("Dienst gestartet (Version {}).", env!("CARGO_PKG_VERSION")));
+    log(&format!("Service started (version {}).", env!("CARGO_PKG_VERSION")));
 
     let sup: Sup = Arc::new(Shared {
         inner: Mutex::new(Inner {
@@ -152,7 +152,7 @@ pub fn run(start_now: bool) -> i32 {
     {
         let sup = sup.clone();
         let _ = ctrlc::set_handler(move || {
-            log("Beenden angefordert – stoppe den Server sauber.");
+            log("Shutdown requested – stopping the server cleanly.");
             shutdown(&sup);
         });
     }
@@ -163,7 +163,7 @@ pub fn run(start_now: bool) -> i32 {
     }
 
     if start_now && let Err(e) = start(&sup) {
-        log(&format!("Autostart fehlgeschlagen: {e}"));
+        log(&format!("Autostart failed: {e}"));
     }
 
     {
@@ -184,7 +184,7 @@ pub fn run(start_now: bool) -> i32 {
     }
     drop(q);
     let _ = fs::remove_file(ipc::service_file());
-    log("Dienst beendet.");
+    log("Service stopped.");
     drop(lock);
     0
 }
@@ -273,7 +273,7 @@ fn dispatch(sup: &Sup, cmd: &str, arg: &Value) -> Result<Value> {
                     sup.changed.notify_all();
                     return Ok(Value::Null);
                 }
-                return err("Der Server läuft gerade nicht.");
+                return err(crate::sprache::t!("svc-err-laeuft-nicht"));
             }
             let sup2 = sup.clone();
             let restart = cmd == "restart";
@@ -285,7 +285,7 @@ fn dispatch(sup: &Sup, cmd: &str, arg: &Value) -> Result<Value> {
             std::thread::spawn(move || shutdown(&sup2));
             Ok(Value::Null)
         }
-        _ => err(format!("Unbekannter Befehl: {cmd}")),
+        _ => err(crate::sprache::t!("svc-err-befehl", befehl = cmd)),
     }
 }
 
@@ -327,7 +327,7 @@ fn adopt_running(sup: &Sup) {
         let _ = fs::remove_file(pid_file());
         return;
     }
-    log(&format!("Laufenden Server übernommen (PID {pid})."));
+    log(&format!("Adopted running server (PID {pid})."));
     let generation = {
         let mut g = crate::util::lock(&sup.inner);
         g.state = Some(if rcon::once(&dir, "list").is_ok() {
@@ -373,19 +373,19 @@ fn start(sup: &Sup) -> Result<()> {
     }
     let cfg = Config::load();
     let Some(dir) = cfg.active_path() else {
-        return err("Kein aktiver Server ausgewählt.");
+        return err(crate::sprache::t!("err-kein-server"));
     };
     if !dir.is_dir() {
-        return err(format!("Server-Ordner fehlt: {}", dir.display()));
+        return err(crate::sprache::t!(
+            "svc-err-ordner-fehlt",
+            ordner = dir.display().to_string()
+        ));
     }
     if !server::eula_accepted(&dir) {
-        return err("Die Minecraft-EULA ist für diesen Server noch nicht akzeptiert.");
+        return err(crate::sprache::t!("svc-err-eula"));
     }
     if let Some(pid) = procs::java_in_dir(&dir, None) {
-        return err(format!(
-            "In diesem Ordner läuft schon ein Server (PID {pid}), der nicht von Vapafane gestartet wurde. \
-             Bitte den zuerst beenden (z. B. altes Bedienfenster)."
-        ));
+        return err(crate::sprache::t!("svc-err-fremder-server", pid = pid));
     }
     // Ohne Java startet kein Minecraft-Server (z. B. frisch aufgesetzter PC)
     let env = server::read_env(&dir);
@@ -406,9 +406,7 @@ fn start(sup: &Sup) -> Result<()> {
         let default = if key == "rcon.port" { 25575 } else { 25565 };
         let port = props.get(key).and_then(|p| p.parse().ok()).unwrap_or(default);
         if !procs::port_free(port) {
-            return err(format!(
-                "Port {port} ({key}) ist schon belegt. Läuft noch ein anderer Minecraft-Server auf diesem PC?"
-            ));
+            return err(crate::sprache::t!("svc-err-port", port = port, art = key));
         }
     }
     spawn_server(sup, &dir, false)
@@ -417,7 +415,7 @@ fn start(sup: &Sup) -> Result<()> {
 fn spawn_server(sup: &Sup, dir: &Path, is_restart: bool) -> Result<()> {
     let (java, args) = server::launch_command(dir)?;
     log(&format!(
-        "Starte Server in {}: {java} {}",
+        "Starting server in {}: {java} {}",
         dir.display(),
         args.join(" ")
     ));
@@ -437,7 +435,7 @@ fn spawn_server(sup: &Sup, dir: &Path, is_restart: bool) -> Result<()> {
     }
     let mut child: Child = cmd
         .spawn()
-        .map_err(|e| util::Error(format!("Java konnte nicht gestartet werden ({java}): {e}")))?;
+        .map_err(|e| util::Error(crate::sprache::t!("svc-err-java-start", java = java.clone(), fehler = e.to_string())))?;
     let pid = child.id();
     let _ = fs::write(pid_file(), json!({"pid": pid, "dir": dir}).to_string());
 
@@ -526,12 +524,12 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
     let clean = matches!(code, Some(Some(0)) | None);
     let desc = match code {
         Some(Some(c)) => format!("Exit-Code {c}"),
-        Some(None) => "durch Signal beendet".into(),
-        None => "beendet".into(),
+        Some(None) => crate::sprache::t!("svc-signal"),
+        None => crate::sprache::t!("svc-beendet"),
     };
     log(&format!(
-        "Server beendet ({desc}){}",
-        if wanted { " – wie gewünscht" } else { "" }
+        "Server ended ({desc}){}",
+        if wanted { " – as requested" } else { "" }
     ));
 
     if wanted || clean {
@@ -543,7 +541,7 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
             if let Some(dir) = dir
                 && let Err(e) = spawn_server(sup, &dir, false)
             {
-                log(&format!("Neustart fehlgeschlagen: {e}"));
+                log(&format!("Restart failed: {e}"));
             }
         }
         return;
@@ -551,7 +549,7 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
 
     // Absturz
     let why = crash_reason(&g.output);
-    g.last_exit = Some(format!("Abgestürzt ({desc}).\n{why}"));
+    g.last_exit = Some(format!("{}\n{why}", crate::sprache::t!("svc-abgestuerzt", grund = desc.clone())));
     let now = Instant::now();
     g.crash_times.push_back(now);
     while g
@@ -563,7 +561,7 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
         g.crash_times.pop_front();
     }
     if g.crash_times.len() > MAX_RESTARTS {
-        log("Zu viele Abstürze hintereinander – kein automatischer Neustart mehr.");
+        log("Too many crashes in a row – no more automatic restarts.");
         g.state = Some(State::Failed);
         sup.changed.notify_all();
         return;
@@ -583,11 +581,11 @@ fn on_exit(sup: &Sup, generation: u64, code: Option<Option<i32>>) {
             return;
         }
         drop(g);
-        log("Starte nach Absturz neu …");
+        log("Restarting after crash …");
         if let Some(dir) = dir
             && let Err(e) = spawn_server(&sup, &dir, true)
         {
-            log(&format!("Neustart fehlgeschlagen: {e}"));
+            log(&format!("Restart failed: {e}"));
             let mut g = crate::util::lock(&sup.inner);
             g.state = Some(State::Failed);
             g.last_exit = Some(e.0);
@@ -649,7 +647,11 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
         g.restart_after_stop = restart;
         (dir, pid)
     };
-    let word = if restart { "startet neu" } else { "stoppt" };
+    let word = if restart {
+        crate::sprache::t!("say-neustart")
+    } else {
+        crate::sprache::t!("say-stoppt")
+    };
     let mut rcon = Rcon::new(&dir).with_timeout(Duration::from_secs(10));
 
     if warn_secs > 0 {
@@ -658,13 +660,18 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
             if mark > remaining {
                 continue;
             }
-            countdown_sleep(sup, remaining - mark, mark, word);
+            countdown_sleep(sup, remaining - mark, mark, &word);
             remaining = mark;
-            let unit = if mark == 1 { "Sekunde" } else { "Sekunden" };
-            let _ = rcon.command(&format!("say Server {word} in {mark} {unit}!"));
-            set_countdown(sup, Some(format!("Server {word} in {mark} s")));
+            let _ = rcon.command(&format!(
+                "say {}",
+                crate::sprache::t!("say-countdown", was = word.clone(), sekunden = mark)
+            ));
+            set_countdown(
+                sup,
+                Some(crate::sprache::t!("svc-countdown", was = word.clone(), sekunden = mark)),
+            );
         }
-        countdown_sleep(sup, remaining, 0, word);
+        countdown_sleep(sup, remaining, 0, &word);
     }
 
     {
@@ -673,21 +680,21 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
         g.countdown = None;
         sup.changed.notify_all();
     }
-    log(&format!("Stoppe Server (PID {pid}) per RCON …"));
+    log(&format!("Stopping server (PID {pid}) via RCON …"));
     let mut sent = rcon.command("stop").is_ok();
     if !sent {
         let mut g = crate::util::lock(&sup.inner);
         if let Some(stdin) = g.stdin.as_mut() {
-            log("RCON nicht erreichbar – sende „stop“ über die Konsole.");
+            log("RCON unreachable – sending \"stop\" via console.");
             sent = stdin.write_all(b"stop\n").and_then(|_| stdin.flush()).is_ok();
         }
     }
     rcon.close();
     if !sent {
-        log("Konnte „stop“ nicht senden.");
+        log("Could not send \"stop\".");
     }
     if !wait_until_stopped(sup, if sent { STOP_TIMEOUT } else { Duration::from_secs(20) }) {
-        log("Server reagiert nicht – wird hart beendet.");
+        log("Server not responding – killing it.");
         procs::kill(pid);
         wait_until_stopped(sup, Duration::from_secs(15));
     }
@@ -696,7 +703,10 @@ fn stop(sup: &Sup, warn_secs: u64, restart: bool) {
 /// `secs` Sekunden warten; angezeigt wird die Restzeit bis zum Stopp (`then` + Rest).
 fn countdown_sleep(sup: &Sup, secs: u64, then: u64, word: &str) {
     for left in (1..=secs).rev() {
-        set_countdown(sup, Some(format!("Server {word} in {} s", then + left)));
+        set_countdown(
+            sup,
+            Some(crate::sprache::t!("svc-countdown", was = word, sekunden = then + left)),
+        );
         std::thread::sleep(Duration::from_secs(1));
     }
 }
@@ -742,19 +752,19 @@ fn daily_backup_loop(sup: Sup) {
         let Some(dir) = cfg.active_path() else {
             continue;
         };
-        let Ok(_lock) = ops::JobLock::acquire("Tägliches Backup") else {
+        let Ok(_lock) = ops::JobLock::acquire(&crate::sprache::t!("svc-taegliches-backup")) else {
             continue; // später nochmal versuchen
         };
         let running = {
             let mut g = crate::util::lock(&sup.inner);
-            g.job = Some("Tägliches Backup".into());
+            g.job = Some(crate::sprache::t!("svc-taegliches-backup"));
             g.state == Some(State::Running) && g.dir.as_deref() == Some(dir.as_path())
         };
-        log("Tägliches Backup startet …");
+        log("Daily backup starting …");
         let noop = |_: f64, _: &str| {};
         match ops::backup_with_save(&dir, &cfg, running, &noop) {
-            Ok(p) => log(&format!("Tägliches Backup fertig: {}", p.display())),
-            Err(e) => log(&format!("Tägliches Backup fehlgeschlagen: {e}")),
+            Ok(p) => log(&format!("Daily backup done: {}", p.display())),
+            Err(e) => log(&format!("Daily backup failed: {e}")),
         }
         crate::util::lock(&sup.inner).job = None;
         last = Local::now().timestamp();

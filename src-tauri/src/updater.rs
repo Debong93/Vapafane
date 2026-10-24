@@ -451,7 +451,10 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         notes,
         ..Default::default()
     };
-    progress(0.85, &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = target));
+    progress(
+        0.85,
+        &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = target),
+    );
     if change_version {
         plan.server = Some(flavor::server_artifact(kind, target)?);
     } else if matches!(kind, Kind::Paper | Kind::NeoForge) {
@@ -560,9 +563,11 @@ pub fn apply(
                 fs::rename(&src, alt.join(sub).join(&m.file))?;
                 mods::set_note(dir, &m.rel, None)?;
             }
-            "missing" if disable_missing && !m.disabled => {
-                mods::disable(dir, &m.rel, &crate::sprache::t!("upd-grund-fehlt", mc = plan.target.clone()))?
-            }
+            "missing" if disable_missing && !m.disabled => mods::disable(
+                dir,
+                &m.rel,
+                &crate::sprache::t!("upd-grund-fehlt", mc = plan.target.clone()),
+            )?,
             "unknown" if disable_unknown && !m.disabled => {
                 mods::disable(dir, &m.rel, "nicht auf Modrinth – passende Version unklar")?
             }

@@ -442,7 +442,10 @@ fn run_inner(args: &[String]) -> Result<()> {
                         .collect(),
                 });
             let update = !args.iter().any(|a| a == "--neue-instanz");
-            let choices = crate::client::Choices { selected, take: take.as_ref() };
+            let choices = crate::client::Choices {
+                selected,
+                take: take.as_ref(),
+            };
             let r = if modrinth {
                 crate::client::install_mrpack(&inv, zip, &choices, update, true, &print)?
             } else {

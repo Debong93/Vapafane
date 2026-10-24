@@ -112,8 +112,7 @@ pub fn decode(code: &str) -> Result<Invite> {
         .take(1024 * 1024)
         .read_to_end(&mut json)
         .map_err(|_| Error(crate::sprache::t!("inv-err-kaputt")))?;
-    let inv: Invite =
-        serde_json::from_slice(&json).map_err(|_| Error(crate::sprache::t!("inv-err-kaputt")))?;
+    let inv: Invite = serde_json::from_slice(&json).map_err(|_| Error(crate::sprache::t!("inv-err-kaputt")))?;
     check(&inv)?;
     Ok(inv)
 }
@@ -156,8 +155,7 @@ pub fn check(inv: &Invite) -> Result<()> {
 /// Einladung für den Server in `dir` bauen. `address` = host:port, den Freunde benutzen.
 pub fn build(dir: &Path, address: &str) -> Result<Built> {
     let info = server::detect_server(dir);
-    let kind = Kind::parse(&info.kind)
-        .ok_or_else(|| Error(crate::sprache::t!("inv-err-typ")))?;
+    let kind = Kind::parse(&info.kind).ok_or_else(|| Error(crate::sprache::t!("inv-err-typ")))?;
     if info.version.is_empty() {
         return err("Die Minecraft-Version des Servers ist unbekannt – bitte den Server einmal starten.");
     }
@@ -301,15 +299,13 @@ pub fn write_file(built: &Built, dest: &Path) -> Result<Invite> {
 
 /// Einladung aus einer .vapafane-Datei lesen.
 pub fn read_file(path: &Path) -> Result<Invite> {
-    let mut z = zip::ZipArchive::new(fs::File::open(path)?)
-        .map_err(|_| Error(crate::sprache::t!("inv-err-datei")))?;
+    let mut z = zip::ZipArchive::new(fs::File::open(path)?).map_err(|_| Error(crate::sprache::t!("inv-err-datei")))?;
     let mut s = String::new();
     z.by_name(MANIFEST)
         .map_err(|_| Error("In der Datei fehlt die Einladung (vapafane.json).".into()))?
         .take(1024 * 1024)
         .read_to_string(&mut s)?;
-    let inv: Invite =
-        serde_json::from_str(&s).map_err(|_| Error(crate::sprache::t!("inv-err-datei-kaputt")))?;
+    let inv: Invite = serde_json::from_str(&s).map_err(|_| Error(crate::sprache::t!("inv-err-datei-kaputt")))?;
     check(&inv)?;
     Ok(inv)
 }
@@ -418,7 +414,7 @@ mod tests {
     fn rejects_garbage() {
         assert!(decode("hallo").is_err());
         assert!(decode("VPF1-0OIl").is_err()); // keine Base58-Zeichen
-        assert!(decode("VPF2-abc").unwrap_err().0.contains("neuere"));
+        assert_eq!(decode("VPF2-abc").unwrap_err().0, crate::sprache::t!("inv-err-neuer"));
         let mut bad = sample(1);
         bad.mods[0].id = "../../evil".into();
         assert!(check(&bad).is_err());

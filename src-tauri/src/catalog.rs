@@ -36,8 +36,7 @@ struct Target {
 
 fn target(dir: &Path, what: What) -> Result<Target> {
     let info = server::detect_server(dir);
-    let kind = Kind::parse(&info.kind)
-        .ok_or_else(|| Error(crate::sprache::t!("kat-err-typ")))?;
+    let kind = Kind::parse(&info.kind).ok_or_else(|| Error(crate::sprache::t!("kat-err-typ")))?;
     if info.version.is_empty() {
         return err("Die Minecraft-Version des Servers ist unbekannt (einmal starten hilft).");
     }
@@ -303,7 +302,12 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
             );
             let Some(version) = updater::newest_for_project(&pid, &t.loaders, &t.mc)? else {
                 if is_root {
-                    return err(crate::sprache::t!("kat-err-keine-version", name = title.clone(), mc = t.mc.clone(), loader = t.loaders.join("/")));
+                    return err(crate::sprache::t!(
+                        "kat-err-keine-version",
+                        name = title.clone(),
+                        mc = t.mc.clone(),
+                        loader = t.loaders.join("/")
+                    ));
                 }
                 missing.push(title);
                 continue;
@@ -418,7 +422,11 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
             progress(0.2, &crate::sprache::t!("fort-suche-cf", name = title.clone()));
             let Some(file) = curseforge::best_file(id, t.kind, t.datapacks, &t.mc)? else {
                 if is_root {
-                    return err(crate::sprache::t!("kat-err-cf-version", name = title.clone(), mc = t.mc.clone()));
+                    return err(crate::sprache::t!(
+                        "kat-err-cf-version",
+                        name = title.clone(),
+                        mc = t.mc.clone()
+                    ));
                 }
                 missing.push(title);
                 continue;

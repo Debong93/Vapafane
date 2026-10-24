@@ -149,7 +149,10 @@ pub fn client_install(
         let mut cfg = Config::load();
         cfg.client_target = Some(dest.clone());
         cfg.save()?;
-        let choices = client::Choices { selected, take: take.as_ref() };
+        let choices = client::Choices {
+            selected,
+            take: take.as_ref(),
+        };
         if dest == "modrinth" {
             return client::install_mrpack(&inv, zip.as_deref(), &choices, update.unwrap_or(true), true, progress);
         }

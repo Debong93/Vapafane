@@ -84,14 +84,18 @@ pub async fn upd_versions() -> Cmd<Vec<String>> {
 #[tauri::command]
 pub fn upd_check(app: AppHandle, target: String) -> Cmd<()> {
     *crate::util::lock(&PLAN) = None;
-    run_task(&app, &crate::sprache::t!("task-pruefe-mods", mc = target.clone()), move |progress| {
-        let cfg = Config::load();
-        let dir = active_dir(&cfg)?;
-        let plan = updater::check(&dir, &target, progress)?;
-        let out = json!({"plan": plan, "has_work": plan.has_work()});
-        *crate::util::lock(&PLAN) = Some(plan);
-        Ok(out)
-    })
+    run_task(
+        &app,
+        &crate::sprache::t!("task-pruefe-mods", mc = target.clone()),
+        move |progress| {
+            let cfg = Config::load();
+            let dir = active_dir(&cfg)?;
+            let plan = updater::check(&dir, &target, progress)?;
+            let out = json!({"plan": plan, "has_work": plan.has_work()});
+            *crate::util::lock(&PLAN) = Some(plan);
+            Ok(out)
+        },
+    )
     .map_err(|e| e.0)
 }
 
@@ -175,7 +179,7 @@ pub fn do_update(
     }
     if matches!(st.as_str(), "running" | "starting") && players_online(dir) {
         progress(0.0, "Warne Spieler (30 Sekunden) …");
-        let _ = Rcon::new(dir).command("say Server startet für ein Update neu!");
+        let _ = Rcon::new(dir).command(&format!("say {}", crate::sprache::t!("say-update-neustart")));
         ipc::call("stop", json!({"warn": 30}))?;
     }
     stop_and_wait(progress)?;
@@ -369,7 +373,10 @@ pub fn do_trial(
     fs::create_dir_all(&base)?;
     if util::free_space(&base) < size + size / 5 + 1024 * 1024 * 1024 {
         let _ = fs::remove_dir_all(&base);
-        return err(crate::sprache::t!("upd-err-temp-platz", groesse = util::fmt_bytes(size + size / 5)));
+        return err(crate::sprache::t!(
+            "upd-err-temp-platz",
+            groesse = util::fmt_bytes(size + size / 5)
+        ));
     }
     let copy = base.join(dir.file_name().unwrap_or_default());
     let result = trial_inner(dir, &copy, plan, disable_missing, disable_unknown, progress);

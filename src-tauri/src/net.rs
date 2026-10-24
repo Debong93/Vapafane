@@ -219,7 +219,10 @@ pub fn download(url: &str, dest: &Path, expect: Expect, progress: &dyn Fn(f64)) 
         || !ok(expect.sha512, hex::encode(h512.finalize()))
     {
         let _ = fs::remove_file(&tmp);
-        return err(crate::sprache::t!("err-pruefsumme", datei = dest.file_name().unwrap_or_default().to_string_lossy().into_owned()));
+        return err(crate::sprache::t!(
+            "err-pruefsumme",
+            datei = dest.file_name().unwrap_or_default().to_string_lossy().into_owned()
+        ));
     }
     fs::rename(&tmp, dest)?;
     Ok(())

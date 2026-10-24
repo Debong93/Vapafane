@@ -30,11 +30,18 @@ pub const PARTS: [(&str, &str); 6] = [
 /// Dateien und Ordner (relativ zum Spielordner), die zu einem Teil gehören.
 fn members(part: &str) -> (&'static [&'static str], &'static [&'static str]) {
     match part {
-        "options" => (&["options.txt", "optionsof.txt", "hotbar.nbt", "command_history.txt"], &[]),
+        "options" => (
+            &["options.txt", "optionsof.txt", "hotbar.nbt", "command_history.txt"],
+            &[],
+        ),
         "config" => (&[], &["config"]),
         // Die Shader-Auswahl steht bei Iris/Oculus im config-Ordner
         "shaders" => (
-            &["optionsshaders.txt", "config/iris.properties", "config/oculus.properties"],
+            &[
+                "optionsshaders.txt",
+                "config/iris.properties",
+                "config/oculus.properties",
+            ],
             &["shaderpacks"],
         ),
         "resourcepacks" => (&[], &["resourcepacks"]),
@@ -61,7 +68,9 @@ impl Take {
 
     /// Server-Liste der Quelle, falls sie übernommen werden soll.
     pub fn servers(&self) -> Option<Vec<u8>> {
-        self.has("servers").then(|| fs::read(self.dir.join("servers.dat")).ok()).flatten()
+        self.has("servers")
+            .then(|| fs::read(self.dir.join("servers.dat")).ok())
+            .flatten()
     }
 }
 
@@ -106,7 +115,9 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
 }
 
 fn folder_name(p: &Path) -> String {
-    p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+    p.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// Instanzen der Modrinth-App, die aus einem früheren Vapafane-Paket dieses Servers stammen.
@@ -191,7 +202,11 @@ fn launcher_profile_dirs(launcher: &Path) -> Vec<(String, PathBuf)> {
                     let dir = p.get("gameDir")?.as_str()?.trim();
                     let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("").trim();
                     (!dir.is_empty()).then(|| {
-                        let label = if name.is_empty() { folder_name(Path::new(dir)) } else { name.to_string() };
+                        let label = if name.is_empty() {
+                            folder_name(Path::new(dir))
+                        } else {
+                            name.to_string()
+                        };
                         (label, PathBuf::from(dir))
                     })
                 })
@@ -286,9 +301,7 @@ pub fn gather(take: &Take) -> Result<BTreeMap<String, PathBuf>> {
         let (files, dirs) = members(part);
         for f in files {
             let p = src.join(f);
-            if *f != "servers.dat"
-                && fs::symlink_metadata(&p).map(|m| m.is_file()).unwrap_or(false)
-            {
+            if *f != "servers.dat" && fs::symlink_metadata(&p).map(|m| m.is_file()).unwrap_or(false) {
                 out.insert((*f).to_string(), p);
             }
         }
@@ -390,7 +403,10 @@ pub fn add_overrides<W: Write + std::io::Seek>(
 /// Bezeichnung einer Quelle für Meldungen.
 pub fn label(dir: &Path) -> String {
     let c = util::canonical(dir);
-    if modrinth_profile_dirs().iter().any(|p| c.starts_with(util::canonical(p))) {
+    if modrinth_profile_dirs()
+        .iter()
+        .any(|p| c.starts_with(util::canonical(p)))
+    {
         return format!("Modrinth-App: {}", folder_name(dir));
     }
     if client::launcher_dirs().iter().any(|l| util::canonical(l) == c) {
@@ -427,7 +443,11 @@ mod tests {
         put(dir, "saves/Welt/session.lock", "lock");
         put(dir, "mods/sodium.jar", "jar");
         put(dir, "logs/latest.log", "log");
-        fs::write(dir.join("servers.dat"), crate::nbt::servers_with(&[], "Freund", "1.2.3.4")).unwrap();
+        fs::write(
+            dir.join("servers.dat"),
+            crate::nbt::servers_with(&[], "Freund", "1.2.3.4"),
+        )
+        .unwrap();
     }
 
     #[test]
@@ -451,7 +471,10 @@ mod tests {
     fn sammeln_ohne_mods_logs_und_sperrdatei() {
         let d = temp("sammeln");
         instance(&d);
-        let all = Take { dir: d.clone(), parts: PARTS.iter().map(|(k, _)| k.to_string()).collect() };
+        let all = Take {
+            dir: d.clone(),
+            parts: PARTS.iter().map(|(k, _)| k.to_string()).collect(),
+        };
         let files = gather(&all).unwrap();
         let keys: Vec<&str> = files.keys().map(String::as_str).collect();
         assert_eq!(
@@ -466,13 +489,29 @@ mod tests {
             ]
         );
         // Nur Shader: Auswahl aus config kommt mit, sonst nichts aus config
-        let shaders = gather(&Take { dir: d.clone(), parts: vec!["shaders".into()] }).unwrap();
+        let shaders = gather(&Take {
+            dir: d.clone(),
+            parts: vec!["shaders".into()],
+        })
+        .unwrap();
         assert_eq!(
             shaders.keys().map(String::as_str).collect::<Vec<_>>(),
             vec!["config/iris.properties", "shaderpacks/Complementary.zip"]
         );
-        assert!(gather(&Take { dir: d.clone(), parts: vec!["mods".into()] }).is_err());
-        assert!(gather(&Take { dir: d.join("fehlt"), parts: vec![] }).is_err());
+        assert!(
+            gather(&Take {
+                dir: d.clone(),
+                parts: vec!["mods".into()]
+            })
+            .is_err()
+        );
+        assert!(
+            gather(&Take {
+                dir: d.join("fehlt"),
+                parts: vec![]
+            })
+            .is_err()
+        );
         fs::remove_dir_all(&d).unwrap();
     }
 
@@ -482,13 +521,20 @@ mod tests {
         let dst = temp("ziel");
         instance(&src);
         put(&dst, "options.txt", "eigene");
-        let files = gather(&Take { dir: src.clone(), parts: vec!["options".into(), "config".into()] }).unwrap();
+        let files = gather(&Take {
+            dir: src.clone(),
+            parts: vec!["options".into(), "config".into()],
+        })
+        .unwrap();
         let r = copy_missing(&files, &dst).unwrap();
         assert_eq!((r.copied, r.kept, r.failed.len()), (2, 1, 0));
         assert_eq!(fs::read_to_string(dst.join("options.txt")).unwrap(), "eigene");
         assert!(dst.join("config/sodium-options.json").is_file());
         // Quelle unverändert
-        assert_eq!(fs::read_to_string(src.join("options.txt")).unwrap(), "version:4189\nguiScale:3\n");
+        assert_eq!(
+            fs::read_to_string(src.join("options.txt")).unwrap(),
+            "version:4189\nguiScale:3\n"
+        );
         fs::remove_dir_all(&src).unwrap();
         fs::remove_dir_all(&dst).unwrap();
     }
@@ -498,11 +544,18 @@ mod tests {
         let src = temp("unlesbar");
         let dst = temp("unlesbar-ziel");
         put(&src, "options.txt", "x");
-        let mut files = gather(&Take { dir: src.clone(), parts: vec!["options".into()] }).unwrap();
+        let mut files = gather(&Take {
+            dir: src.clone(),
+            parts: vec!["options".into()],
+        })
+        .unwrap();
         // verschwindet zwischen Sammeln und Kopieren (wie eine gesperrte Datei)
         files.insert("saves/Welt/region/r.0.0.mca".into(), src.join("fehlt.mca"));
         let r = copy_missing(&files, &dst).unwrap();
-        assert_eq!((r.copied, r.failed.clone()), (1, vec!["saves/Welt/region/r.0.0.mca".to_string()]));
+        assert_eq!(
+            (r.copied, r.failed.clone()),
+            (1, vec!["saves/Welt/region/r.0.0.mca".to_string()])
+        );
         assert!(!dst.join("saves/Welt/region/r.0.0.mca").exists());
         let mut buf = std::io::Cursor::new(vec![]);
         let mut z = zip::ZipWriter::new(&mut buf);
@@ -516,10 +569,20 @@ mod tests {
     fn server_liste_der_quelle() {
         let d = temp("server");
         instance(&d);
-        let t = Take { dir: d.clone(), parts: vec!["servers".into()] };
+        let t = Take {
+            dir: d.clone(),
+            parts: vec!["servers".into()],
+        };
         let b = crate::nbt::servers_with(&[&t.servers().unwrap()], "E2E", "5.6.7.8:25599");
         assert_eq!(crate::nbt::addresses(&b), vec!["5.6.7.8:25599", "1.2.3.4"]);
-        assert!(Take { dir: d.clone(), parts: vec![] }.servers().is_none());
+        assert!(
+            Take {
+                dir: d.clone(),
+                parts: vec![]
+            }
+            .servers()
+            .is_none()
+        );
         fs::remove_dir_all(&d).unwrap();
     }
 
@@ -560,7 +623,10 @@ mod tests {
                "vapafane-x":{"name":"Vapafane – X","gameDir":"/v"}}}"#,
         )
         .unwrap();
-        assert_eq!(launcher_profile_dirs(&l), vec![("Mods".to_string(), PathBuf::from("/spiel/mods"))]);
+        assert_eq!(
+            launcher_profile_dirs(&l),
+            vec![("Mods".to_string(), PathBuf::from("/spiel/mods"))]
+        );
         fs::remove_dir_all(&l).unwrap();
     }
 
@@ -568,7 +634,11 @@ mod tests {
     fn paket_bekommt_overrides() {
         let d = temp("paket");
         instance(&d);
-        let files = gather(&Take { dir: d.clone(), parts: vec!["options".into(), "resourcepacks".into()] }).unwrap();
+        let files = gather(&Take {
+            dir: d.clone(),
+            parts: vec!["options".into(), "resourcepacks".into()],
+        })
+        .unwrap();
         let mut buf = std::io::Cursor::new(vec![]);
         {
             let mut z = zip::ZipWriter::new(&mut buf);
@@ -576,9 +646,14 @@ mod tests {
             z.finish().unwrap();
         }
         let mut a = zip::ZipArchive::new(std::io::Cursor::new(buf.into_inner())).unwrap();
-        let mut names: Vec<String> = (0..a.len()).map(|i| a.by_index(i).unwrap().name().to_string()).collect();
+        let mut names: Vec<String> = (0..a.len())
+            .map(|i| a.by_index(i).unwrap().name().to_string())
+            .collect();
         names.sort();
-        assert_eq!(names, vec!["overrides/options.txt", "overrides/resourcepacks/Faithful.zip"]);
+        assert_eq!(
+            names,
+            vec!["overrides/options.txt", "overrides/resourcepacks/Faithful.zip"]
+        );
         let mut s = String::new();
         std::io::Read::read_to_string(&mut a.by_name("overrides/options.txt").unwrap(), &mut s).unwrap();
         assert_eq!(s, "version:4189\nguiScale:3\n");

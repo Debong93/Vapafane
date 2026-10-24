@@ -66,7 +66,9 @@ pub fn backup_with_save(dir: &Path, cfg: &Config, running: bool, progress: Progr
     let mut paused = false;
     if running {
         progress(0.0, "Server speichert die Welt …");
-        if rcon.command("say Backup läuft …").is_ok()
+        if rcon
+            .command(&format!("say {}", crate::sprache::t!("say-backup-start")))
+            .is_ok()
             && rcon.command("save-off").is_ok()
             && rcon.command("save-all flush").is_ok()
         {
@@ -77,11 +79,12 @@ pub fn backup_with_save(dir: &Path, cfg: &Config, running: bool, progress: Progr
     let res = archive::backup_server(dir, &name, cfg, progress);
     if paused {
         let _ = rcon.command("save-on");
-        let _ = rcon.command(if res.is_ok() {
-            "say Backup fertig."
+        let meldung = if res.is_ok() {
+            crate::sprache::t!("say-backup-fertig")
         } else {
-            "say Backup fehlgeschlagen."
-        });
+            crate::sprache::t!("say-backup-fehler")
+        };
+        let _ = rcon.command(&format!("say {meldung}"));
     }
     res
 }
@@ -129,9 +132,7 @@ pub fn stop_server(warn: u64, restart: bool) -> Result<()> {
     let st = server_state(&cfg);
     if st.get("state").and_then(|s| s.as_str()) == Some("external") {
         if restart {
-            return err(
-                crate::sprache::t!("err-neustart-extern"),
-            );
+            return err(crate::sprache::t!("err-neustart-extern"));
         }
         let dir = cfg
             .active_path()

@@ -61,7 +61,7 @@ impl Reader<'_> {
     fn take(&mut self, n: usize) -> Result<&[u8]> {
         let end = self.pos.checked_add(n).filter(|e| *e <= self.b.len());
         let Some(end) = end else {
-            return err("servers.dat ist unvollständig.");
+            return err(crate::sprache::t!("nbt-err-unvollstaendig"));
         };
         let s = &self.b[self.pos..end];
         self.pos = end;
@@ -77,7 +77,7 @@ impl Reader<'_> {
     }
     fn len(&mut self) -> Result<usize> {
         let n = i32::from_be_bytes(self.arr()?);
-        usize::try_from(n).or_else(|_| err("servers.dat enthält eine ungültige Länge."))
+        usize::try_from(n).or_else(|_| err(crate::sprache::t!("nbt-err-laenge")))
     }
     fn string(&mut self) -> Result<Vec<u8>> {
         let n = u16::from_be_bytes(self.arr()?) as usize;
@@ -85,7 +85,7 @@ impl Reader<'_> {
     }
     fn payload(&mut self, id: u8, depth: usize) -> Result<Tag> {
         if depth > MAX_DEPTH {
-            return err("servers.dat ist zu tief verschachtelt.");
+            return err(crate::sprache::t!("nbt-err-tiefe"));
         }
         Ok(match id {
             1 => Tag::Byte(i8::from_be_bytes(self.arr()?)),
@@ -103,7 +103,7 @@ impl Reader<'_> {
                 let t = self.u8()?;
                 let n = self.len()?;
                 if n > self.b.len() {
-                    return err("servers.dat enthält eine ungültige Länge.");
+                    return err(crate::sprache::t!("nbt-err-laenge"));
                 }
                 let mut v = Vec::with_capacity(n.min(1024));
                 for _ in 0..n {
@@ -133,7 +133,7 @@ impl Reader<'_> {
                 let raw = self.take(n.saturating_mul(8))?;
                 Tag::LongArray(raw.as_chunks::<8>().0.iter().map(|c| i64::from_be_bytes(*c)).collect())
             }
-            _ => return err("servers.dat enthält einen unbekannten Eintrag."),
+            _ => return err(crate::sprache::t!("nbt-err-eintrag")),
         })
     }
 }
@@ -142,7 +142,7 @@ impl Reader<'_> {
 pub fn read(b: &[u8]) -> Result<(Vec<u8>, Tag)> {
     let mut r = Reader { b, pos: 0 };
     if r.u8()? != 10 {
-        return err("servers.dat hat ein unbekanntes Format.");
+        return err(crate::sprache::t!("nbt-err-format"));
     }
     let name = r.string()?;
     let root = r.payload(10, 0)?;
@@ -290,7 +290,10 @@ pub fn servers_with(lists: &[&[u8]], name: &str, address: &str) -> Vec<u8> {
             }
         }
     }
-    if !list.iter().any(|e| ip_of(e).is_some_and(|ip| same_address(ip, address))) {
+    if !list
+        .iter()
+        .any(|e| ip_of(e).is_some_and(|ip| same_address(ip, address)))
+    {
         list.insert(0, server_entry(name, address));
     }
     if let Tag::Compound(c) = &mut root {
@@ -363,7 +366,10 @@ mod tests {
             (b"icon".to_vec(), Tag::Str(b"iVBORw0".to_vec())),
             (b"acceptTextures".to_vec(), Tag::Byte(1)),
         ]);
-        let old = write(b"", &Tag::Compound(vec![(b"servers".to_vec(), Tag::List(10, vec![entry.clone()]))]));
+        let old = write(
+            b"",
+            &Tag::Compound(vec![(b"servers".to_vec(), Tag::List(10, vec![entry.clone()]))]),
+        );
         let m = servers_with(&[&old], "S", "s.de");
         let (_, root) = read(&m).unwrap();
         assert_eq!(entries(&root)[1], entry);

@@ -38,7 +38,9 @@ pub fn split_address(addr: &str) -> Result<(String, u16)> {
     }
     if let Some(rest) = a.strip_prefix('[') {
         // [IPv6]:Port
-        let (host, port) = rest.split_once(']').ok_or_else(|| Error(crate::sprache::t!("err-adresse")))?;
+        let (host, port) = rest
+            .split_once(']')
+            .ok_or_else(|| Error(crate::sprache::t!("err-adresse")))?;
         let port = port
             .strip_prefix(':')
             .map(|p| p.parse())
@@ -196,10 +198,7 @@ fn backup(file: &Path) -> Result<()> {
 fn upsert_profile(file: &Path, key: &str, name: &str, version_id: &str, game_dir: &Path) -> Result<()> {
     backup(file)?;
     let mut v: Value = serde_json::from_str(&fs::read_to_string(file)?).map_err(|_| {
-        Error(format!(
-            "{}",
-            crate::sprache::t!("cli-err-profil-kaputt", datei = file.display().to_string())
-        ))
+        Error(crate::sprache::t!("cli-err-profil-kaputt", datei = file.display().to_string()).to_string())
     })?;
     if !v.get("profiles").map(|p| p.is_object()).unwrap_or(false) {
         v["profiles"] = json!({});
@@ -543,7 +542,11 @@ fn extra_mod(project: &str, title: &str, kind: Kind, mc: &str) -> Result<Option<
     };
     let r = Resolved {
         title: title.to_string(),
-        version: v.get("version_number").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+        version: v
+            .get("version_number")
+            .and_then(|n| n.as_str())
+            .unwrap_or("")
+            .to_string(),
         file: f.filename,
         size: f.size,
         url: Some(f.url),
@@ -603,10 +606,7 @@ pub fn install(
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok());
     if old_meta.is_none() && game_dir.exists() && fs::read_dir(&game_dir)?.next().is_some() {
-        return err(format!(
-            "{}",
-            crate::sprache::t!("cli-err-nicht-leer", ordner = game_dir.display().to_string())
-        ));
+        return err(crate::sprache::t!("cli-err-nicht-leer", ordner = game_dir.display().to_string()).to_string());
     }
     fs::create_dir_all(game_dir.join("mods"))?;
     if old_meta.is_none() {
@@ -641,7 +641,10 @@ pub fn install(
     let mut installed = vec![];
     let mut manual = vec![];
     for (i, m) in all.iter().enumerate() {
-        progress(0.1 + 0.6 * i as f64 / total, &crate::sprache::t!("fort-lade", name = m.title.clone()));
+        progress(
+            0.1 + 0.6 * i as f64 / total,
+            &crate::sprache::t!("fort-lade", name = m.title.clone()),
+        );
         let name = updater::safe_filename(&m.file).unwrap_or_default();
         if m.source == "file" {
             let Some(zp) = zip else {
@@ -728,10 +731,7 @@ pub fn install(
                     notes.push(crate::sprache::t!("cli-hinweis-launcher-starten"));
                     continue;
                 }
-                progress(
-                    0.8,
-                    &crate::sprache::t!("fort-neoforge-install", version = v.clone()),
-                );
+                progress(0.8, &crate::sprache::t!("fort-neoforge-install", version = v.clone()));
                 let art = flavor::server_artifact(Kind::NeoForge, &inv.mc)?;
                 let base = format!(
                     "https://maven.neoforged.net/releases/net/neoforged/neoforge/{v}/neoforge-{v}-installer.jar"
@@ -756,9 +756,8 @@ pub fn install(
                     &|_| {},
                 )?;
                 let need = net::required_java(&inv.mc).ok().flatten().unwrap_or(21);
-                let java = java_for(need, l).ok_or_else(|| {
-                    Error(crate::sprache::t!("cli-err-neoforge-java", version = need))
-                })?;
+                let java = java_for(need, l)
+                    .ok_or_else(|| Error(crate::sprache::t!("cli-err-neoforge-java", version = need)))?;
                 // Der Installer legt selbst ein Profil an – das machen wir rückgängig, nur unseres bleibt
                 let before: Vec<(PathBuf, Option<String>)> =
                     ["launcher_profiles.json", "launcher_profiles_microsoft_store.json"]
@@ -799,10 +798,13 @@ pub fn install(
     }
 
     progress(0.9, &crate::sprache::t!("fort-trage-ein"));
-    let lists: Vec<Vec<u8>> = [fs::read(game_dir.join("servers.dat")).ok(), take.and_then(Take::servers)]
-        .into_iter()
-        .flatten()
-        .collect();
+    let lists: Vec<Vec<u8>> = [
+        fs::read(game_dir.join("servers.dat")).ok(),
+        take.and_then(Take::servers),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
     util::write_atomic(
         &game_dir.join("servers.dat"),
         &servers_dat(&lists, &inv.name, &game_address(inv)),
@@ -1049,14 +1051,15 @@ pub fn install_mrpack(
     let Choices { selected, take } = choices;
     let take = *take;
     let kind = kind_of(inv);
-    let instance = if update { modrinth_existing(inv).into_iter().next() } else { None };
+    let instance = if update {
+        modrinth_existing(inv).into_iter().next()
+    } else {
+        None
+    };
     let dir = default_dir(&inv.name);
     let meta_path = dir.join(META);
     if !meta_path.exists() && dir.exists() && fs::read_dir(&dir)?.next().is_some() {
-        return err(format!(
-            "{}",
-            crate::sprache::t!("cli-err-nicht-leer", ordner = dir.display().to_string())
-        ));
+        return err(crate::sprache::t!("cli-err-nicht-leer", ordner = dir.display().to_string()).to_string());
     }
     fs::create_dir_all(&dir)?;
     if !meta_path.exists() {

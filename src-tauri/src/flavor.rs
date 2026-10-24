@@ -396,7 +396,10 @@ pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress
     let created_dir = !target.exists();
     fs::create_dir_all(target)?;
     let res = (|| -> Result<()> {
-        progress(0.05, &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = game));
+        progress(
+            0.05,
+            &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = game),
+        );
         let art = server_artifact(kind, game)?;
 
         // Java: was braucht diese Minecraft-Version?

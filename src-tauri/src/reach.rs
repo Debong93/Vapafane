@@ -175,7 +175,10 @@ fn port_taken_report(port: u16) -> Report {
     Report {
         light: "red".into(),
         title: crate::sprache::t!("rch-port-belegt-titel", port = port),
-        text: crate::sprache::t!("rch-port-belegt-text", frei = crate::procs::free_port(port.saturating_add(1), &[])),
+        text: crate::sprache::t!(
+            "rch-port-belegt-text",
+            frei = crate::procs::free_port(port.saturating_add(1), &[])
+        ),
         v4: crate::sprache::t!("rch-w-nicht-geprueft"),
         v4_state: "none".into(),
         v6: crate::sprache::t!("rch-w-nicht-geprueft"),
@@ -635,7 +638,10 @@ mod tests {
         let mut no6 = f(Some(true), None, None);
         no6.ipv6 = None;
         let n = classify(&no6);
-        assert_eq!((n.light.as_str(), n.v6.as_str()), ("green", crate::sprache::t!("rch-w-nicht-vorhanden").as_str()));
+        assert_eq!(
+            (n.light.as_str(), n.v6.as_str()),
+            ("green", crate::sprache::t!("rch-w-nicht-vorhanden").as_str())
+        );
         assert_eq!(n.title, crate::sprache::t!("rch-gruen-v4"));
     }
 

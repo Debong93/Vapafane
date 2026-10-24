@@ -178,11 +178,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
     let mut out = vec![];
     let old = dir.join("mods").join(".old");
     if old.is_dir() {
-        out.push(cand(
-            dir,
-            old,
-            &crate::sprache::t!("cln-alte-mods"),
-        ));
+        out.push(cand(dir, old, &crate::sprache::t!("cln-alte-mods")));
     }
     for v in subdirs(&dir.join(ALT_DIR_NAME)) {
         if v.file_name()
@@ -194,11 +190,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
     }
     let processed = dir.join(".fabric").join("processedMods");
     if has_stale_processed(&processed) {
-        out.push(cand(
-            dir,
-            processed,
-            &crate::sprache::t!("cln-cache"),
-        ));
+        out.push(cand(dir, processed, &crate::sprache::t!("cln-cache")));
     }
     if matches!(
         info.kind.as_str(),
