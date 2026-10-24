@@ -6,6 +6,16 @@ sprache-system = Język systemu (zalecane)
 sprache-ki-hinweis = To tłumaczenie powstało automatycznie (przez AI) – błędy zgłaszaj przez „O Vapafane”.
 sprache-neustart = Przy zmianie okno na chwilę się przeładuje.
 
+## Einheiten und Zahlen
+einheit-tag = d
+einheit-std = godz.
+einheit-min = min
+einheit-sek = s
+zahl-dezimal = ,
+einheit-mio = mln
+einheit-tsd = tys.
+zahl-tausender = {" "}
+
 ## Java
 java-hinweis-windows = Zainstaluj np. ze strony https://adoptium.net (Temurin { $version }).
 java-hinweis-linux = Zainstaluj poleceniem: sudo apt install openjdk-{ $version }-jre-headless

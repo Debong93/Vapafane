@@ -22,8 +22,9 @@ pub fn fmt_bytes(n: Option<f64>) -> String {
     }
 }
 
-/// Dauer: „2 Std 14 Min“, „3 Min 5 Sek“ …
+/// Dauer: „2 Std 14 Min“, „3 Min 5 Sek“ … (Einheiten aus der Sprachdatei)
 pub fn fmt_duration(sec: f64) -> String {
+    use crate::sprache::t;
     let sec = sec.max(0.0).floor() as u64;
     let (d, h, m, s) = (
         sec / 86400,
@@ -32,39 +33,41 @@ pub fn fmt_duration(sec: f64) -> String {
         sec % 60,
     );
     if d > 0 {
-        format!("{d} T {h} Std")
+        format!("{d} {} {h} {}", t!("einheit-tag"), t!("einheit-std"))
     } else if h > 0 {
-        format!("{h} Std {m} Min")
+        format!("{h} {} {m} {}", t!("einheit-std"), t!("einheit-min"))
     } else if m > 0 {
-        format!("{m} Min {s} Sek")
+        format!("{m} {} {s} {}", t!("einheit-min"), t!("einheit-sek"))
     } else {
-        format!("{s} Sek")
+        format!("{s} {}", t!("einheit-sek"))
     }
 }
 
-/// Zahl mit Komma: 19,8
+/// Zahl mit Dezimaltrennzeichen der Sprache: 19,8 bzw. 19.8
 pub fn num(x: f64, digits: usize) -> String {
-    format!("{x:.digits$}").replace('.', ",")
+    format!("{x:.digits$}").replace('.', &crate::sprache::t!("zahl-dezimal"))
 }
 
-/// Große Zahlen kurz: 1,2 Mio. · 34 Tsd.
+/// Große Zahlen kurz: 1,2 Mio. · 34 Tsd. (Einheiten aus der Sprachdatei)
 pub fn fmt_count(n: f64) -> String {
+    use crate::sprache::t;
     if n >= 1e6 {
-        format!("{} Mio.", num(n / 1e6, 1))
+        format!("{} {}", num(n / 1e6, 1), t!("einheit-mio"))
     } else if n >= 1e3 {
-        format!("{} Tsd.", (n / 1e3).round())
+        format!("{} {}", (n / 1e3).round(), t!("einheit-tsd"))
     } else {
         format!("{n}")
     }
 }
 
-/// Tausenderpunkte: 12.345
+/// Tausendertrennzeichen der Sprache: 12.345 bzw. 12,345
 pub fn thousands(n: u64) -> String {
+    let sep = crate::sprache::t!("zahl-tausender");
     let s = n.to_string();
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {
         if i > 0 && (s.len() - i).is_multiple_of(3) {
-            out.push('.');
+            out.push_str(&sep);
         }
         out.push(c);
     }
@@ -235,13 +238,14 @@ mod tests {
 
     #[test]
     fn formatierung() {
+        // Ohne init() steht der Übersetzer auf Englisch – also englische Einheiten
         assert_eq!(fmt_bytes(Some(512.0)), "512 B");
-        assert_eq!(fmt_bytes(Some(1.9 * 1024.0 * 1024.0 * 1024.0)), "1,9 GB");
+        assert_eq!(fmt_bytes(Some(1.9 * 1024.0 * 1024.0 * 1024.0)), "1.9 GB");
         assert_eq!(fmt_bytes(None), "–");
-        assert_eq!(fmt_duration(7300.0), "2 Std 1 Min");
-        assert_eq!(fmt_duration(65.0), "1 Min 5 Sek");
-        assert_eq!(thousands(1234567), "1.234.567");
-        assert_eq!(fmt_count(2_500_000.0), "2,5 Mio.");
+        assert_eq!(fmt_duration(7300.0), "2 h 1 min");
+        assert_eq!(fmt_duration(65.0), "1 min 5 s");
+        assert_eq!(thousands(1234567), "1,234,567");
+        assert_eq!(fmt_count(2_500_000.0), "2.5 M");
         assert_eq!(file_name("/a/b/c.zip"), "c.zip");
     }
 }

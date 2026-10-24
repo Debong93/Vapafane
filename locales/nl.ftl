@@ -6,6 +6,16 @@ sprache-system = Systeemtaal (aanbevolen)
 sprache-ki-hinweis = Deze vertaling is automatisch gemaakt (door AI) – meld fouten via „Over Vapafane”.
 sprache-neustart = Bij het wisselen wordt het venster kort opnieuw geladen.
 
+## Einheiten und Zahlen
+einheit-tag = d
+einheit-std = u
+einheit-min = min
+einheit-sek = s
+zahl-dezimal = ,
+einheit-mio = mln.
+einheit-tsd = k
+zahl-tausender = .
+
 ## Java
 java-hinweis-windows = Installeer het bijv. via https://adoptium.net (Temurin { $version }).
 java-hinweis-linux = Installeer het met: sudo apt install openjdk-{ $version }-jre-headless

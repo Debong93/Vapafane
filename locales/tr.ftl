@@ -6,6 +6,16 @@ sprache-system = Sistem dili (önerilir)
 sprache-ki-hinweis = Bu çeviri otomatik olarak (yapay zekâ ile) oluşturuldu – hataları „Vapafane Hakkında” üzerinden bildir.
 sprache-neustart = Değiştirince arayüz kısaca yeniden yüklenir.
 
+## Einheiten und Zahlen
+einheit-tag = g
+einheit-std = sa
+einheit-min = dk
+einheit-sek = sn
+zahl-dezimal = ,
+einheit-mio = Mn
+einheit-tsd = bin
+zahl-tausender = .
+
 ## Java
 java-hinweis-windows = Örn. https://adoptium.net adresinden kur (Temurin { $version }).
 java-hinweis-linux = Şu komutla kur: sudo apt install openjdk-{ $version }-jre-headless

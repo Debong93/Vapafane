@@ -6,6 +6,16 @@ sprache-system = Idioma del sistema (recomendado)
 sprache-ki-hinweis = Esta traducción se generó automáticamente (por IA); informa de errores en «Acerca de Vapafane».
 sprache-neustart = La interfaz se recarga brevemente al cambiar.
 
+## Einheiten und Zahlen
+einheit-tag = d
+einheit-std = h
+einheit-min = min
+einheit-sek = s
+zahl-dezimal = ,
+einheit-mio = M
+einheit-tsd = mil
+zahl-tausender = .
+
 ## Java
 java-hinweis-windows = Instálalo p. ej. desde https://adoptium.net (Temurin { $version }).
 java-hinweis-linux = Instálalo con: sudo apt install openjdk-{ $version }-jre-headless

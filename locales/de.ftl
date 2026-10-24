@@ -7,6 +7,16 @@ sprache-system = Systemsprache (empfohlen)
 sprache-ki-hinweis = Diese Übersetzung wurde maschinell (per KI) erstellt – Fehler bitte über „Über Vapafane“ melden.
 sprache-neustart = Die Oberfläche lädt beim Wechsel einmal kurz neu.
 
+## Einheiten und Zahlen
+einheit-tag = T
+einheit-std = Std
+einheit-min = Min
+einheit-sek = Sek
+zahl-dezimal = ,
+einheit-mio = Mio.
+einheit-tsd = Tsd.
+zahl-tausender = .
+
 ## Java
 java-hinweis-windows = Installieren z. B. von https://adoptium.net (Temurin { $version }).
 java-hinweis-linux = Installieren mit: sudo apt install openjdk-{ $version }-jre-headless
