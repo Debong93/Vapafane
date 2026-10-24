@@ -108,6 +108,9 @@ pub struct Config {
     /// Zuletzt gewähltes Ziel beim Einrichten eines Clients: "launcher" oder "modrinth"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_target: Option<String>,
+    /// Sprache der Oberfläche und Meldungen (Code wie "de"); None = Systemsprache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
     /// Server beim PC-Start automatisch starten (Wunsch; unter Linux zählt die systemd-Unit)
     #[serde(default)]
     pub autostart_server: bool,
@@ -147,6 +150,7 @@ impl Default for Config {
             daily_backup_time: default_daily_time(),
             reach_check: default_true(),
             client_target: None,
+            language: None,
             autostart_server: false,
             active: None,
             extra: Map::new(),

@@ -45,6 +45,7 @@ socket2 = "0.6"
 notify-rust = "4"
 vapafane-shared = { path = "../shared" }
 bs58 = "0.5"
+sys-locale = "0.3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -37,6 +37,7 @@ mod rcon;
 mod reach;
 mod server;
 mod service;
+mod sprache;
 mod transfer;
 mod updater;
 mod updates_gui;
@@ -55,6 +56,7 @@ fn attach_console() {
 }
 
 pub fn main() -> i32 {
+    sprache::init();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Mod-Notizen unter dem früheren Dateinamen einmalig übernehmen
     mods::convert_old_meta_all();

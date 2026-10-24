@@ -406,9 +406,11 @@ pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress
             && crate::java::java_major(&java) < need
         {
             java = crate::java::java_at_least(need).ok_or_else(|| {
-                Error(format!(
-                    "Minecraft {game} braucht Java {need}, das ist nicht installiert. {}",
-                    crate::manage::java_hint(need)
+                Error(crate::sprache::t!(
+                    "err-java-noetig",
+                    mc = game,
+                    version = need,
+                    hinweis = crate::manage::java_hint(need)
                 ))
             })?;
         }

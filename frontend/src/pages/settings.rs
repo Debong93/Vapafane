@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use serde_json::{Map, Value, json};
 
 use crate::dialog::{confirm, error, show_error};
-use crate::pages::{About, SkinChoice};
+use crate::pages::{About, LanguageChoice, SkinChoice};
 use crate::state::{AppState, Page, use_app};
 use crate::tauri;
 use crate::util::{J, open_folder, open_link};
@@ -194,6 +194,7 @@ pub fn Settings() -> impl IntoView {
 
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Settings>
+            <LanguageChoice/>
             <h3>"Spiel (dieser Server)"</h3>
             <div class="form">{PROPS.into_iter().map(prop_field).collect_view()}</div>
             <h3>"Leistung (dieser Server)"</h3>

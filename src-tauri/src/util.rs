@@ -29,6 +29,15 @@ pub fn lock<T>(m: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// RwLock sperren wie `lock` – weiterarbeiten statt abstürzen.
+pub fn lock_rw<T>(l: &std::sync::RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
+    l.write().unwrap_or_else(|e| e.into_inner())
+}
+
+pub fn read_rw<T>(l: &std::sync::RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
+    l.read().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Feste Regex. `None` nur, wenn das Muster selbst fehlerhaft wäre – dann trifft sie nie.
 pub fn regex(pattern: &str) -> Option<regex::Regex> {
     regex::Regex::new(pattern).ok()

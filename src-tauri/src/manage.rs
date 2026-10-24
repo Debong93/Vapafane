@@ -164,11 +164,36 @@ pub fn create_server(app: AppHandle, kind: String, name: String, version: String
     .map_err(|e| e.0)
 }
 
+/// Sprache: Wunsch ("system" oder Code) und was daraus geworden ist.
+#[tauri::command]
+pub fn get_language() -> Value {
+    let cfg = Config::load();
+    json!({
+        "wish": cfg.language.unwrap_or_else(|| "system".into()),
+        "resolved": crate::sprache::code(),
+    })
+}
+
+/// Sprache setzen ("system" = Systemsprache). Gilt sofort für neue Meldungen;
+/// die Oberfläche lädt sich danach selbst neu. Gibt den aufgelösten Code zurück.
+#[tauri::command]
+pub fn set_language(language: String) -> Cmd<String> {
+    let wunsch = language.trim().to_ascii_lowercase();
+    if wunsch != "system" && !vapafane_shared::sprache::SPRACHEN.iter().any(|(c, ..)| *c == wunsch) {
+        return Err("Unbekannte Sprache".into());
+    }
+    let mut cfg = Config::load();
+    cfg.language = (wunsch != "system").then_some(wunsch);
+    cfg.save().map_err(|e| e.0)?;
+    crate::sprache::init();
+    Ok(crate::sprache::code().to_string())
+}
+
 pub fn java_hint(need: u32) -> String {
     if cfg!(windows) {
-        format!("Installieren z. B. von https://adoptium.net (Temurin {need}).")
+        crate::sprache::t!("java-hinweis-windows", version = need)
     } else {
-        format!("Installieren mit: sudo apt install openjdk-{need}-jre-headless")
+        crate::sprache::t!("java-hinweis-linux", version = need)
     }
 }
 

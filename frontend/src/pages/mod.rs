@@ -21,6 +21,33 @@ use crate::state::{Page, set_skin, use_app};
 use crate::tauri;
 use crate::util::{J, open_link};
 
+/// Sprachwahl – im Client- und im Server-Bereich gleich. Der Wechsel lädt die Oberfläche neu.
+#[component]
+pub fn LanguageChoice() -> impl IntoView {
+    use vapafane_shared::sprache::SPRACHEN;
+    let wunsch = RwSignal::new(String::from("system"));
+    leptos::task::spawn_local(async move {
+        if let Ok(r) = tauri::call::<Value>("get_language").await {
+            wunsch.set(r.s("wish"));
+        }
+    });
+    view! {
+        <h3>{crate::sprache::t!("sprache-titel")}" / Language"</h3>
+        <div class="row">
+            <select id="sprache-select" prop:value=move || wunsch.get()
+                on:change=move |e| crate::sprache::wechseln(event_target_value(&e))>
+                <option value="system" selected=move || wunsch.get() == "system">{crate::sprache::t!("sprache-system")}</option>
+                {SPRACHEN.iter().map(|(code, name, _)| {
+                    let c = *code;
+                    view! { <option value=c selected=move || wunsch.get() == c>{*name}</option> }
+                }).collect_view()}
+            </select>
+            <span class="dim small">{crate::sprache::t!("sprache-neustart")}
+                {crate::sprache::ist_ki().then(|| format!(" {}", crate::sprache::t!("sprache-ki-hinweis")))}</span>
+        </div>
+    }
+}
+
 /// Aussehen-Auswahl (Grasblock / Crying Obsidian) – im Client- und im Server-Bereich gleich.
 #[component]
 pub fn SkinChoice() -> impl IntoView {
@@ -107,6 +134,7 @@ fn ClientSettings() -> impl IntoView {
     };
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::ClientSettings>
+            <LanguageChoice/>
             <SkinChoice/>
             <h3>"Einrichten"</h3>
             <div class="switches">

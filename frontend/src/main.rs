@@ -10,6 +10,7 @@ mod header;
 mod mobs;
 mod pages;
 mod sidebar;
+mod sprache;
 mod state;
 mod tasks;
 mod tauri;
@@ -35,6 +36,7 @@ fn App() -> impl IntoView {
     tasks::listen_tasks();
     pages::console::listen_log();
     app.start_polling();
+    sprache::abgleichen();
 
     // Im Client-Bereich sind Seitenleiste und Server-Auswahl ausgeblendet (CSS: body.client-mode)
     Effect::new(move |_| {
@@ -68,5 +70,7 @@ fn App() -> impl IntoView {
 
 fn main() {
     console_error_panic_hook::set_once();
+    // Sprache zuerst – alle Seiten bauen ihre Texte damit auf
+    sprache::init();
     leptos::mount::mount_to_body(App);
 }

@@ -765,6 +765,8 @@ pub fn run() -> i32 {
             crate::clients_gui::client_preview,
             crate::clients_gui::client_pick_file,
             crate::clients_gui::client_install,
+            crate::manage::get_language,
+            crate::manage::set_language,
             crate::clients_gui::client_sources,
             crate::clients_gui::client_source,
             crate::clients_gui::client_saved_code,

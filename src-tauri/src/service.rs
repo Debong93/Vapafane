@@ -395,10 +395,10 @@ fn start(sup: &Sup) -> Result<()> {
             .get("MC_VERSION")
             .and_then(|v| crate::net::required_java(v).ok().flatten())
             .unwrap_or(25);
-        return err(format!(
-            "Auf diesem PC ist Java nicht installiert – ohne Java startet kein Minecraft-Server. \
-             Dieser Server braucht Java {need}. {}",
-            crate::manage::java_hint(need)
+        return err(crate::sprache::t!(
+            "err-java-fehlt",
+            version = need,
+            hinweis = crate::manage::java_hint(need)
         ));
     }
     let props = server::read_properties(&dir);

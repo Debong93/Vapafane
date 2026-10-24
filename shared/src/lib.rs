@@ -5,6 +5,8 @@
 #![deny(unsafe_code, clippy::unwrap_used, clippy::expect_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod sprache;
+
 use serde::{Deserialize, Serialize};
 
 /// Ein Server aus der Liste (Auswahl oben).
