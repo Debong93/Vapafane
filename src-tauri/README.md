@@ -12,3 +12,10 @@ Daneben: Server anlegen und aktualisieren (`flavor.rs`, `updater.rs`), Mods (`mo
 cargo test
 VAPAFANE_HOME=/tmp/test cargo run      # Testmodus ohne echte Daten
 ```
+
+Für Veröffentlichungen so bauen, dass keine Pfade des eigenen Rechners (Benutzername) im Programm landen:
+
+```bash
+RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo tauri build --bundles deb
+RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo tauri build --target x86_64-pc-windows-gnu --bundles nsis
+```
