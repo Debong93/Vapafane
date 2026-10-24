@@ -21,14 +21,16 @@ fn loader_name(l: &str) -> String {
     .into()
 }
 
+use crate::sprache::t;
+
 fn ping_pill(p: &Value, ok: bool) -> AnyView {
     if !p.b("online") {
-        return view! { <span class="pill bad">"Server nicht erreichbar"</span> }.into_any();
+        return view! { <span class="pill bad">{t!("cli-nicht-erreichbar")}</span> }.into_any();
     }
     if ok {
-        view! { <span class="pill ok">{format!("Online · {} · {}/{} Spieler", p.s("version"), p.s("players"), p.s("max"))}</span> }.into_any()
+        view! { <span class="pill ok">{t!("cli-online", version = p.s("version"), spieler = p.s("players"), max = p.s("max"))}</span> }.into_any()
     } else {
-        view! { <span class="pill warn">{format!("Online, aber Version {} – passt nicht", p.s("version"))}</span> }.into_any()
+        view! { <span class="pill warn">{t!("cli-version-passt-nicht", version = p.s("version"))}</span> }.into_any()
     }
 }
 
@@ -37,11 +39,11 @@ fn client_pill(s: &Value) -> AnyView {
         if s.b("version_ok") {
             ping_pill(&s.o("ping"), true)
         } else {
-            view! { <span class="pill warn">{format!("Server wurde aktualisiert ({}) – neuen Einladungs-Code beim Admin holen", s.s("ping/version"))}</span> }.into_any()
+            view! { <span class="pill warn">{t!("cli-aktualisiert", version = s.s("ping/version"))}</span> }.into_any()
         }
     } else {
         let hint = s.s("hint");
-        view! { <span class="pill bad">"gerade nicht erreichbar"</span>{(!hint.is_empty()).then(|| view! { <div class="dim small">{hint}</div> })} }.into_any()
+        view! { <span class="pill bad">{t!("cli-gerade-nicht")}</span>{(!hint.is_empty()).then(|| view! { <div class="dim small">{hint}</div> })} }.into_any()
     }
 }
 
@@ -57,14 +59,14 @@ fn play(target: String) {
             let modrinth = t == "modrinth";
             let r = ask(
                 if modrinth {
-                    "Modrinth-App nicht gefunden"
+                    t!("cli-modrinth-fehlt")
                 } else {
-                    "Minecraft-Launcher nicht gefunden"
+                    t!("cli-launcher-fehlt")
                 },
                 e,
                 vec![
-                    Btn::new("Schließen", ""),
-                    Btn::primary("Zur Download-Seite", "ok"),
+                    Btn::new(t!("gem-schliessen"), ""),
+                    Btn::primary(t!("cli-download-seite"), "ok"),
                 ],
             )
             .await;
@@ -104,14 +106,14 @@ struct Client {
     notice: RwSignal<Option<String>>,
 }
 
-/// Was übernommen werden kann (wie im Backend, transfer::PARTS).
+/// Was übernommen werden kann (wie im Backend, transfer::PARTS); Beschriftung als Sprach-Schlüssel.
 const PARTS: [(&str, &str); 6] = [
-    ("options", "Optionen & Tastenbelegung"),
-    ("config", "Mod-Einstellungen"),
-    ("shaders", "Shader"),
-    ("resourcepacks", "Ressourcenpakete"),
-    ("servers", "Server-Liste"),
-    ("worlds", "Welten"),
+    ("options", "cli-teil-options"),
+    ("config", "cli-teil-config"),
+    ("shaders", "cli-teil-shaders"),
+    ("resourcepacks", "cli-teil-resourcepacks"),
+    ("servers", "cli-teil-servers"),
+    ("worlds", "cli-teil-worlds"),
 ];
 
 fn refresh(c: Client) {
@@ -210,7 +212,7 @@ fn take_view(c: Client) -> AnyView {
         leptos::task::spawn_local(async move {
             let Ok(Some(d)) = tauri::invoke::<Option<String>>(
                 "pick_folder",
-                json!({ "title": "Minecraft-Ordner wählen, aus dem übernommen wird" }),
+                json!({ "title": t!("cli-quelle-waehlen") }),
             )
             .await
             else {
@@ -225,7 +227,7 @@ fn take_view(c: Client) -> AnyView {
                     });
                     select_source(c, dir);
                 }
-                Err(e) => error("Nichts zu übernehmen", e).await,
+                Err(e) => error(t!("cli-nichts-uebernehmen"), e).await,
             }
         })
     };
@@ -243,31 +245,31 @@ fn take_view(c: Client) -> AnyView {
                             let on = event_target_checked(&e);
                             let k = k2.clone();
                             c.take_parts.update(|p| { p.retain(|x| *x != k); if on { p.push(k); } });
-                        }/>{format!(" {label} ({size})")}</label> }
+                        }/>{format!(" {} ({size})", crate::sprache::text(label, None))}</label> }
                 }).collect_view()}
             </div>
             {move || c.take_parts.get().iter().any(|p| p == "worlds").then(|| view! {
-                <p class="dim small">"Welten aus einer neueren Minecraft-Version lassen sich in einer älteren nicht öffnen. Große Welten machen das Einrichten langsamer."</p> })}
+                <p class="dim small">{t!("cli-welten-warnung")}</p> })}
             {move || (c.dest.get() == "launcher").then(|| view! {
-                <p class="dim small">"Was im Ordner schon liegt, bleibt unverändert – übernommen wird nur, was fehlt."</p> })}
+                <p class="dim small">{t!("cli-nur-fehlendes")}</p> })}
         })
     };
     view! {
         <div class="take">
             <div class="row">
-                <b>"Einstellungen übernehmen von:"</b>
+                <b>{t!("cli-uebernehmen-von")}</b>
                 <select id="cl-take" class="grow" prop:value=move || c.take_dir.get() on:change=move |e| select_source(c, event_target_value(&e))>
-                    <option value="" selected=move || c.take_dir.get().is_empty()>"Nichts übernehmen"</option>
+                    <option value="" selected=move || c.take_dir.get().is_empty()>{t!("cli-nichts")}</option>
                     {move || c.sources.get().into_iter().map(|s| {
                         let dir = s.s("dir");
                         let d = dir.clone();
                         view! { <option value=dir selected=move || c.take_dir.get() == d>{s.s("label")}</option> }
                     }).collect_view()}
                 </select>
-                <button on:click=pick>"Anderer Ordner …"</button>
+                <button on:click=pick>{t!("gem-anderer-ordner")}</button>
             </div>
             {parts}
-            <p class="dim small">"Zum Beispiel aus deiner bisherigen Instanz: Optionen, Tastenbelegung, Mod-Einstellungen, Shader, Ressourcenpakete und Server-Liste. Mods kommen immer passend vom Server. Die Quelle wird nur gelesen, nicht verändert."</p>
+            <p class="dim small">{t!("cli-uebernehmen-erklaerung")}</p>
         </div>
     }.into_any()
 }
@@ -286,7 +288,7 @@ fn install(app: AppState, c: Client) {
         let r = task("client_install", args).await;
         c.installing.set(false);
         if r.is_ok() {
-            app.add_event(format!("Client eingerichtet: {}", p.s("invite/n")));
+            app.add_event(t!("cli-ev-eingerichtet", name = p.s("invite/n")));
             c.info
                 .update(|i| i["target"] = json!(c.dest.get_untracked()));
             refresh(c);
@@ -307,14 +309,15 @@ fn refresh_client(c: Client, dir: String, name: String, modrinth: bool) {
     leptos::task::spawn_local(async move {
         if updated {
             info(
-                "Server wurde aktualisiert",
+                t!("cli-upd-titel"),
                 format!(
-                    "„{name}“ läuft jetzt mit Minecraft {version}. Welche Version und welche Mods dazugehören, steht in der Einladung – dafür brauchst du einen neuen Einladungs-Code vom Admin.\n\n\
-                     Füg ihn oben unter „Einladung einlösen“ ein und klick „Einladung prüfen“. {}",
+                    "{}\n\n{} {}",
+                    t!("cli-upd-text", name = name, version = version),
+                    t!("cli-upd-code"),
                     if modrinth {
-                        "Vapafane baut dann ein neues Paket und zeigt, wie du deine Instanz damit aktualisierst – deine Einstellungen, Welten und Shader bleiben."
+                        t!("cli-upd-modrinth")
                     } else {
-                        "Vapafane tauscht dann die Mods aus – deine Einstellungen und Welten bleiben."
+                        t!("cli-upd-launcher")
                     }
                 ),
             )
@@ -326,12 +329,10 @@ fn refresh_client(c: Client, dir: String, name: String, modrinth: bool) {
             Ok(code) => {
                 c.code.set(code.clone());
                 check(c, code);
-                c.notice.set(Some(format!(
-                    "Gespeicherte Einladung von „{name}“ geladen. Mit „Einrichten“ wird alles nochmal passend eingerichtet – zum Beispiel, wenn Mods fehlen oder das Profil verschwunden ist. Hat der Admin den Server aktualisiert, brauchst du stattdessen einen neuen Einladungs-Code."
-                )));
+                c.notice.set(Some(t!("cli-gespeicherte-einladung", name = name)));
                 focus_code();
             }
-            Err(e) => error("Aktualisieren", e).await,
+            Err(e) => error(t!("cli-aktualisieren"), e).await,
         }
     });
 }
@@ -389,31 +390,30 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
         let inst = format!("„{}“", update.s("name"));
         let inst2 = inst.clone();
         return view! {
-            <p class="hint">"✓ Das neue Modrinth-Paket ist fertig. So aktualisierst du deine Instanz "<b>{inst}</b>
-                " – Welten, Optionen, Shader, Ressourcenpakete und deine Server-Liste bleiben dabei erhalten:"</p>
+            <p class="hint">"✓ "{t!("cli-paket-update-1")}" "<b>{inst}</b>" – "{t!("cli-paket-update-2")}</p>
             <ol class="steps">
-                <li>"Modrinth-App öffnen und die Instanz "<b>{inst2}</b>" anklicken."</li>
-                <li>"Oben auf das Zahnrad "<b>"„Instanz-Einstellungen“"</b>" klicken und den Reiter "<b>"„Installation“"</b>" wählen."</li>
-                <li><b>"„Modpack neu installieren“"</b>" klicken, bestätigen und diese Datei wählen:"<br/><code>{r.s("mrpack")}</code></li>
+                <li>{t!("cli-schritt-instanz")}" "<b>{inst2}</b>" "{t!("cli-schritt-anklicken")}</li>
+                <li>{t!("cli-schritt-zahnrad")}</li>
+                <li><b>"„"{t!("cli-neu-installieren")}"“"</b>" "{t!("cli-schritt-datei")}<br/><code>{r.s("mrpack")}</code></li>
             </ol>
             <div class="row">
-                <button class="primary" on:click=move |_| play("modrinth".into())>"Modrinth-App öffnen"</button>
-                <button on:click=move |_| open_dir(d3.clone())>"Ordner mit dem Paket öffnen"</button>
-                <button on:click=guide>"Shader & Extras – so geht's"</button>
+                <button class="primary" on:click=move |_| play("modrinth".into())>{t!("cli-modrinth-oeffnen")}</button>
+                <button on:click=move |_| open_dir(d3.clone())>{t!("cli-paket-ordner")}</button>
+                <button on:click=guide>{t!("ext-knopf-so-gehts")}</button>
             </div>
-            <p class="dim small">"Die Modrinth-App sichert die Instanz vorher selbst und tauscht nur die Mods des Servers aus – was du selbst hinzugefügt hast (Shader, Ressourcenpakete, eigene Mods), bleibt."</p>
+            <p class="dim small">{t!("cli-update-sicher")}</p>
         }.into_any();
     }
     let taken_note = (!taken.is_null()).then(|| {
         let from = taken.s("from");
         let text = if modrinth {
-            format!("Die Einstellungen aus „{from}“ sind im Paket – die Modrinth-App übernimmt sie beim Import.")
+            t!("cli-uebernommen-paket", quelle = from)
         } else {
             let kept = taken.f("kept").unwrap_or(0.0);
             format!(
-                "Aus „{from}“ übernommen: {} Dateien{}.",
-                taken.f("copied").unwrap_or(0.0),
-                if kept > 0.0 { format!(" ({kept} waren schon da und blieben unverändert)") } else { String::new() }
+                "{}{}",
+                t!("cli-uebernommen", quelle = from, anzahl = taken.f("copied").unwrap_or(0.0)),
+                if kept > 0.0 { format!(" {}", t!("cli-uebernommen-da", anzahl = kept)) } else { String::new() }
             )
         };
         let failed: Vec<String> = taken.a("failed").iter().filter_map(|f| f.as_str().map(String::from)).collect();
@@ -422,41 +422,38 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             if failed.len() > 3 {
                 list.push_str(" …");
             }
-            format!(
-                " {} Dateien ließen sich nicht lesen und fehlen deshalb – ist Minecraft dort noch offen? ({list})",
-                failed.len()
-            )
+            format!(" {}", t!("cli-uebernommen-fehler", anzahl = failed.len() as u32, dateien = list))
         });
         view! { <p class="hint">{text}{failed_note}</p> }
     });
     view! {
         {if modrinth {
             if r.b("opened") {
-                view! { <p class="hint">"✓ Das Modrinth-Paket ist fertig, und die Modrinth-App wurde damit geöffnet. Bestätige dort den Import – dann erscheint die Instanz "<b>{format!("„{name} (Vapafane)“")}</b>"."</p> }.into_any()
+                view! { <p class="hint">"✓ "{t!("cli-paket-offen")}" "<b>{format!("„{name} (Vapafane)“")}</b>"."</p> }.into_any()
             } else {
                 view! {
-                    <p class="hint">"✓ Das Modrinth-Paket ist fertig: "<code>{r.s("mrpack")}</code><br/>
-                        "Die Modrinth-App ließ sich nicht automatisch öffnen. So geht es von Hand: in der Modrinth-App auf "<b>"„+“"</b>" (Instanz erstellen) klicken, dann "<b>"„Aus Datei importieren“"</b>" (englisch „Import from file“) und diese Datei wählen."</p>
-                    <button on:click=move |_| open_dir(d1.clone())>"Ordner mit dem Paket öffnen"</button>
+                    <p class="hint">"✓ "{t!("cli-paket-fertig")}" "<code>{r.s("mrpack")}</code><br/>
+                        {t!("cli-paket-von-hand")}</p>
+                    <button on:click=move |_| open_dir(d1.clone())>{t!("cli-paket-ordner")}</button>
                 }.into_any()
             }
         } else {
-            view! { <p class="hint">{format!("✓ Eingerichtet: {} Mods geladen.", r.a("installed").len())}
-                {r.b("profile").then(|| view! { " Im Minecraft-Launcher gibt es jetzt das Profil "<b>{format!("„Vapafane – {name}“")}</b>"." })}</p> }.into_any()
+            view! { <p class="hint">{format!("✓ {}", t!("cli-eingerichtet", anzahl = r.a("installed").len() as u32))}
+                {r.b("profile").then(|| view! { " "{t!("cli-profil", name = format!("Vapafane – {name}"))} })}</p> }.into_any()
         }}
         {taken_note}
         {notes.into_iter().map(|n| view! { <p class="hint">{n}</p> }).collect_view()}
         {(!manual.is_empty()).then(|| view! {
-            <p><b>"Bitte selbst herunterladen"</b>" und in den Ordner "<code>"mods"</code>" legen:"</p>
+            <p><b>{t!("cli-selbst-laden")}</b></p>
             <ul>{manual.iter().map(|m| { let page = m.s("page"); view! {
                 <li>{format!("{} – {} ", m.s("title"), m.s("reason"))}
-                    {(!page.is_empty()).then(|| view! { <button on:click=move |_| open_link(page.clone())>"Im Browser herunterladen ↗"</button> })}</li>
+                    {(!page.is_empty()).then(|| view! { <button on:click=move |_| open_link(page.clone())>{t!("kat-browser")}</button> })}</li>
             } }).collect_view()}</ul>
-            <button on:click=move |_| open_dir(d2.clone())>"Ordner öffnen"</button>
+            <button on:click=move |_| open_dir(d2.clone())>{t!("gem-ordner-oeffnen")}</button>
         })}
         <div class="row"><button class="primary" on:click=move |_| play(target.clone())>
-            {if modrinth { "Spielen (Modrinth-App öffnen)" } else { "Spielen (Launcher öffnen)" }}</button>
-            <button on:click=guide>"Shader & Extras – so geht's"</button></div>
+            {if modrinth { t!("cli-spielen-modrinth") } else { t!("cli-spielen-launcher") }}</button>
+            <button on:click=guide>{t!("ext-knopf-so-gehts")}</button></div>
     }.into_any()
 }
 
@@ -478,13 +475,13 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
     let info = c.info.get_untracked();
     let found = |b: bool| {
         if b {
-            view! { <span class="pill ok">"gefunden"</span> }.into_any()
+            view! { <span class="pill ok">{t!("cli-gefunden")}</span> }.into_any()
         } else {
-            view! { <span class="pill warn">"nicht gefunden"</span> }.into_any()
+            view! { <span class="pill warn">{t!("cli-nicht-gefunden")}</span> }.into_any()
         }
     };
     let rows = if mods.is_empty() {
-        view! { <tr><td colspan="4" class="dim">{format!("Keine Mods nötig – nur Minecraft {}.", inv.s("m"))}</td></tr> }.into_any()
+        view! { <tr><td colspan="4" class="dim">{t!("cli-keine-mods", version = inv.s("m"))}</td></tr> }.into_any()
     } else {
         mods.iter().map(|m| {
             let key = m.s("key");
@@ -497,10 +494,10 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
                         c.selected.update(|s| { s.retain(|x| *x != k); if on { s.push(k); } });
                     }/> }.into_any() } else { "✓".into_any() }}</td>
                     <td>{m.s("title")}
-                        {m.b("optional").then(|| view! { " "<span class="badge">"optional"</span> })}
+                        {m.b("optional").then(|| view! { " "<span class="badge">{t!("cli-optional")}</span> })}
                         {(m.s("source") == "curseforge").then(|| view! { " "<span class="badge src-cf">"CurseForge"</span> })}
-                        {m.b("manual").then(|| view! { <br/><span class="dim small">"nur im Browser ladbar (Link nach dem Einrichten)"</span> })}
-                        {m.b("missing_in_file").then(|| view! { <br/><span class="dim small">"fehlt – nur in der Einladungs-Datei"</span> })}</td>
+                        {m.b("manual").then(|| view! { <br/><span class="dim small">{t!("cli-nur-browser")}</span> })}
+                        {m.b("missing_in_file").then(|| view! { <br/><span class="dim small">{t!("cli-nur-datei")}</span> })}</td>
                     <td>{m.s("version")}</td>
                     <td class="size">{m.f("size").filter(|s| *s > 0.0).map(|s| fmt_bytes(Some(s))).unwrap_or_else(|| "–".into())}</td>
                 </tr>
@@ -513,10 +510,10 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
         if c.dest.get() != "launcher" {
             None
         } else if !has_launcher {
-            Some(view! { <p class="hint">"Der offizielle Minecraft-Launcher wurde nicht gefunden. Du kannst trotzdem einrichten; das Profil wird angelegt, sobald der Launcher installiert ist und du hier „Aktualisieren“ drückst. "
-                <a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>"Launcher herunterladen"</a></p> }.into_any())
+            Some(view! { <p class="hint">{t!("cli-launcher-fehlt-text")}" "
+                <a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>{t!("cli-launcher-laden")}</a></p> }.into_any())
         } else if !has_profiles {
-            Some(view! { <p class="hint">"Der Launcher wurde noch nie gestartet. Bitte einmal starten und wieder schließen, dann hier einrichten."</p> }.into_any())
+            Some(view! { <p class="hint">{t!("cli-nie-gestartet")}</p> }.into_any())
         } else {
             None
         }
@@ -526,7 +523,7 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
         leptos::task::spawn_local(async move {
             if let Ok(Some(d)) = tauri::invoke::<Option<String>>(
                 "pick_folder",
-                json!({ "title": "Ordner für dieses Minecraft wählen" }),
+                json!({ "title": t!("cli-ordner-waehlen") }),
             )
             .await
             {
@@ -545,44 +542,44 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
     view! {
         <div class="preview-head"><span class="big">{inv.s("n")}</span>" "<code>{inv.s("a")}</code>" "
             {move || c.preview.get().and_then(|r| r.ok()).map(|p| ping_pill(&p.o("ping"), p.b("version_ok")))}</div>
-        <p>"Minecraft "<b>{inv.s("m")}</b>{format!(" · {loader} · {} Mods, zusammen {}", mods.len(), fmt_bytes(p.f("total")))}</p>
+        <p>"Minecraft "<b>{inv.s("m")}</b>{format!(" · {loader} · {}", t!("cli-mods-zusammen", anzahl = mods.len() as u32, groesse = fmt_bytes(p.f("total"))))}</p>
         {(!hint.is_empty()).then(|| view! { <p class="hint">{hint}</p> })}
-        {(ping.b("online") && !version_ok).then(|| view! { <p class="hint">{format!("Der Server meldet eine andere Version ({ping_version}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.")}</p> })}
+        {(ping.b("online") && !version_ok).then(|| view! { <p class="hint">{t!("cli-andere-version", version = ping_version.clone())}</p> })}
         {warn}
-        <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>"Mod"</th><th>"Version"</th><th>"Größe"</th></tr></thead><tbody>{rows}</tbody></table></div>
+        <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>"Mod"</th><th>{t!("cli-spalte-version")}</th><th>{t!("cli-spalte-groesse")}</th></tr></thead><tbody>{rows}</tbody></table></div>
         <div class="dest">
-            <b>"Einrichten für:"</b>
+            <b>{t!("cli-einrichten-fuer")}</b>
             <label class="check"><input type="radio" name="cl-dest" prop:checked=move || c.dest.get() == "launcher" on:change=move |_| c.dest.set("launcher".into())/>
-                " Offizieller Minecraft-Launcher "{found(info.b("launcher"))}</label>
+                " "{t!("gem-launcher")}" "{found(info.b("launcher"))}</label>
             <label class="check"><input type="radio" name="cl-dest" prop:checked=move || c.dest.get() == "modrinth" on:change=move |_| c.dest.set("modrinth".into())/>
-                " Modrinth-App "{found(info.b("modrinth"))}</label>
+                " "{t!("gem-modrinth-app")}" "{found(info.b("modrinth"))}</label>
         </div>
         {(!existing.is_empty()).then(|| view! {
             <Show when=move || c.dest.get() == "modrinth">
                 <div class="dest">
-                    <b>"In der Modrinth-App:"</b>
+                    <b>{t!("cli-in-modrinth")}</b>
                     <label class="check"><input type="radio" name="cl-mr" prop:checked=move || c.update.get() on:change=move |_| c.update.set(true)/>
-                        <span>{format!(" Vorhandene Instanz „{first}“ aktualisieren (empfohlen)")}<br/>
-                        <span class="dim small">"Alles bleibt in derselben Instanz: Welten, Einstellungen, Shader, Ressourcenpakete und Mods, die du selbst hinzugefügt hast (z. B. Iris). Dafür klickst du in der Modrinth-App kurz „Modpack neu installieren“ – Vapafane zeigt, wie."</span></span></label>
+                        <span>" "{t!("cli-instanz-update", name = first.clone())}<br/>
+                        <span class="dim small">{t!("cli-instanz-update-sub")}</span></span></label>
                     <label class="check"><input type="radio" name="cl-mr" prop:checked=move || !c.update.get() on:change=move |_| c.update.set(false)/>
-                        <span>" Neue Instanz anlegen"<br/>
-                        <span class="dim small">"Geht automatisch über den Import. Einstellungen, Shader und Ressourcenpakete kannst du unten übernehmen – selbst hinzugefügte Mods nicht. Die alte Instanz bleibt, bis du sie löschst."</span></span></label>
+                        <span>" "{t!("cli-instanz-neu")}<br/>
+                        <span class="dim small">{t!("cli-instanz-neu-sub")}</span></span></label>
                 </div>
             </Show>
         })}
         <Show when=move || c.dest.get() == "launcher" fallback=move || view! {
             <p class="dim small">{move || if updating(c) {
-                "Beim Aktualisieren bleibt in der Instanz alles erhalten: Welten, Optionen, Shader, Ressourcenpakete und deine Server-Liste."
+                t!("cli-update-bleibt")
             } else {
-                "Die Modrinth-App öffnet sich – dort nur noch den Import bestätigen."
+                t!("cli-import-bestaetigen")
             }}</p>
         }>
-            <div class="row"><span>"Ordner:"</span><code class="grow">{let d = default_dir.clone(); move || c.dir.get().unwrap_or_else(|| d.clone())}</code>
-                <button on:click=pick>"Anderer Ordner …"</button></div>
-            <p class="dim small">"Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt."</p>
+            <div class="row"><span>{t!("cli-ordner-label")}</span><code class="grow">{let d = default_dir.clone(); move || c.dir.get().unwrap_or_else(|| d.clone())}</code>
+                <button on:click=pick>{t!("gem-anderer-ordner")}</button></div>
+            <p class="dim small">{t!("cli-launcher-schliessen")}</p>
         </Show>
         <Show when=move || !updating(c)>{take_view(c)}</Show>
-        <div class="row"><button class="primary" disabled=move || c.installing.get() on:click=move |_| install(app, c)>"Einrichten"</button></div>
+        <div class="row"><button class="primary" disabled=move || c.installing.get() on:click=move |_| install(app, c)>{t!("cli-einrichten")}</button></div>
         <div>{move || c.result.get().map(|r| result_view(c, r))}</div>
     }.into_any()
 }
@@ -644,10 +641,10 @@ pub fn ClientPage() -> impl IntoView {
     let launcher = move || {
         let i = c.info.get();
         view! {
-            {if i.b("launcher") { view! { <span class="pill ok">"Minecraft-Launcher gefunden"</span> }.into_any() } else {
-                view! { <span class="pill warn">"Kein Minecraft-Launcher"</span>" "<a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>"Download"</a> }.into_any()
+            {if i.b("launcher") { view! { <span class="pill ok">{t!("cli-launcher-da")}</span> }.into_any() } else {
+                view! { <span class="pill warn">{t!("cli-kein-launcher")}</span>" "<a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>"Download"</a> }.into_any()
             }}
-            " "{i.b("modrinth").then(|| view! { <span class="pill ok">"Modrinth-App gefunden"</span> })}
+            " "{i.b("modrinth").then(|| view! { <span class="pill ok">{t!("cli-modrinth-da")}</span> })}
         }
     };
     let row = move |e: Value| {
@@ -668,15 +665,15 @@ pub fn ClientPage() -> impl IntoView {
             let (dir, name, modrinth) = (d_rm.clone(), name.clone(), t_rm == "modrinth");
             leptos::task::spawn_local(async move {
                 let text = if modrinth {
-                    "Vapafane vergisst diesen Client und löscht sein Paket. Die Instanz in der Modrinth-App bleibt – die bitte dort selbst löschen."
+                    t!("cli-entfernen-modrinth")
                 } else {
-                    "Der Ordner mit Mods, Einstellungen und Einzelspieler-Welten dieses Profils wird gelöscht, und das Profil verschwindet aus dem Minecraft-Launcher."
+                    t!("cli-entfernen-launcher")
                 };
-                if !confirm(format!("„{name}“ entfernen?"), text, "Entfernen").await {
+                if !confirm(t!("cli-entfernen-frage", name = name), text, t!("gem-entfernen")).await {
                     return;
                 }
                 if let Err(er) = tauri::invoke::<()>("client_remove", json!({ "dir": dir })).await {
-                    error("Entfernen", er).await;
+                    error(t!("gem-entfernen"), er).await;
                 }
                 refresh(c);
             });
@@ -686,35 +683,36 @@ pub fn ClientPage() -> impl IntoView {
                 <div class="grow">
                     <div><b>{e.s("name")}</b>" "<code>{e.s("address")}</code>" "
                         <span class="st">{move || c.status.get().into_iter().find(|s| s.s("dir") == d_st).map(|s| client_pill(&s))
-                            .unwrap_or_else(|| view! { <span class="pill">"prüfe …"</span> }.into_any())}</span></div>
+                            .unwrap_or_else(|| view! { <span class="pill">{t!("cli-prueft")}</span> }.into_any())}</span></div>
                     <div class="sub">{if e.b("incomplete") {
-                        "Einrichten wurde nicht fertig – bitte die Einladung oben nochmal einlösen (oder entfernen).".to_string()
+                        t!("cli-unvollstaendig")
                     } else {
-                        format!("Minecraft {} · {} · {} Mods · {} · eingerichtet {}", e.s("mc"), loader_name(&e.s("loader")), e.s("mods"),
-                            if target == "modrinth" { "Modrinth-App" } else { "Minecraft-Launcher" }, e.s("updated"))
+                        format!("Minecraft {} · {} · {} · {}", e.s("mc"), loader_name(&e.s("loader")),
+                            t!("cli-mods-kurz", anzahl = e.s("mods")),
+                            t!("cli-eingerichtet-am", ziel = if target == "modrinth" { t!("gem-modrinth-app") } else { t!("gem-launcher") }, datum = e.s("updated")))
                     }}</div>
                 </div>
-                <button class="primary" on:click=move |_| play(target.clone())>"Spielen"</button>
-                <button title="Mit der gespeicherten Einladung neu einrichten – oder erklären, was nach einem Server-Update zu tun ist"
-                    on:click=refresh_btn>"Aktualisieren"</button>
-                <button on:click=extras>"Shader & Extras"</button>
+                <button class="primary" on:click=move |_| play(target.clone())>{t!("cli-spielen")}</button>
+                <button title=t!("cli-aktualisieren-tipp")
+                    on:click=refresh_btn>{t!("cli-aktualisieren")}</button>
+                <button on:click=extras>{t!("ext-knopf")}</button>
                 <button on:click=move |_| { let d = d_open.clone(); leptos::task::spawn_local(async move {
-                    if let Err(er) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await { error("Ordner", er).await; }
-                }); }>"Ordner öffnen"</button>
-                <button class="danger" on:click=remove>"Entfernen"</button>
+                    if let Err(er) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await { error(t!("gem-ordner"), er).await; }
+                }); }>{t!("gem-ordner-oeffnen")}</button>
+                <button class="danger" on:click=remove>{t!("gem-entfernen")}</button>
             </div>
         }
     };
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Client>
             <div class="cf-box">
-                <h2 class="client-h">"Einladung einlösen"</h2>
-                <p class="dim">"Code (beginnt mit "<code>"VPF1-"</code>") einfügen oder die "<code>".vapafane"</code>"-Datei öffnen – Vapafane richtet Minecraft mit allen Mods passend zum Server ein."</p>
-                <textarea id="cl-code" rows="3" placeholder="Einladungs-Code hier einfügen (VPF1-…)" spellcheck="false"
+                <h2 class="client-h">{t!("cli-titel")}</h2>
+                <p class="dim">{t!("cli-code-erklaerung-1")}<code>"VPF1-"</code>{t!("cli-code-erklaerung-2")}<code>".vapafane"</code>{t!("cli-code-erklaerung-3")}</p>
+                <textarea id="cl-code" rows="3" placeholder=t!("cli-code-platzhalter") spellcheck="false"
                     prop:value=c.code on:input=move |e| c.code.set(event_target_value(&e))></textarea>
                 <div class="row">
-                    <button class="primary" on:click=move |_| { let code = c.code.get_untracked().trim().to_string(); if !code.is_empty() { c.notice.set(None); check(c, code) } }>"Einladung prüfen"</button>
-                    <button on:click=from_file>"Einladungs-Datei öffnen …"</button>
+                    <button class="primary" on:click=move |_| { let code = c.code.get_untracked().trim().to_string(); if !code.is_empty() { c.notice.set(None); check(c, code) } }>{t!("cli-pruefen")}</button>
+                    <button on:click=from_file>{t!("cli-datei-oeffnen")}</button>
                     <span class="spacer"></span>
                     <span class="small">{launcher}</span>
                 </div>
@@ -722,7 +720,7 @@ pub fn ClientPage() -> impl IntoView {
             </div>
             {move || {
                 if c.checking.get() {
-                    return Some(view! { <div class="cf-box"><p class="dim">"Prüfe die Einladung …"</p></div> }.into_any());
+                    return Some(view! { <div class="cf-box"><p class="dim">{t!("cli-pruefe-einladung")}</p></div> }.into_any());
                 }
                 // nur bei neuer Einladung neu aufbauen (nicht bei jedem Ping)
                 c.source.track();
@@ -731,18 +729,18 @@ pub fn ClientPage() -> impl IntoView {
                     Ok(p) => view! { <div class="cf-box">{preview_view(app, c, p)}</div> }.into_any(),
                 })
             }}
-            <h3>"Meine Server"</h3>
+            <h3>{t!("cli-meine-server")}</h3>
             <div class="list">
                 {move || {
                     let list = c.list.get();
                     if list.is_empty() {
-                        view! { <div class="empty">"Noch kein Server eingerichtet – oben eine Einladung einlösen."</div> }.into_any()
+                        view! { <div class="empty">{t!("cli-leer")}</div> }.into_any()
                     } else {
                         list.into_iter().map(row).collect_view().into_any()
                     }
                 }}
             </div>
-            <p class="notice small">"Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an – „Spielen“ öffnet den offiziellen Launcher bzw. die Modrinth-App."</p>
+            <p class="notice small">{t!("cli-kein-konto")}</p>
         </section>
     }
 }

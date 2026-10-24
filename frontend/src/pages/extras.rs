@@ -6,6 +6,7 @@ use serde_json::json;
 use std::rc::Rc;
 
 use crate::dialog::{self, Btn, show_error};
+use crate::sprache::t;
 use crate::tauri;
 use crate::util::open_link;
 
@@ -22,7 +23,7 @@ fn marker(x: i32, y: i32, n: &'static str) -> impl IntoView {
 /// Skizze: Instanz in der Modrinth-App (Bibliothek, Reiter „Content“, „Inhalte durchsuchen“).
 fn sketch_instance(name: String) -> impl IntoView {
     view! {
-        <svg class="sketch" viewBox="0 0 520 190" role="img" aria-label="Skizze der Instanz in der Modrinth-App">
+        <svg class="sketch" viewBox="0 0 520 190" role="img" aria-label=t!("ext-skizze-1-alt")>
             <rect class="frame" x="1" y="1" width="518" height="188" rx="10"/>
             // Seitenleiste mit Instanzen
             <rect class="side" x="1" y="1" width="46" height="188" rx="10"/>
@@ -35,7 +36,7 @@ fn sketch_instance(name: String) -> impl IntoView {
             <text class="title" x="110" y="31">{name}</text>
             <text class="sub" x="110" y="46">"Minecraft · Fabric"</text>
             <rect class="btn green" x="420" y="18" width="80" height="28" rx="8"/>
-            <text class="btn-t dark" x="460" y="37" text-anchor="middle">"Spielen"</text>
+            <text class="btn-t dark" x="460" y="37" text-anchor="middle">{t!("cli-spielen")}</text>
             // Reiter
             <rect class="pill hot" x="66" y="64" width="74" height="24" rx="7"/>
             <text class="btn-t dark" x="103" y="80" text-anchor="middle">"Content"</text>
@@ -44,11 +45,11 @@ fn sketch_instance(name: String) -> impl IntoView {
             <text class="tab-t" x="262" y="80">"Logs"</text>
             {marker(150, 66, "2")}
             // leere Liste mit Knöpfen
-            <text class="sub" x="290" y="122" text-anchor="middle">"Keine zusätzlichen Inhalte installiert"</text>
+            <text class="sub" x="290" y="122" text-anchor="middle">{t!("ext-skizze-leer")}</text>
             <rect class="btn" x="160" y="140" width="122" height="30" rx="8"/>
-            <text class="btn-t" x="221" y="160" text-anchor="middle">"Dateien hochladen"</text>
+            <text class="btn-t" x="221" y="160" text-anchor="middle">{t!("ext-skizze-hochladen")}</text>
             <rect class="btn green" x="292" y="140" width="136" height="30" rx="8"/>
-            <text class="btn-t dark" x="360" y="160" text-anchor="middle">"Inhalte durchsuchen"</text>
+            <text class="btn-t dark" x="360" y="160" text-anchor="middle">{t!("ext-durchsuchen")}</text>
             {marker(440, 140, "3")}
         </svg>
     }
@@ -57,7 +58,7 @@ fn sketch_instance(name: String) -> impl IntoView {
 /// Skizze: Suche in der Modrinth-App (Art wählen, „Installieren“).
 fn sketch_browse() -> impl IntoView {
     view! {
-        <svg class="sketch" viewBox="0 0 520 130" role="img" aria-label="Skizze der Suche in der Modrinth-App">
+        <svg class="sketch" viewBox="0 0 520 130" role="img" aria-label=t!("ext-skizze-2-alt")>
             <rect class="frame" x="1" y="1" width="518" height="128" rx="10"/>
             <text class="tab-t" x="20" y="30">"Mods"</text>
             <text class="tab-t" x="74" y="30">"Resource Packs"</text>
@@ -67,10 +68,10 @@ fn sketch_browse() -> impl IntoView {
             {marker(354, 16, "4")}
             <rect class="row" x="14" y="52" width="492" height="62" rx="8"/>
             <rect class="icon" x="26" y="62" width="40" height="40" rx="7"/>
-            <text class="title" x="78" y="80">"Ein Shader, z. B. Complementary"</text>
-            <text class="sub" x="78" y="96">"Beschreibung · Downloads"</text>
+            <text class="title" x="78" y="80">{t!("ext-skizze-shader")}</text>
+            <text class="sub" x="78" y="96">{t!("ext-skizze-beschreibung")}</text>
             <rect class="btn green" x="396" y="68" width="98" height="30" rx="8"/>
-            <text class="btn-t dark" x="445" y="88" text-anchor="middle">"Installieren"</text>
+            <text class="btn-t dark" x="445" y="88" text-anchor="middle">{t!("kat-installieren")}</text>
             {marker(498, 66, "5")}
         </svg>
     }
@@ -85,75 +86,72 @@ pub fn show_guide(target: String, name: String, dir: String, loader: String) {
         let inst = format!("{name} (Vapafane)");
         let body: dialog::BodyFn = Rc::new(move || {
             let shader_note = if !shaders {
-                view! { <p class="hint">"Shader brauchen die Mod Iris – und die läuft nur auf Servern mit Fabric oder NeoForge. "
-                    "Dieser Server ist ohne Mod-Loader, deshalb gehen hier Ressourcenpakete, aber keine Shader."</p> }.into_any()
+                view! { <p class="hint">{t!("ext-keine-shader")}</p> }.into_any()
             } else if modrinth {
-                view! { <p class="hint">"Für Shader braucht Minecraft die Mod "<b>"Iris"</b>": In Schritt 4 zuerst "<b>"„Mods“"</b>" wählen und "
-                    <b>"„Iris Shaders“"</b>" installieren (Sodium kommt automatisch mit), danach unter "<b>"„Shaders“"</b>" einen Shader."</p> }.into_any()
+                view! { <p class="hint">{t!("ext-iris-modrinth")}</p> }.into_any()
             } else {
-                view! { <p class="hint">"Für Shader braucht Minecraft die Mod "<b>"Iris"</b>" (mit Sodium): Beide passend zur Minecraft-Version des Servers auf "
+                view! { <p class="hint">{t!("ext-iris-launcher-1")}" "
                     <a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/mod/iris"); }>"modrinth.com/mod/iris"</a>
-                    " herunterladen und in den Ordner "<b>"„mods“"</b>" legen."</p> }.into_any()
+                    " "{t!("ext-iris-launcher-2")}</p> }.into_any()
             };
             if modrinth {
                 let i1 = inst.clone();
                 view! {
-                    <p>"In deiner Instanz "<b>{format!("„{inst}“")}</b>" kannst du jederzeit eigene Shader, Ressourcenpakete und Mods hinzufügen. "
-                        "Sie bleiben bei Server-Updates erhalten – die Modrinth-App tauscht dabei nur die Mods des Servers aus."</p>
+                    <p>{t!("ext-mr-einleitung-1")}" "<b>{format!("„{inst}“")}</b>" "{t!("ext-mr-einleitung-2")}</p>
                     {shader_note}
                     {sketch_instance(i1)}
                     <ol class="steps">
-                        <li>"Modrinth-App öffnen und links die Instanz "<b>{format!("„{inst}“")}</b>" anklicken."</li>
-                        <li>"Oben den Reiter "<b>"„Content“"</b>" (Inhalte) wählen."</li>
-                        <li>"Auf den grünen Knopf "<b>"„Inhalte durchsuchen“"</b>" klicken."</li>
+                        <li>{t!("cli-schritt-instanz")}" "<b>{format!("„{inst}“")}</b>" "{t!("cli-schritt-anklicken")}</li>
+                        <li>{t!("ext-schritt-content")}</li>
+                        <li>{t!("ext-schritt-durchsuchen")}</li>
                     </ol>
                     {sketch_browse()}
                     <ol class="steps" start="4">
-                        <li>"Oben die Art wählen: "<b>"„Shaders“"</b>" für Shader, "<b>"„Resource Packs“"</b>" für Ressourcenpakete oder "<b>"„Mods“"</b>"."</li>
-                        <li>"Beim gewünschten Eintrag auf "<b>"„Installieren“"</b>" klicken – fertig."</li>
+                        <li>{t!("ext-schritt-art")}</li>
+                        <li>{t!("ext-schritt-installieren")}</li>
                     </ol>
-                    <p class="dim small">"Im Spiel: Optionen → Grafikeinstellungen → Shader-Pakete → Shader auswählen. Eigene Mods musst du nach einem Minecraft-Update in der App selbst aktualisieren; Shader und Ressourcenpakete meist nicht."</p>
+                    <p class="dim small">{t!("ext-im-spiel")}" "{t!("ext-mods-update-hinweis")}</p>
                 }.into_any()
             } else {
                 view! {
-                    <p>"Der Spielordner dieses Servers gehört nur ihm: Was du dort hinzufügst, bleibt bei Server-Updates erhalten."</p>
+                    <p>{t!("ext-launcher-einleitung")}</p>
                     {shader_note}
                     {if shaders {
                         view! { <ol class="steps">
-                            <li>"Shader herunterladen, z. B. auf "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/shaders"); }>"modrinth.com/shaders"</a>
-                                " – die "<b>".zip"</b>"-Datei "<b>"nicht"</b>" entpacken."</li>
-                            <li>"Unten auf "<b>"„Ordner öffnen“"</b>" klicken und die Datei in den Ordner "<b>"„shaderpacks“"</b>" legen. Ressourcenpakete gehören in "<b>"„resourcepacks“"</b>"."</li>
-                            <li>"Im Spiel: Optionen → Grafikeinstellungen → Shader-Pakete → Shader auswählen."</li>
+                            <li>{t!("ext-schritt-laden-shader")}" "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/shaders"); }>"modrinth.com/shaders"</a>
+                                " – "{t!("ext-nicht-entpacken")}</li>
+                            <li>{t!("ext-schritt-shaderpacks")}</li>
+                            <li>{t!("ext-im-spiel")}</li>
                         </ol> }.into_any()
                     } else {
                         view! { <ol class="steps">
-                            <li>"Ressourcenpaket herunterladen, z. B. auf "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/resourcepacks"); }>"modrinth.com/resourcepacks"</a>
-                                " – die "<b>".zip"</b>"-Datei "<b>"nicht"</b>" entpacken."</li>
-                            <li>"Unten auf "<b>"„Ordner öffnen“"</b>" klicken und die Datei in den Ordner "<b>"„resourcepacks“"</b>" legen."</li>
-                            <li>"Im Spiel: Optionen → Ressourcenpakete → Paket auswählen."</li>
+                            <li>{t!("ext-schritt-laden-rp")}" "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/resourcepacks"); }>"modrinth.com/resourcepacks"</a>
+                                " – "{t!("ext-nicht-entpacken")}</li>
+                            <li>{t!("ext-schritt-resourcepacks")}</li>
+                            <li>{t!("ext-im-spiel-rp")}</li>
                         </ol> }.into_any()
                     }}
-                    <p class="dim small">"Eigene Mods kannst du in den Ordner „mods“ legen – nach einem Minecraft-Update musst du sie aber selbst passend halten."</p>
+                    <p class="dim small">{t!("ext-eigene-mods")}</p>
                 }.into_any()
             }
         });
         let buttons = vec![
-            Btn::new("Schließen", ""),
+            Btn::new(t!("gem-schliessen"), ""),
             if modrinth {
-                Btn::primary("Modrinth-App öffnen", "open")
+                Btn::primary(t!("cli-modrinth-oeffnen"), "open")
             } else {
-                Btn::primary("Ordner öffnen", "folder")
+                Btn::primary(t!("gem-ordner-oeffnen"), "folder")
             },
         ];
-        match dialog::ask_view("Shader & Extras hinzufügen", body, buttons, true).await.as_str() {
+        match dialog::ask_view(t!("ext-titel"), body, buttons, true).await.as_str() {
             "open" => {
                 if let Err(e) = tauri::invoke::<()>("client_play", json!({ "target": "modrinth" })).await {
-                    show_error("Modrinth-App", e);
+                    show_error(t!("gem-modrinth-app"), e);
                 }
             }
             "folder" => {
                 if let Err(e) = tauri::invoke::<()>("client_open_folder", json!({ "dir": dir })).await {
-                    show_error("Ordner", e);
+                    show_error(t!("gem-ordner"), e);
                 }
             }
             _ => {}
