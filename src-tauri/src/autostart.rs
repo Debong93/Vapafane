@@ -129,7 +129,7 @@ mod linux {
 
     pub fn apply_boot(server: bool, service: bool) -> Result<()> {
         if !systemd_usable() {
-            return err("systemd ist hier nicht verfügbar (oder Testmodus).");
+            return err(crate::sprache::t!("err-kein-systemd"));
         }
         install_unit()?;
         systemctl(&[if service || server { "enable" } else { "disable" }, UNIT])?;

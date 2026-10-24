@@ -36,7 +36,7 @@ impl JobLock {
             .open(lock_path())?;
         if f.try_lock().is_err() {
             let other = current_job().unwrap_or_else(|| "eine andere Aufgabe".into());
-            return err(format!("Es läuft gerade schon: {other}"));
+            return err(crate::sprache::t!("err-schon-beschaeftigt", was = other.clone()));
         }
         let _ = fs::write(job_text_path(), what);
         Ok(JobLock { _file: f })
@@ -130,12 +130,12 @@ pub fn stop_server(warn: u64, restart: bool) -> Result<()> {
     if st.get("state").and_then(|s| s.as_str()) == Some("external") {
         if restart {
             return err(
-                "Dieser Server läuft außerhalb von Vapafane – Neustart geht nur über das Programm, das ihn gestartet hat.",
+                crate::sprache::t!("err-neustart-extern"),
             );
         }
         let dir = cfg
             .active_path()
-            .ok_or_else(|| util::Error("Kein Server ausgewählt.".into()))?;
+            .ok_or_else(|| util::Error(crate::sprache::t!("err-kein-server")))?;
         crate::rcon::once(&dir, "stop")?;
         return Ok(());
     }

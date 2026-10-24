@@ -118,7 +118,7 @@ pub async fn client_pick_file(app: AppHandle) -> Cmd<Option<String>> {
         Ok(app
             .dialog()
             .file()
-            .set_title("Einladungs-Datei öffnen")
+            .set_title(crate::sprache::t!("cli-datei-titel"))
             .add_filter("Vapafane-Einladung", &["vapafane"])
             .blocking_pick_file()
             .and_then(|p| p.into_path().ok())

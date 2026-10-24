@@ -43,7 +43,7 @@ pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T> + 
 
 pub(crate) fn active_dir(cfg: &Config) -> Result<PathBuf> {
     cfg.active_path()
-        .ok_or_else(|| util::Error("Kein Server ausgewählt.".into()))
+        .ok_or_else(|| util::Error(crate::sprache::t!("err-kein-server")))
 }
 
 fn now_secs() -> u64 {
@@ -285,7 +285,7 @@ pub async fn send_command(app: AppHandle, cmd: String) -> Cmd<String> {
     blocking(move || {
         let c = cmd.trim().trim_start_matches('/');
         if c == "stop" || c.starts_with("stop ") {
-            return err("Bitte den Stopp-Knopf in der Übersicht benutzen (der speichert sicher).");
+            return err(crate::sprache::t!("err-stop-knopf"));
         }
         let gui = app.state::<Gui>();
         let cfg = Config::load();
@@ -466,7 +466,7 @@ pub(crate) fn run_task(
     {
         let mut busy = crate::util::lock(&gui.busy);
         if let Some(b) = busy.as_ref() {
-            return err(format!("Es läuft gerade schon: {b}"));
+            return err(crate::sprache::t!("err-schon-beschaeftigt", was = b.clone()));
         }
         *busy = Some(title.to_string());
     }
@@ -528,8 +528,8 @@ pub(crate) fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()>
     let st = server_state(&cfg);
     match st.get("state").and_then(|s| s.as_str()).unwrap_or("stopped") {
         "stopped" | "failed" | "none" => return Ok(()),
-        "external" => return err("Der Server läuft außerhalb von Vapafane. Bitte zuerst dort stoppen."),
-        "other" => return err("Ein anderer Server läuft gerade. Bitte zuerst stoppen."),
+        "external" => return err(crate::sprache::t!("err-start-extern")),
+        "other" => return err(crate::sprache::t!("err-start-anderer")),
         _ => {}
     }
     progress(0.0, "Stoppe Server (speichert die Welt) …");
@@ -544,7 +544,7 @@ pub(crate) fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()>
             return Ok(());
         }
     }
-    err("Der Server ließ sich nicht stoppen.")
+    err(crate::sprache::t!("err-stop-unmoeglich"))
 }
 
 pub(crate) fn is_running(cfg: &Config) -> bool {

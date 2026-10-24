@@ -332,7 +332,7 @@ pub fn prepare_server(dir: &Path, accept: bool) -> Result<(ServerInfo, Vec<Strin
     let mut updates = BTreeMap::new();
     if props.get("enable-rcon").map(String::as_str) != Some("true") {
         updates.insert("enable-rcon".into(), "true".into());
-        notes.push("RCON eingeschaltet (braucht Vapafane für Befehle).".into());
+        notes.push(crate::sprache::t!("srv-rcon-an"));
     }
     if props.get("rcon.password").map(|p| p.is_empty()).unwrap_or(true) {
         updates.insert("rcon.password".into(), util::random_hex(12));

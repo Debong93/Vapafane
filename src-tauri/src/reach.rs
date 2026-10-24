@@ -104,62 +104,51 @@ pub fn classify(f: &Findings) -> Report {
         ..Default::default()
     };
     (r.v4, r.v4_state) = match f.v4 {
-        Some(true) => ("erreichbar".into(), "ok".into()),
-        Some(false) if ds => ("nicht erreichbar (DS-Lite)".into(), "warn".into()),
-        Some(false) => ("nicht erreichbar".into(), "bad".into()),
-        None => ("nicht geprüft".into(), "none".into()),
+        Some(true) => (crate::sprache::t!("rch-w-erreichbar"), "ok".into()),
+        Some(false) if ds => (crate::sprache::t!("rch-w-nicht-dslite"), "warn".into()),
+        Some(false) => (crate::sprache::t!("rch-w-nicht"), "bad".into()),
+        None => (crate::sprache::t!("rch-w-nicht-geprueft"), "none".into()),
     };
     (r.v6, r.v6_state) = match (f.ipv6, f.v6) {
-        (None, _) => ("nicht vorhanden".into(), "none".into()),
-        (Some(_), Some(true)) => ("erreichbar".into(), "ok".into()),
-        (Some(_), Some(false)) => ("nicht erreichbar".into(), "bad".into()),
-        (Some(_), None) => ("nicht geprüft".into(), "none".into()),
+        (None, _) => (crate::sprache::t!("rch-w-nicht-vorhanden"), "none".into()),
+        (Some(_), Some(true)) => (crate::sprache::t!("rch-w-erreichbar"), "ok".into()),
+        (Some(_), Some(false)) => (crate::sprache::t!("rch-w-nicht"), "bad".into()),
+        (Some(_), None) => (crate::sprache::t!("rch-w-nicht-geprueft"), "none".into()),
     };
     let v6_ok = f.v6 == Some(true);
     if f.v4.is_none() && f.v6.is_none() {
         r.light = "gray".into();
-        r.title = "Prüfung gerade nicht möglich".into();
-        r.text = "Der Prüfdienst im Internet antwortet nicht. Später erneut prüfen.".into();
+        r.title = crate::sprache::t!("rch-unmoeglich-titel");
+        r.text = crate::sprache::t!("rch-unmoeglich-text");
     } else if f.v4 == Some(true) {
         r.light = "green".into();
         r.title = if v6_ok {
-            "Über IPv4 und IPv6 erreichbar"
+            crate::sprache::t!("rch-gruen-beide")
         } else {
-            "Über IPv4 erreichbar"
-        }
-        .into();
-        r.text = "Alle Freunde kommen rein.".into();
+            crate::sprache::t!("rch-gruen-v4")
+        };
+        r.text = crate::sprache::t!("rch-gruen-text");
     } else if v6_ok {
         r.light = "yellow".into();
         r.v6_only = true;
         r.guide = !ds;
         if ds {
-            r.title = "DS-Lite: nur über IPv6 erreichbar".into();
-            r.text =
-                "Dein Anbieter teilt die IPv4-Adresse. Freunde mit IPv6 kommen trotzdem rein, das sind die meisten."
-                    .into();
+            r.title = crate::sprache::t!("rch-gelb-dslite-titel");
+            r.text = crate::sprache::t!("rch-gelb-dslite-text");
         } else {
-            r.title = "Nur über IPv6 erreichbar".into();
-            r.text = format!(
-                "Über IPv4 kommt niemand rein: Entweder fehlt die Portfreigabe für IPv4 (Port {port}), oder dein \
-                 Anbieter teilt die IPv4-Adresse (DS-Lite). Freunde mit IPv6 kommen trotzdem rein."
-            );
+            r.title = crate::sprache::t!("rch-gelb-titel");
+            r.text = crate::sprache::t!("rch-gelb-text", port = port);
         }
     } else {
         r.light = "red".into();
         r.guide = true;
-        r.title = "Von außen nicht erreichbar".into();
+        r.title = crate::sprache::t!("rch-rot-titel");
         r.text = if ds && f.ipv6.is_some() {
-            format!(
-                "Dein Anbieter teilt die IPv4-Adresse (DS-Lite), es geht also nur über IPv6. Gib im Router die \
-                 IPv6-Freigabe für Port {port} frei, und prüf die Firewall am PC."
-            )
+            crate::sprache::t!("rch-rot-dslite-v6", port = port)
         } else if ds {
-            "Dein Anbieter teilt die IPv4-Adresse (DS-Lite), und dein PC hat keine IPv6-Adresse. So kommt von \
-             außen niemand an den Server."
-                .into()
+            crate::sprache::t!("rch-rot-dslite")
         } else {
-            format!("Meist fehlt noch die Portfreigabe im Router, oder die Firewall am PC blockt Port {port}.")
+            crate::sprache::t!("rch-rot-text", port = port)
         };
     }
     r
@@ -169,11 +158,11 @@ pub fn classify(f: &Findings) -> Report {
 fn server_off_report(port: u16) -> Report {
     Report {
         light: "gray".into(),
-        title: "Server läuft nicht".into(),
-        text: "Geprüft wird, sobald der Server läuft.".into(),
-        v4: "nicht geprüft".into(),
+        title: crate::sprache::t!("rch-aus-titel"),
+        text: crate::sprache::t!("rch-aus-text"),
+        v4: crate::sprache::t!("rch-w-nicht-geprueft"),
         v4_state: "none".into(),
-        v6: "nicht geprüft".into(),
+        v6: crate::sprache::t!("rch-w-nicht-geprueft"),
         v6_state: "none".into(),
         port,
         server_off: true,
@@ -185,15 +174,11 @@ fn server_off_report(port: u16) -> Report {
 fn port_taken_report(port: u16) -> Report {
     Report {
         light: "red".into(),
-        title: format!("Port {port} ist schon belegt"),
-        text: format!(
-            "Ein anderes Programm – wahrscheinlich ein anderer Minecraft-Server – benutzt diesen Port. \
-             Dieser Server kann so nicht starten. Stell unter Einstellungen → „Server-Port“ einen freien Port ein (z. B. {})",
-            crate::procs::free_port(port.saturating_add(1), &[])
-        ),
-        v4: "nicht geprüft".into(),
+        title: crate::sprache::t!("rch-port-belegt-titel", port = port),
+        text: crate::sprache::t!("rch-port-belegt-text", frei = crate::procs::free_port(port.saturating_add(1), &[])),
+        v4: crate::sprache::t!("rch-w-nicht-geprueft"),
         v4_state: "none".into(),
-        v6: "nicht geprüft".into(),
+        v6: crate::sprache::t!("rch-w-nicht-geprueft"),
         v6_state: "none".into(),
         port,
         server_off: true,
@@ -572,11 +557,7 @@ fn wan_service(desc: &str) -> Option<(String, String)> {
 
 /// Hinweis für den Freund, wenn er den Server nicht erreicht.
 pub fn client_hint(only_v6: bool, has_ipv6: bool) -> Option<String> {
-    (only_v6 && !has_ipv6).then(|| {
-        "Der Server ist nur über IPv6 erreichbar, dein Internet hat aber kein IPv6. Tipp: Verbinde deinen PC über \
-         den Hotspot deines Handys – Mobilfunk hat meistens IPv6."
-            .to_string()
-    })
+    (only_v6 && !has_ipv6).then(|| crate::sprache::t!("rch-hotspot-tipp"))
 }
 
 /// Hat dieser PC IPv6-Internet? (Testmodus: `VAPAFANE_TEST_NO_IPV6` spielt „nein“.)
@@ -625,15 +606,15 @@ mod tests {
         let g = classify(&f(Some(true), Some(true), Some([95, 1, 2, 3])));
         assert_eq!(
             (g.light.as_str(), g.title.as_str()),
-            ("green", "Über IPv4 und IPv6 erreichbar")
+            ("green", crate::sprache::t!("rch-gruen-beide").as_str())
         );
         assert!(!g.guide && !g.v6_only);
 
         let y = classify(&f(Some(false), Some(true), Some([192, 0, 0, 2])));
         assert_eq!(y.light, "yellow");
         assert!(y.ds_lite && y.v6_only && !y.guide);
-        assert_eq!(y.v4, "nicht erreichbar (DS-Lite)");
-        assert_eq!(y.title, "DS-Lite: nur über IPv6 erreichbar");
+        assert_eq!(y.v4, crate::sprache::t!("rch-w-nicht-dslite"));
+        assert_eq!(y.title, crate::sprache::t!("rch-gelb-dslite-titel"));
 
         // IPv4 zu, aber kein DS-Lite erkennbar: Portfreigabe für IPv4 fehlt vielleicht
         let y2 = classify(&f(Some(false), Some(true), None));
@@ -654,8 +635,8 @@ mod tests {
         let mut no6 = f(Some(true), None, None);
         no6.ipv6 = None;
         let n = classify(&no6);
-        assert_eq!((n.light.as_str(), n.v6.as_str()), ("green", "nicht vorhanden"));
-        assert_eq!(n.title, "Über IPv4 erreichbar");
+        assert_eq!((n.light.as_str(), n.v6.as_str()), ("green", crate::sprache::t!("rch-w-nicht-vorhanden").as_str()));
+        assert_eq!(n.title, crate::sprache::t!("rch-gruen-v4"));
     }
 
     #[test]
@@ -723,7 +704,7 @@ mod tests {
 
     #[test]
     fn hinweis_beim_freund() {
-        assert!(client_hint(true, false).unwrap().contains("Hotspot"));
+        assert!(client_hint(true, false).is_some());
         assert!(client_hint(true, true).is_none());
         assert!(client_hint(false, false).is_none());
     }

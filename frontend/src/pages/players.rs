@@ -42,7 +42,7 @@ pub fn WhitelistNote(page: Page, #[prop(optional)] tips: bool) -> impl IntoView 
     let enable = move |_| {
         leptos::task::spawn_local(async move {
             if let Err(e) = tauri::invoke::<()>("set_whitelist", json!({ "on": true })).await {
-                error("Whitelist", e).await;
+                error(crate::sprache::t!("wl-titel"), e).await;
                 return;
             }
             if matches!(app.status.get_untracked().state.as_str(), "running" | "external") {
@@ -63,17 +63,14 @@ pub fn WhitelistNote(page: Page, #[prop(optional)] tips: bool) -> impl IntoView 
         let empty = s.f("count").unwrap_or(0.0) < 1.0;
         let outside = matches!(crate::pages::reach::light(app).as_str(), "green" | "yellow");
         Some(if !on && outside {
-            view! { <div class="hint warn-box">"Achtung: Dein Server ist aus dem Internet erreichbar und die "<b>"Whitelist ist aus"</b>
-                " – jeder, der die Adresse kennt oder zufällig findet, kann beitreten. Mit Whitelist kommen nur Spieler rein, die du einträgst."
-                <div class="row"><button class="primary" on:click=enable>"Whitelist einschalten"</button></div></div> }.into_any()
+            view! { <div class="hint warn-box">{crate::sprache::t!("wl-warnung-offen")}
+                <div class="row"><button class="primary" on:click=enable>{crate::sprache::t!("wl-einschalten")}</button></div></div> }.into_any()
         } else if on && empty {
-            view! { <div class="hint warn-box">"Die Whitelist ist an, aber noch leer – gerade kommt "<b>"niemand"</b>" auf den Server, auch du nicht. "
-                "Trag unter „Spieler“ deinen Minecraft-Namen und die deiner Freunde ein."
-                {(page != Page::Players).then(|| view! { <div class="row"><button class="primary" on:click=move |_| app.show(Page::Players)>"Zu den Spielern"</button></div> })}</div> }.into_any()
+            view! { <div class="hint warn-box">{crate::sprache::t!("wl-warnung-leer")}
+                {(page != Page::Players).then(|| view! { <div class="row"><button class="primary" on:click=move |_| app.show(Page::Players)>{crate::sprache::t!("wl-zu-spielern")}</button></div> })}</div> }.into_any()
         } else if !on && tips {
-            view! { <div class="hint">"Tipp: Die Whitelist ist aus – jeder mit der Adresse kann beitreten. Empfohlen ist sie, sobald Freunde von außen spielen: "
-                "Dann kommen nur Spieler rein, die hier eingetragen sind."
-                <div class="row"><button on:click=enable>"Whitelist einschalten"</button></div></div> }.into_any()
+            view! { <div class="hint">{crate::sprache::t!("wl-tipp")}
+                <div class="row"><button on:click=enable>{crate::sprache::t!("wl-einschalten")}</button></div></div> }.into_any()
         } else {
             return None;
         })
@@ -113,14 +110,11 @@ pub fn Players() -> impl IntoView {
     let add = move || {
         let name = input.get_untracked().trim().to_string();
         if !valid(&name) {
-            hint.set("Bitte einen gültigen Minecraft-Namen eingeben (3–16 Zeichen).".into());
+            hint.set(crate::sprache::t!("spi-name-ungueltig"));
             return;
         }
         if !running() {
-            hint.set(
-                "Hinzufügen geht nur, während der Server läuft (er prüft den Namen bei Mojang)."
-                    .into(),
-            );
+            hint.set(crate::sprache::t!("spi-nur-laufend"));
             return;
         }
         input.set(String::new());
@@ -152,25 +146,25 @@ pub fn Players() -> impl IntoView {
             <h3>{crate::sprache::t!("spi-online-titel")}</h3>
             <div class="list">{move || online_rows(app)}</div>
             <h3>{crate::sprache::t!("spi-wl-titel")}</h3>
-            <p class="dim small">"Ist die Whitelist an (Einstellungen → „Nur Whitelist darf rein“), kommen nur die Spieler hier auf den Server. Das schützt vor Fremden – trag dich selbst auch ein."</p>
+            <p class="dim small">{crate::sprache::t!("spi-wl-erklaerung")}</p>
             <WhitelistNote page=Page::Players tips=true/>
             <div class="row">
                 <input placeholder=crate::sprache::t!("spi-name-platzhalter") autocomplete="off" spellcheck="false" prop:value=input
                     on:input=move |e| input.set(event_target_value(&e))
                     on:keydown=move |e| if e.key() == "Enter" { add() }/>
-                <button class="primary" on:click=move |_| add()>"Hinzufügen"</button>
+                <button class="primary" on:click=move |_| add()>{crate::sprache::t!("spi-hinzufuegen")}</button>
             </div>
             <p class="dim small">{hint}</p>
             <div class="list">
                 {move || {
                     let list = wl.get();
                     if list.is_empty() {
-                        view! { <div class="empty">"Die Whitelist ist leer."</div> }.into_any()
+                        view! { <div class="empty">{crate::sprache::t!("spi-wl-leer")}</div> }.into_any()
                     } else {
                         list.into_iter().map(|n| {
                             let n2 = n.clone();
                             view! { <div class="item"><div class="grow">{n}</div>
-                                <button on:click=move |_| remove(n2.clone())>"Entfernen"</button></div> }
+                                <button on:click=move |_| remove(n2.clone())>{crate::sprache::t!("gem-entfernen")}</button></div> }
                         }).collect_view().into_any()
                     }
                 }}

@@ -270,7 +270,7 @@ pub fn list(dir: &Path) -> Value {
 pub fn set_enabled(dir: &Path, rel: &str, on: bool) -> Result<()> {
     let ok_prefix = rel.starts_with("mods/") || rel.starts_with("plugins/") || rel.contains("/datapacks/");
     if !ok_prefix || rel.contains("..") || rel.contains('\\') {
-        return err("Ungültiger Pfad");
+        return err(crate::sprache::t!("err-pfad"));
     }
     let enabled = dir.join(rel);
     let disabled = PathBuf::from(format!("{}{DISABLED}", enabled.display()));

@@ -64,11 +64,11 @@ pub fn call_at(file: &std::path::Path, cmd: &str, arg: Value) -> Result<Value> {
         .ok()
         .and_then(|t| serde_json::from_str::<ServiceFile>(&t).ok())
     else {
-        return err("Hintergrund-Dienst läuft nicht");
+        return err(crate::sprache::t!("err-dienst-aus"));
     };
     let addr = SocketAddr::from(([127, 0, 0, 1], sf.port));
     let mut sock = TcpStream::connect_timeout(&addr, Duration::from_millis(800))
-        .map_err(|_| Error("Hintergrund-Dienst läuft nicht".into()))?;
+        .map_err(|_| Error(crate::sprache::t!("err-dienst-aus")))?;
     sock.set_read_timeout(Some(Duration::from_secs(15)))?;
     let req = Request {
         token: sf.token,

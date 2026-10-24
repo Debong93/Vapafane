@@ -71,7 +71,7 @@ impl Rcon {
         sock.read_exact(&mut len)?;
         let len = i32::from_le_bytes(len);
         if !(10..=1_100_000).contains(&len) {
-            return err("Ungültige RCON-Antwort");
+            return err(crate::sprache::t!("err-rcon-antwort"));
         }
         let mut data = vec![0u8; len as usize];
         sock.read_exact(&mut data)?;
@@ -86,7 +86,7 @@ impl Rcon {
         let addr = ("127.0.0.1", port)
             .to_socket_addrs()?
             .next()
-            .ok_or_else(|| Error("Adresse ungültig".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("err-adresse")))?;
         let sock = TcpStream::connect_timeout(&addr, self.timeout)?;
         sock.set_read_timeout(Some(self.timeout))?;
         sock.set_write_timeout(Some(self.timeout))?;

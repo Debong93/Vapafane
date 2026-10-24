@@ -94,7 +94,7 @@ fn old_libraries(dir: &Path, mc_version: &str, loader: &str) -> Vec<Candidate> {
         // NeoForge: genau die installierte Version behalten
         if artifact.ends_with("net/neoforged/neoforge") && versions.iter().any(|v| name(v) == loader) {
             for v in versions.iter().filter(|v| name(v) != loader) {
-                out.push(cand(dir, v.clone(), "ältere NeoForge-Version"));
+                out.push(cand(dir, v.clone(), &crate::sprache::t!("cln-alte-neoforge")));
             }
             continue;
         }
@@ -104,7 +104,7 @@ fn old_libraries(dir: &Path, mc_version: &str, loader: &str) -> Vec<Candidate> {
         versions.sort_by(|a, b| cmp_versions(&name(a), &name(b)));
         versions.pop(); // neueste behalten
         for v in versions {
-            out.push(cand(dir, v, "ältere Version einer Bibliothek"));
+            out.push(cand(dir, v, &crate::sprache::t!("cln-alte-bibliothek")));
         }
     }
     out
@@ -181,7 +181,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
         out.push(cand(
             dir,
             old,
-            "alte Mod-Versionen (vom früheren Panel/Launcher beiseitegelegt)",
+            &crate::sprache::t!("cln-alte-mods"),
         ));
     }
     for v in subdirs(&dir.join(ALT_DIR_NAME)) {
@@ -197,7 +197,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
         out.push(cand(
             dir,
             processed,
-            "Zwischenspeicher der Mods (wird beim nächsten Start neu erzeugt)",
+            &crate::sprache::t!("cln-cache"),
         ));
     }
     if matches!(

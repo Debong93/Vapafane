@@ -283,7 +283,7 @@ pub async fn save_settings(props: BTreeMap<String, String>, ram_gb: u64) -> Cmd<
         let cfg = Config::load();
         let dir = cfg
             .active_path()
-            .ok_or_else(|| Error("Kein Server ausgewählt.".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("err-kein-server")))?;
         let props: BTreeMap<String, String> = props
             .into_iter()
             // leere Felder nicht schreiben – sonst startet Minecraft mit Fehlern
@@ -424,7 +424,7 @@ pub async fn cf_key_test(key: Option<String>) -> Cmd<()> {
         let k = key
             .filter(|k| !k.trim().is_empty())
             .or_else(crate::curseforge::key)
-            .ok_or_else(|| Error("Bitte zuerst einen Schlüssel einfügen.".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("cf-err-leer")))?;
         crate::curseforge::test_key(&k)
     })
     .await
@@ -455,7 +455,7 @@ pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
         "modrinth-download" => "https://modrinth.com/app".to_string(),
         "portforward" => crate::reach::GUIDE_URL.to_string(),
         u if u.starts_with("https://www.curseforge.com/") || u.starts_with("https://modrinth.com/") => u.to_string(),
-        _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
+        _ => return Err(crate::sprache::t!("err-link-verboten")),
     };
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }

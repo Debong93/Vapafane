@@ -219,10 +219,7 @@ pub fn download(url: &str, dest: &Path, expect: Expect, progress: &dyn Fn(f64)) 
         || !ok(expect.sha512, hex::encode(h512.finalize()))
     {
         let _ = fs::remove_file(&tmp);
-        return err(format!(
-            "Prüfsumme stimmt nicht: {}",
-            dest.file_name().unwrap_or_default().to_string_lossy()
-        ));
+        return err(crate::sprache::t!("err-pruefsumme", datei = dest.file_name().unwrap_or_default().to_string_lossy().into_owned()));
     }
     fs::rename(&tmp, dest)?;
     Ok(())
@@ -285,7 +282,7 @@ pub fn fabric_server_jar_url(game: &str) -> Result<(String, String)> {
         .find(|l| l.pointer("/loader/stable").and_then(|s| s.as_bool()).unwrap_or(false))
         .and_then(version_of)
         .or_else(|| loaders.first().and_then(version_of))
-        .ok_or_else(|| Error(format!("Kein Fabric-Loader für Minecraft {game} gefunden")))?;
+        .ok_or_else(|| Error(crate::sprache::t!("err-kein-fabric", mc = game)))?;
     let installers = get_json("https://meta.fabricmc.net/v2/versions/installer")?;
     let installers = installers.as_array().cloned().unwrap_or_default();
     let installer = installers

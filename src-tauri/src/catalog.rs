@@ -37,7 +37,7 @@ struct Target {
 fn target(dir: &Path, what: What) -> Result<Target> {
     let info = server::detect_server(dir);
     let kind = Kind::parse(&info.kind)
-        .ok_or_else(|| Error("Für diesen Server-Typ gibt es „Mods hinzufügen“ nicht.".into()))?;
+        .ok_or_else(|| Error(crate::sprache::t!("kat-err-typ")))?;
     if info.version.is_empty() {
         return err("Die Minecraft-Version des Servers ist unbekannt (einmal starten hilft).");
     }
@@ -267,7 +267,7 @@ fn project_info(id_or_slug: &str) -> Result<(String, String)> {
 pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Result<Value> {
     let t = target(dir, what)?;
     if let Some(id) = project.strip_prefix("cf:") {
-        let id: u64 = id.parse().map_err(|_| Error("Ungültige CurseForge-ID".into()))?;
+        let id: u64 = id.parse().map_err(|_| Error(crate::sprache::t!("cf-err-id")))?;
         return install_cf(dir, &t, id, progress);
     }
     let mut have = installed_projects(dir)?;
@@ -299,15 +299,11 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
             }
             progress(
                 0.1 + 0.6 * (planned.len() as f64 / (planned.len() + queue.len() + 1) as f64),
-                &format!("Suche {title} …"),
+                &crate::sprache::t!("fort-suche", name = title.clone()),
             );
             let Some(version) = updater::newest_for_project(&pid, &t.loaders, &t.mc)? else {
                 if is_root {
-                    return err(format!(
-                        "„{title}“ gibt es nicht für Minecraft {} ({}).",
-                        t.mc,
-                        t.loaders.join("/")
-                    ));
+                    return err(crate::sprache::t!("kat-err-keine-version", name = title.clone(), mc = t.mc.clone(), loader = t.loaders.join("/")));
                 }
                 missing.push(title);
                 continue;
@@ -419,13 +415,10 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
                 skipped.push(title);
                 continue;
             }
-            progress(0.2, &format!("Suche {title} auf CurseForge …"));
+            progress(0.2, &crate::sprache::t!("fort-suche-cf", name = title.clone()));
             let Some(file) = curseforge::best_file(id, t.kind, t.datapacks, &t.mc)? else {
                 if is_root {
-                    return err(format!(
-                        "„{title}“ gibt es auf CurseForge nicht für Minecraft {}.",
-                        t.mc
-                    ));
+                    return err(crate::sprache::t!("kat-err-cf-version", name = title.clone(), mc = t.mc.clone()));
                 }
                 missing.push(title);
                 continue;

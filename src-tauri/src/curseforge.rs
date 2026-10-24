@@ -58,7 +58,7 @@ pub fn masked() -> Option<String> {
 pub fn save_key(k: &str) -> Result<()> {
     let k = k.trim();
     if k.is_empty() || k.len() > 200 || k.chars().any(|c| c.is_control() || c.is_whitespace()) {
-        return err("Das sieht nicht wie ein API-Schlüssel aus (bitte ohne Leerzeichen einfügen).");
+        return err(crate::sprache::t!("cf-err-format"));
     }
     fs::create_dir_all(config::state_dir())?;
     let path = key_file();
@@ -151,8 +151,8 @@ fn request(k: &str, method: &str, path: &str, query: &[(&str, String)], body: Op
             .with_config()
             .limit(32 * 1024 * 1024)
             .read_json()
-            .map_err(|e| clean(format!("Ungültige Antwort von CurseForge: {e}"), k)),
-        401 | 403 => err("CurseForge lehnt den API-Schlüssel ab (ungültig oder noch nicht freigeschaltet)."),
+            .map_err(|e| clean(crate::sprache::t!("cf-err-antwort", fehler = e.to_string()), k)),
+        401 | 403 => err(crate::sprache::t!("cf-err-abgelehnt")),
         404 => err("Bei CurseForge nicht gefunden."),
         429 => err("CurseForge meldet zu viele Anfragen – bitte kurz warten."),
         code => err(format!("CurseForge antwortet mit Fehler {code}.")),
@@ -160,12 +160,12 @@ fn request(k: &str, method: &str, path: &str, query: &[(&str, String)], body: Op
 }
 
 fn get(path: &str, query: &[(&str, String)]) -> Result<Value> {
-    let k = key().ok_or_else(|| Error("Kein CurseForge-Schlüssel hinterlegt.".into()))?;
+    let k = key().ok_or_else(|| Error(crate::sprache::t!("cf-err-fehlt")))?;
     request(&k, "GET", path, query, None)
 }
 
 fn post(path: &str, body: &Value) -> Result<Value> {
-    let k = key().ok_or_else(|| Error("Kein CurseForge-Schlüssel hinterlegt.".into()))?;
+    let k = key().ok_or_else(|| Error(crate::sprache::t!("cf-err-fehlt")))?;
     request(&k, "POST", path, &[], Some(body))
 }
 
