@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an Vapafane. Das Format folgt
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionsnummern folgen
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.9.5] – 2026-10-24
+
+Feinschliff für die Veröffentlichung.
+
+### Neu
+
+- Fehlt Java, erklärt der Server-Start das jetzt verständlich und zeigt, wie man es
+  installiert – statt einer technischen Fehlermeldung.
+- Der Menü-Eintrag im Startmenü nennt Schlagwörter und die Kategorie „Spiele“ (Linux).
+
+### Geändert
+
+- Im „+“-Menü steht **„Neuen Server erstellen“** jetzt zuerst.
+- Der Namensvorschlag für neue Server heißt „Mein Server“ (vorher „Neuer_Server“).
+- README: Systemvoraussetzungen ergänzt.
+
 ## [0.9.4] – 2026-10-24
 
 Fasst die nicht veröffentlichten Testversionen 0.9.1 bis 0.9.3 zusammen.
@@ -88,6 +104,7 @@ Fasst die nicht veröffentlichten Testversionen 0.9.1 bis 0.9.3 zusammen.
 
 Ältere Versionen stehen unter [Releases](../../releases).
 
+[0.9.5]: ../../releases/tag/v0.9.5
 [0.9.4]: ../../releases/tag/v0.9.4
 [0.9.0]: ../../releases/tag/v0.9.0
 [0.8.2]: ../../releases/tag/v0.8.2

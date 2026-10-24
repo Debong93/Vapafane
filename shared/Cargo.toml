@@ -1,6 +1,6 @@
 [package]
 name = "vapafane-shared"
-version = "0.9.4"
+version = "0.9.5"
 description = "Gemeinsame Datentypen von Vapafane-Programm und -Oberfläche"
 authors = ["Debong93"]
 license = "MIT"

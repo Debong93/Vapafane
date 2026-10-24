@@ -73,6 +73,10 @@ Aktualisieren):
 wget -O /tmp/vapafane.deb https://github.com/Debong93/Vapafane/releases/latest/download/Vapafane_amd64.deb && sudo apt install /tmp/vapafane.deb
 ```
 
+**Voraussetzungen:** Windows 10/11 oder Linux, jeweils 64-bit (Ubuntu 22.04, Debian 12,
+Mint 21 oder neuer). Mehr braucht es zum Mitspielen nicht – fehlt etwas (Minecraft-Launcher,
+Modrinth-App, Java), sagt Vapafane es dir und zeigt, wo du es bekommst.
+
 **Nur wer selbst einen Server betreibt,** braucht zusätzlich Java (Minecraft 26.x braucht
 Java 25): Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
 `sudo apt install openjdk-25-jre-headless`. Zum Mitspielen bei Freunden ist kein Java nötig.

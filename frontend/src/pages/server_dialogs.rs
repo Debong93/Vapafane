@@ -321,7 +321,7 @@ pub fn add_archive() {
 pub fn add_new() {
     let app = use_app();
     leptos::task::spawn_local(async move {
-        let Some(d) = ask_details("Neuen Server erstellen", "Neuer_Server", true, true, true).await
+        let Some(d) = ask_details("Neuen Server erstellen", "Mein Server", true, true, true).await
         else {
             return;
         };

@@ -1,4 +1,4 @@
-# Baut bei einem Tag v* (z. B. v0.9.4) die Installer und legt einen Release an:
+# Baut bei einem Tag v* (z. B. v0.9.5) die Installer und legt einen Release an:
 # Windows: Setup (.exe, NSIS) – Linux: .deb
 # (Solange keine Actions-Minuten frei sind, werden Releases lokal gebaut und mit gh hochgeladen.)
 name: Release

@@ -1,6 +1,6 @@
 [package]
 name = "vapafane-ui"
-version = "0.9.4"
+version = "0.9.5"
 description = "Bedienoberfläche von Vapafane (Leptos, läuft als WebAssembly im Tauri-Fenster)"
 authors = ["Debong93"]
 license = "MIT"

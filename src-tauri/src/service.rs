@@ -387,6 +387,20 @@ fn start(sup: &Sup) -> Result<()> {
              Bitte den zuerst beenden (z. B. altes Bedienfenster)."
         ));
     }
+    // Ohne Java startet kein Minecraft-Server (z. B. frisch aufgesetzter PC)
+    let env = server::read_env(&dir);
+    let java = crate::java::resolve_java(&env.get("MC_JAVA").cloned().unwrap_or_else(crate::java::default_java));
+    if crate::java::java_major(&java) == 0 {
+        let need = env
+            .get("MC_VERSION")
+            .and_then(|v| crate::net::required_java(v).ok().flatten())
+            .unwrap_or(25);
+        return err(format!(
+            "Auf diesem PC ist Java nicht installiert – ohne Java startet kein Minecraft-Server. \
+             Dieser Server braucht Java {need}. {}",
+            crate::manage::java_hint(need)
+        ));
+    }
     let props = server::read_properties(&dir);
     for key in ["server-port", "rcon.port"] {
         let default = if key == "rcon.port" { 25575 } else { 25565 };

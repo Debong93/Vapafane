@@ -98,9 +98,9 @@ pub fn Header() -> impl IntoView {
                     }>"＋"</button>
                 <div id="add-menu" class="menu" class:hidden=move || !menu_open.get()
                     on:click=|e| e.stop_propagation()>
+                    {menu_item("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …", server_dialogs::add_new)}
                     {menu_item("Vorhandenen Ordner hinzufügen …", server_dialogs::add_folder)}
                     {menu_item("Server aus ZIP/Backup importieren …", server_dialogs::add_archive)}
-                    {menu_item("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …", server_dialogs::add_new)}
                     <hr/>
                     {menu_item("Ausgewählten Server aus der Liste entfernen", server_dialogs::remove_server)}
                 </div>

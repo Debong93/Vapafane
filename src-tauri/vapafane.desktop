@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+GenericName=Minecraft-Server-Verwaltung
+Comment={{comment}}
+Keywords=Minecraft;Server;Mods;Backup;Vapafane;
+Categories={{categories}}Game;
+Exec={{exec}}
+Icon={{icon}}
+Terminal=false
+StartupWMClass={{exec}}
+{{#if mime_type}}
+MimeType={{mime_type}}
+{{/if}}
