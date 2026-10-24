@@ -1,181 +1,185 @@
 <p align="center">
-  <img src="assets/icon.png" width="112" alt="Vapafane-Symbol">
+  🇬🇧 <b>English</b> · 🇩🇪 <a href="README.de.md">Deutsch</a>
+</p>
+
+<p align="center">
+  <img src="assets/icon.png" width="112" alt="Vapafane icon">
 </p>
 
 <h1 align="center">Vapafane</h1>
 
 <p align="center">
-  <b>Minecraft-Werkbank für Server &amp; Client</b><br>
-  Eigener Minecraft-Server ganz ohne Befehle – und deine Freunde spielen mit einem Einladungs-Code mit.
+  <b>Minecraft workbench for server &amp; client</b><br>
+  Your own Minecraft server without typing a single command – and your friends join with an invite code.
 </p>
 
 <p align="center">
-  <img alt="System: Windows und Linux" src="https://img.shields.io/badge/System-Windows%20%7C%20Linux-informational">
-  <img alt="Sprache: Deutsch" src="https://img.shields.io/badge/Sprache-Deutsch-blue">
-  <img alt="Geschrieben in Rust" src="https://img.shields.io/badge/Rust-Tauri%202%20%2B%20Leptos-orange">
-  <img alt="Lizenz: MIT" src="https://img.shields.io/badge/Lizenz-MIT-green">
+  <img alt="System: Windows and Linux" src="https://img.shields.io/badge/System-Windows%20%7C%20Linux-informational">
+  <img alt="9 languages" src="https://img.shields.io/badge/Languages-9-blue">
+  <img alt="Written in Rust" src="https://img.shields.io/badge/Rust-Tauri%202%20%2B%20Leptos-orange">
+  <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green">
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>Herunterladen</b></a> ·
-  <a href="#so-benutzt-du-vapafane">Anleitung</a> ·
-  <a href="#häufige-fragen">Häufige Fragen</a> ·
-  <a href="CHANGELOG.md">Was ist neu?</a>
+  <a href="../../releases/latest"><b>Download</b></a> ·
+  <a href="#how-to-use-vapafane">Guide</a> ·
+  <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="CHANGELOG.md">What's new?</a>
 </p>
 
 <p align="center">
-  <img src="docs/bilder/uebersicht.png" width="820" alt="Server-Übersicht von Vapafane">
+  <img src="docs/bilder/uebersicht-en.png" width="820" alt="Vapafane server overview">
 </p>
 
-> **Hinweis:** Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder
-> Microsoft genehmigt und steht in keiner Verbindung zu ihnen.
+> **Note:** Vapafane is not an official Minecraft product.
 > *NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.*
 
-## Funktionen
+## Features
 
-**Eigener Server**
+**Your own server**
 
-- Server anlegen mit *Vanilla*, *Paper*, *Fabric* oder *NeoForge* – Version wählen, fertig
-- Starten und Stoppen mit einem Klick; der Server läuft im Hintergrund weiter, auch wenn das
-  Fenster zu ist, und startet nach einem Absturz neu
-- Konsole, Spieler und Whitelist, Mods, Plugins und Datapacks von Modrinth (und CurseForge)
-- Updates mit Probelauf, tägliche Backups, Wiederherstellen mit einem Klick
-- Ampel für die Erreichbarkeit von außen (IPv4 und IPv6, erkennt DS-Lite)
+- Create a server with *Vanilla*, *Paper*, *Fabric* or *NeoForge* – pick a version, done
+- Start and stop with one click; the server keeps running in the background even with the
+  window closed, and restarts after a crash
+- Console, players and whitelist, mods, plugins and datapacks from Modrinth (and CurseForge)
+- Updates with a dry run, daily backups, one-click restore
+- Traffic light for reachability from outside (IPv4 and IPv6, detects DS-Lite)
 
-**Mitspielen bei Freunden**
+**Playing on a friend's server**
 
-- Einladungs-Code einlösen – Vapafane richtet den **Minecraft-Launcher** oder die
-  **Modrinth-App** mit genau den Mods des Servers ein
-- Einstellungen, Shader, Ressourcenpakete und Server-Liste aus der bisherigen Installation
-  übernehmen
-- Nach einem Server-Update die vorhandene Instanz aktualisieren, ohne etwas zu verlieren
-- Anleitung für eigene Shader und Extras, Server-Status auf einen Blick
+- Redeem an invite code – Vapafane sets up the **Minecraft Launcher** or the **Modrinth App**
+  with exactly the server's mods
+- Take over options, shaders, resource packs and the server list from your existing setup
+- After a server update, refresh the existing instance without losing anything
+- Step-by-step guide for your own shaders and extras, server status at a glance
 
-<p align="center">
-  <img src="docs/bilder/client.png" width="49%" alt="Client einrichten mit Übernahme der Einstellungen">
-  <img src="docs/bilder/mods.png" width="49%" alt="Datapacks und Mods von Modrinth hinzufügen">
-</p>
+## Install
 
-## Installieren
+Grab the files from the **[latest release](../../releases/latest)**
+(under "Releases" on the right of this page).
 
-Die Dateien gibt es bei der **[neuesten Version](../../releases/latest)**
-(rechts auf dieser Seite unter „Releases“).
-
-| System | Datei | So geht's |
+| System | File | How |
 |---|---|---|
-| Windows 10/11 | `Vapafane_…_x64-setup.exe` | Herunterladen und starten. Erscheint „Der Computer wurde durch Windows geschützt“, auf **„Weitere Informationen“** → **„Trotzdem ausführen“** klicken (das Programm ist nicht signiert). |
-| Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` | Im Dateimanager **doppelklicken** – oder den Befehl unten im Terminal ausführen. |
+| Windows 10/11 | `Vapafane_…_x64-setup.exe` | Download and run it. If "Windows protected your PC" appears, click **"More info"** → **"Run anyway"** (the program is not code-signed). |
+| Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` | **Double-click** it in the file manager – or run the command below in a terminal. |
 
-Linux direkt im Terminal – lädt immer die neueste Version und installiert sie (auch zum
-Aktualisieren):
+Linux straight from the terminal – always fetches and installs the latest version (also for
+updating):
 
 ```bash
 wget -O /tmp/vapafane.deb https://github.com/Debong93/Vapafane/releases/latest/download/Vapafane_amd64.deb && sudo apt install /tmp/vapafane.deb
 ```
 
-**Voraussetzungen:** Windows 10/11 oder Linux, jeweils 64-bit (Ubuntu 22.04, Debian 12,
-Mint 21 oder neuer). Mehr braucht es zum Mitspielen nicht – fehlt etwas (Minecraft-Launcher,
-Modrinth-App, Java), sagt Vapafane es dir und zeigt, wo du es bekommst.
+**Requirements:** Windows 10/11 or Linux, 64-bit (Ubuntu 22.04, Debian 12, Mint 21 or
+newer). That's all you need to join friends – if something is missing (Minecraft Launcher,
+Modrinth App, Java), Vapafane tells you and shows where to get it.
 
-**Nur wer selbst einen Server betreibt,** braucht zusätzlich Java (Minecraft 26.x braucht
-Java 25): Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
-`sudo apt install openjdk-25-jre-headless`. Zum Mitspielen bei Freunden ist kein Java nötig.
+**Only if you run a server yourself** you also need Java (Minecraft 26.x needs Java 25):
+on Windows e.g. [Temurin from adoptium.net](https://adoptium.net), on Linux
+`sudo apt install openjdk-25-jre-headless`. Joining friends needs no Java at all.
 
-Zu jeder Version gibt es eine Datei `SHA256SUMS.txt` mit Prüfsummen, falls du den Download
-prüfen möchtest.
+Every release ships a `SHA256SUMS.txt` with checksums in case you want to verify the
+download.
 
-## So benutzt du Vapafane
+## How to use Vapafane
 
-Oben im Fenster wählst du zwischen **Client** (mitspielen) und **Server** (selbst einen
-Server betreiben). Vapafane startet immer im Client-Bereich. Das **Zahnrad** oben rechts
-öffnet die Einstellungen des jeweiligen Bereichs, der Knopf daneben wechselt zwischen hell
-und dunkel.
+At the top of the window you switch between **Client** (join others) and **Server** (run
+your own). Vapafane always starts in the client area. The **gear** at the top right opens
+the settings of the current area; the button next to it toggles light and dark.
 
-### Eigenen Server erstellen
+### Create your own server
 
-1. Oben auf **„Server“** umschalten.
-2. Auf **„+“** klicken (es leuchtet, solange es noch keinen Server gibt) und
-   **„Neuen Server erstellen“** wählen. Typ aussuchen – *Vanilla* (ohne Mods),
-   *Fabric* oder *NeoForge* (mit Mods), *Paper* (mit Plugins) –, Minecraft-Version und
-   Namen angeben und die Minecraft-EULA bestätigen. Einen vorhandenen Server-Ordner oder
-   ein Backup fügst du über dasselbe Menü hinzu.
-3. Unter **„Spieler“** deinen Minecraft-Namen und die deiner Freunde eintragen: Neue Server
-   haben die **Whitelist** an – nur wer dort steht, kommt rein. Das schützt vor Fremden.
-4. In der **Übersicht** auf **„▶ Starten“** klicken. Das Fenster darf danach zu – der
-   Server läuft im Hintergrund weiter.
-5. Links findest du alles Weitere: **Konsole**, **Spieler** (Whitelist, OP),
-   **Mods/Plugins** („Mods hinzufügen …“ sucht auf Modrinth), **Version & Updates**,
-   **Backups** und **Erreichbarkeit**.
+1. Switch to **"Server"** at the top.
+2. Click **"+"** (it glows as long as there is no server yet) and choose
+   **"Create a new server"**. Pick the type – *Vanilla* (no mods), *Fabric* or *NeoForge*
+   (with mods), *Paper* (with plugins) –, choose the Minecraft version and a name, and
+   confirm the Minecraft EULA. An existing server folder or a backup is added through the
+   same menu.
+3. Under **"Players"**, add your Minecraft name and your friends' names: new servers come
+   with the **whitelist** switched on – only listed players get in. That keeps strangers
+   out.
+4. In the **overview**, click **"▶ Start"**. You may close the window afterwards – the
+   server keeps running in the background.
+5. Everything else is on the left: **Console**, **Players** (whitelist, OP),
+   **Mods/Plugins** ("Add mods …" searches Modrinth), **Version & updates**, **Backups**
+   and **Reachability**.
 
-### Freunde einladen
+### Invite friends
 
-1. In der Übersicht auf **„Freunde einladen“** klicken.
-2. Für Freunde im selben WLAN passt die vorgeschlagene Adresse. Für Freunde von außen
-   **„Öffentliche Adresse ermitteln“** klicken und im Router den Server-Port freigeben
-   (Anleitung für alle Router: [portforward.com](https://portforward.com/minecraft-java-edition-server/)).
-3. **„Code erzeugen“** und den Code z. B. per Messenger schicken.
+1. In the overview, click **"Invite friends"**.
+2. For friends on the same Wi-Fi the suggested address is fine. For friends outside, click
+   **"Determine public address"** and forward the server port in your router
+   (guide for all routers: [portforward.com](https://portforward.com/minecraft-java-edition-server/)).
+3. Click **"Create code"** and send the code e.g. via messenger.
 
-Unter **Erreichbarkeit** zeigt eine Ampel, ob dein Server von außen erreichbar ist –
-grün über IPv4 und IPv6, gelb nur über IPv6 (z. B. bei DS-Lite), rot gar nicht.
+Under **Reachability**, a traffic light shows whether your server can be reached from
+outside – green via IPv4 and IPv6, yellow only via IPv6 (e.g. with DS-Lite), red not at
+all.
 
-### Mit dem Client einem Server beitreten
+### Join a server with the client
 
-1. Vapafane installieren und im Bereich **„Client“** bleiben.
-2. Den Einladungs-Code einfügen und **„Einladung prüfen“** klicken (oder eine
-   `.vapafane`-Datei öffnen). Vapafane zeigt Server, Version und Mods.
-3. Wählen, wofür eingerichtet wird – **Minecraft-Launcher** oder **Modrinth-App**.
-4. Wer schon Minecraft eingerichtet hat, wählt unter **„Einstellungen übernehmen von“** seine
-   bisherige Instanz: Optionen, Tastenbelegung, Mod-Einstellungen, Shader, Ressourcenpakete,
-   Server-Liste und auf Wunsch Welten kommen mit. Die bisherige Instanz bleibt unverändert.
-5. **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
-6. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
-   online ist, siehst du direkt daneben. **„Shader & Extras“** zeigt Schritt für Schritt, wie
-   du eigene Shader, Ressourcenpakete oder Mods hinzufügst.
+1. Install Vapafane and stay in the **"Client"** area.
+2. Paste the invite code and click **"Check invite"** (or open a `.vapafane` file).
+   Vapafane shows the server, version and mods.
+3. Choose what to set up – **Minecraft Launcher** or **Modrinth App**.
+4. If you already have Minecraft set up, pick your existing instance under
+   **"Take over settings from"**: options, key bindings, mod settings, shaders, resource
+   packs, the server list and, if you want, worlds come along. Your existing instance stays
+   untouched.
+5. Click **"Set up"**. Vapafane downloads the matching mods and creates a profile.
+6. Under **"My servers"**, **"Play"** opens the launcher. Whether the server is online
+   right now is shown next to it. **"Shaders & extras"** walks you through adding your own
+   shaders, resource packs or mods.
 
-**Nach einem Server-Update** schickt dir der Admin einen neuen Einladungs-Code – denn welche
-Version und welche Mods dazugehören, steht in der Einladung. Code einlösen, fertig: Beim
-Minecraft-Launcher aktualisiert Vapafane das Profil direkt. Bei der Modrinth-App baut
-Vapafane ein neues Paket und zeigt, wie du damit deine vorhandene Instanz aktualisierst
-(„Instanz-Einstellungen“ → „Installation“ → „Modpack neu installieren“) – Welten,
-Einstellungen und Shader bleiben erhalten.
+**After a server update** the admin sends you a new invite code – because the matching
+version and mods are part of the invite. Redeem it, done: with the Minecraft Launcher,
+Vapafane updates the profile directly. With the Modrinth App, Vapafane builds a new pack
+and shows how to update your existing instance with it ("Instance settings" →
+"Installation" → "Reinstall modpack") – worlds, settings and shaders are kept.
 
-Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an.
+Vapafane never launches Minecraft itself and never touches your Microsoft account.
 
-## Häufige Fragen
+## Frequently asked questions
 
-**Windows warnt beim Installieren.** Das Programm ist nicht digital signiert (das kostet
-jährlich Geld). Auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken.
+**Windows warns during installation.** The program is not digitally signed (that costs a
+yearly fee). Click "More info" → "Run anyway".
 
-**Meine Freunde kommen nicht auf den Server.** Unter **Erreichbarkeit** prüfen, ob der Port
-im Router freigegeben ist. Steht der Name deines Freundes auf der **Whitelist** (Seite
-„Spieler“)? Und passt seine Minecraft-Version – nach einem Update braucht er einen neuen
-Einladungs-Code.
+**My friends can't reach the server.** Check under **Reachability** whether the port is
+forwarded in the router. Is your friend's name on the **whitelist** (page "Players")? And
+does their Minecraft version match – after an update they need a new invite code.
 
-**Wo liegen meine Daten?** Server liegen im Ordner `MC_Servers` in deinem Benutzerordner.
-Die Spielordner der Clients öffnest du in den Client-Einstellungen über
-„Spielordner aller Clients“.
+**Where is my data?** Servers live in the `MC_Servers` folder inside your user folder. The
+clients' game folders open from the client settings via "Game folders of all clients".
 
-**Wie deinstalliere ich Vapafane?** Windows: Einstellungen → Apps. Linux:
-`sudo apt remove vapafane`. Deine Server und Backups bleiben dabei erhalten.
+**How do I uninstall Vapafane?** Windows: Settings → Apps. Linux:
+`sudo apt remove vapafane`. Your servers and backups are kept.
 
-## Fehler melden und mitmachen
+## Languages
 
-Fehler und Ideen bitte als [GitHub-Issue](../../issues) melden – es gibt Vorlagen dafür.
-Bitte keine Passwörter, Einladungs-Codes oder öffentlichen IP-Adressen hineinkopieren.
+Vapafane starts in your system's language (English otherwise) and can be switched in the
+settings. English and German are maintained by hand; French, Spanish, Italian, Dutch,
+Portuguese, Polish and Turkish are machine-translated – corrections are welcome. The texts
+live in [`locales/`](locales), one file per language.
 
-## Für Entwickler
+## Report bugs and contribute
 
-Komplett in Rust; jede Komponente hat eine eigene kurze README:
+Please report bugs and ideas as a [GitHub issue](../../issues) – there are templates for
+both, in English or German. Please don't paste passwords, invite codes or public IP
+addresses.
 
-| Ordner | Inhalt |
+## For developers
+
+Written entirely in Rust; every component has its own short README:
+
+| Folder | Contents |
 |---|---|
-| [`src-tauri/`](src-tauri/README.md) | das Programm: Fenster, Hintergrund-Dienst, Befehlszeile |
-| [`frontend/`](frontend/README.md) | die Oberfläche (Leptos/WebAssembly) |
-| [`shared/`](shared/README.md) | gemeinsame Datentypen |
-| [`werkzeuge/`](werkzeuge/README.md) | erzeugt die Pixel-Texturen |
-| [`e2e/`](e2e/README.md) | Oberflächen-Tests, die das echte Programm bedienen |
+| [`src-tauri/`](src-tauri/README.md) | the program: window, background service, command line |
+| [`frontend/`](frontend/README.md) | the user interface (Leptos/WebAssembly) |
+| [`shared/`](shared/README.md) | shared data types and translations |
+| [`werkzeuge/`](werkzeuge/README.md) | generates the pixel textures |
+| [`e2e/`](e2e/README.md) | UI tests that drive the real program |
 
-Selbst bauen:
+Build it yourself:
 
 ```bash
 rustup target add wasm32-unknown-unknown
@@ -183,10 +187,10 @@ cargo install tauri-cli trunk --locked
 cd src-tauri && cargo tauri build
 ```
 
-Testmodus ohne echte Daten: `VAPAFANE_HOME=/tmp/test vapafane`. Alle Änderungen stehen im
-[Änderungsprotokoll](CHANGELOG.md).
+Test mode without real data: `VAPAFANE_HOME=/tmp/test vapafane`. All changes are listed in
+the [changelog](CHANGELOG.md).
 
-## Lizenz
+## License
 
-Vapafane steht unter der [MIT-Lizenz](LICENSE). Minecraft ist eine Marke von
-Mojang/Microsoft; Mods und Plugins stammen von ihren jeweiligen Autoren.
+Vapafane is released under the [MIT license](LICENSE). Minecraft is a trademark of
+Mojang/Microsoft; mods and plugins come from their respective authors.

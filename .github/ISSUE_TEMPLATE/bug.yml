@@ -1,0 +1,54 @@
+name: Report a bug
+description: Something does not work as expected (German is fine too / Deutsch ist auch ok)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! You can write in English or German – Deutsch ist auch ok.
+        Please don't paste passwords, invite codes or public IP addresses.
+  - type: input
+    id: version
+    attributes:
+      label: Vapafane version
+      description: Shown in the settings under "About Vapafane".
+      placeholder: e.g. 0.10.0
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Server (running your own server)
+        - Client (joining friends)
+        - Installation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, and what happened then? Screenshots welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: textarea
+    id: message
+    attributes:
+      label: Error message or log
+      description: The message from Vapafane or the last lines of the console.
+      render: text

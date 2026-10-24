@@ -1,8 +1,24 @@
 [Desktop Entry]
 Type=Application
 Name={{name}}
-GenericName=Minecraft-Server-Verwaltung
+GenericName=Minecraft server manager
+GenericName[de]=Minecraft-Server-Verwaltung
+GenericName[fr]=Gestion de serveur Minecraft
+GenericName[es]=Gestión de servidores de Minecraft
+GenericName[it]=Gestione server Minecraft
+GenericName[nl]=Minecraft-serverbeheer
+GenericName[pt]=Gestão de servidores Minecraft
+GenericName[pl]=Zarządzanie serwerem Minecrafta
+GenericName[tr]=Minecraft sunucu yönetimi
 Comment={{comment}}
+Comment[de]=Minecraft-Werkbank für Server & Client
+Comment[fr]=Atelier Minecraft pour serveur et client
+Comment[es]=Taller de Minecraft para servidor y cliente
+Comment[it]=Officina Minecraft per server e client
+Comment[nl]=Minecraft-werkplaats voor server & client
+Comment[pt]=Oficina de Minecraft para servidor e cliente
+Comment[pl]=Warsztat Minecrafta dla serwera i klienta
+Comment[tr]=Sunucu ve istemci için Minecraft atölyesi
 Keywords=Minecraft;Server;Mods;Backup;Vapafane;
 Categories={{categories}}Game;
 Exec={{exec}}

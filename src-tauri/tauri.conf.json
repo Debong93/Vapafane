@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Vapafane – Minecraft-Werkbank für Server & Client",
+        "title": "Vapafane",
         "width": 1040,
         "height": 720,
         "minWidth": 760,
@@ -31,10 +31,10 @@
     "targets": "all",
     "category": "Utility",
     "publisher": "Debong93",
-    "copyright": "© 2026 Debong93 · MIT-Lizenz",
+    "copyright": "© 2026 Debong93 · MIT license",
     "homepage": "https://github.com/Debong93/Vapafane",
-    "shortDescription": "Minecraft-Werkbank für Server & Client",
-    "longDescription": "Vapafane – Minecraft-Werkbank für Server & Client: Server mit Vanilla, Paper, Fabric oder NeoForge betreiben, sichern und aktualisieren, Mods installieren – und Freunde per Einladungs-Code einladen, deren Minecraft sich dann automatisch passend einrichtet.",
+    "shortDescription": "Minecraft workbench for server & client",
+    "longDescription": "Vapafane – Minecraft workbench for server & client: run, back up and update servers with Vanilla, Paper, Fabric or NeoForge, install mods – and invite friends with an invite code that sets up their Minecraft automatically. In 9 languages.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,12 +51,20 @@
     "windows": {
       "nsis": {
         "languages": [
-          "German"
+          "English",
+          "German",
+          "French",
+          "Spanish",
+          "Italian",
+          "Dutch",
+          "Portuguese",
+          "Polish",
+          "Turkish"
         ],
         "installMode": "currentUser"
       },
       "wix": {
-        "language": "de-DE"
+        "language": "en-US"
       }
     }
   }

@@ -66,15 +66,17 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Vapafane ${{ github.ref_name }}"
           releaseBody: |
-            **Was ist neu:** siehe [Änderungsprotokoll](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
+            **What's new:** see the [changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
+            **Was ist neu:** siehe [Änderungsprotokoll](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) (deutsche Anleitung: [README.de.md](https://github.com/${{ github.repository }}/blob/main/README.de.md)).
 
-            | System | Datei |
+            | System | File / Datei |
             |---|---|
-            | Windows 10/11 | `Vapafane_…_x64-setup.exe` – bei „Der Computer wurde durch Windows geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“ |
-            | Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` – doppelklicken oder `sudo apt install ./Vapafane_…_amd64.deb` |
+            | Windows 10/11 | `Vapafane_…_x64-setup.exe` – on "Windows protected your PC" → "More info" → "Run anyway" |
+            | Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` – double-click or `sudo apt install ./Vapafane_…_amd64.deb` |
 
-            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25). Zum Mitspielen nicht.
+            Running your own server needs Java (Minecraft 26.x: Java 25); joining friends does not.
+            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25), zum Mitspielen nicht.
 
-            Kein offizielles Minecraft-Produkt. Nicht von Mojang oder Microsoft genehmigt und nicht mit ihnen verbunden.
+            Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
           releaseDraft: false
           prerelease: false

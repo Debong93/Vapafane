@@ -1,0 +1,19 @@
+name: Idea or feature request
+description: Suggest a new feature or improvement (German is fine too / Deutsch ist auch ok)
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Briefly describe what Vapafane should be able to do – and how it would help you. English or German, both fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Server
+        - Client
+        - Other
