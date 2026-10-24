@@ -120,8 +120,9 @@ Combines the unpublished test versions 0.9.1 to 0.9.3.
 - Vapafane starts in the client area; invites also carry the IPv6 address.
 - The time of the daily backup is configurable.
 
-Downloads are available from version 0.9.4 on; older downloads have been removed.
+Downloads are available from version 0.9.0 on; older downloads have been removed.
 
 [0.10.0]: ../../releases/tag/v0.10.0
 [0.9.5]: ../../releases/tag/v0.9.5
 [0.9.4]: ../../releases/tag/v0.9.4
+[0.9.0]: ../../releases/tag/v0.9.0
