@@ -195,17 +195,30 @@ pub async fn remove_server(path: String) -> Cmd<()> {
 
 // ---------------------------------------------------------------- Einstellungen
 
-const PROP_KEYS: &[&str] = &[
-    "motd",
-    "max-players",
-    "difficulty",
-    "gamemode",
-    "view-distance",
-    "simulation-distance",
-    "spawn-protection",
-    "server-port",
-    "white-list",
+/// Einstellbare Schlüssel aus server.properties mit dem Minecraft-Standardwert,
+/// der gilt, solange die Datei (vor dem ersten Start) den Schlüssel noch nicht hat.
+const PROP_KEYS: &[(&str, &str)] = &[
+    ("motd", "A Minecraft Server"),
+    ("max-players", "20"),
+    ("difficulty", "easy"),
+    ("gamemode", "survival"),
+    ("view-distance", "10"),
+    ("simulation-distance", "10"),
+    ("spawn-protection", "16"),
+    ("server-port", "25565"),
+    ("white-list", "false"),
 ];
+
+/// Die einstellbaren Werte – fehlende mit dem Minecraft-Standard aufgefüllt.
+fn settings_props(props: &BTreeMap<String, String>) -> BTreeMap<&'static str, String> {
+    PROP_KEYS
+        .iter()
+        .map(|(k, d)| {
+            let v = props.get(*k).filter(|v| !v.is_empty()).map_or(*d, String::as_str);
+            (*k, v.to_string())
+        })
+        .collect()
+}
 
 #[tauri::command]
 pub async fn get_settings() -> Cmd<Value> {
@@ -231,11 +244,7 @@ pub async fn get_settings() -> Cmd<Value> {
         }
         if let Some(dir) = cfg.active_path() {
             let props = server::read_properties(&dir);
-            let sel: BTreeMap<&str, String> = PROP_KEYS
-                .iter()
-                .map(|k| (*k, props.get(*k).cloned().unwrap_or_default()))
-                .collect();
-            out["props"] = json!(sel);
+            out["props"] = json!(settings_props(&props));
             out["ram_gb"] = json!(server::xmx_gb(&server::read_env(&dir)));
         }
         Ok(out)
@@ -252,7 +261,8 @@ pub async fn save_settings(props: BTreeMap<String, String>, ram_gb: u64) -> Cmd<
             .ok_or_else(|| Error("Kein Server ausgewählt.".into()))?;
         let props: BTreeMap<String, String> = props
             .into_iter()
-            .filter(|(k, _)| PROP_KEYS.contains(&k.as_str()))
+            // leere Felder nicht schreiben – sonst startet Minecraft mit Fehlern
+            .filter(|(k, v)| PROP_KEYS.iter().any(|(p, _)| p == k) && !v.is_empty())
             .collect();
         if let Some(port) = props.get("server-port") {
             let p: u32 = port.parse().map_err(|_| Error("Port muss eine Zahl sein.".into()))?;
@@ -423,4 +433,21 @@ pub fn open_link(app: AppHandle, target: String) -> Cmd<()> {
         _ => return Err("Diese Adresse darf nicht geöffnet werden.".into()),
     };
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fehlende_einstellungen_bekommen_standardwerte() {
+        let mut props = BTreeMap::new();
+        props.insert("motd".to_string(), "E2E".to_string());
+        props.insert("max-players".to_string(), String::new());
+        let s = settings_props(&props);
+        assert_eq!(s["motd"], "E2E");
+        assert_eq!(s["max-players"], "20");
+        assert_eq!(s["difficulty"], "easy");
+        assert_eq!(s.len(), PROP_KEYS.len());
+    }
 }

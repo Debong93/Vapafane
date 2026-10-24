@@ -11,7 +11,7 @@ damit ihr Minecraft passend zum Server ein.
 
 ## Installieren
 
-Die Dateien gibt es unter **[neueste Version](../../releases/latest)**
+Die Dateien gibt es bei der **[neuesten Version](../../releases/latest)**
 (rechts auf dieser Seite unter „Releases“).
 
 **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Erscheint
