@@ -127,7 +127,7 @@ fn s(v: &Value, key: &str) -> Option<String> {
 /// Nur einfache Dateinamen zulassen (Modrinth-Angaben landen im Server-Ordner).
 pub(crate) fn safe_filename(name: &str) -> Result<String> {
     if name.is_empty() || name.contains(['/', '\\']) || name.starts_with('.') || name.contains("..") {
-        return err(format!("Ungültiger Dateiname von Modrinth: {name}"));
+        return err(crate::sprache::t!("upd-err-dateiname", name = name));
     }
     Ok(name.to_string())
 }
@@ -281,7 +281,7 @@ fn classify(items: &mut [Item], known: &HashMap<String, Value>, updates: &HashMa
 pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     let info = server::detect_server(dir);
     let Some(kind) = Kind::parse(&info.kind) else {
-        return err("Den Update-Assistenten gibt es für Fabric-, Paper-, NeoForge- und Vanilla-Server.");
+        return err(crate::sprache::t!("upd-nicht-unterstuetzt"));
     };
     let loaders = kind.loaders();
     let sub = kind.mod_dir().unwrap_or("");
@@ -328,14 +328,14 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     // Was Modrinth nicht kennt: bei CurseForge nachsehen (nur mit Schlüssel)
     let mut notes = vec![];
     if crate::curseforge::key().is_some() && !sub.is_empty() && mods.iter().any(|m| m.status == "unknown") {
-        progress(0.3, "Frage CurseForge nach den übrigen Mods …");
+        progress(0.3, &crate::sprache::t!("fort-frage-cf"));
         if let Err(e) = check_curseforge(dir, kind, target, &mut mods) {
-            notes.push(format!("CurseForge konnte nicht geprüft werden: {e}"));
+            notes.push(crate::sprache::t!("upd-cf-fehler", fehler = e.0.clone()));
         }
     }
 
     // Pflicht-Abhängigkeiten der neuen Versionen, die noch nicht installiert sind
-    progress(0.4, "Prüfe Abhängigkeiten …");
+    progress(0.4, &crate::sprache::t!("fort-pruefe-deps"));
     let installed: HashSet<String> = mods.iter().filter_map(|m| m.project_id.clone()).collect();
     let mut seen = installed.clone();
     let mut extra: Vec<Item> = vec![];
@@ -375,7 +375,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
                     None => extra.push(Item {
                         kind: "mod".into(),
                         project_id: Some(pid),
-                        file: "(Abhängigkeit)".into(),
+                        file: crate::sprache::t!("upd-abhaengigkeit"),
                         status: "missing".into(),
                         ..Default::default()
                     }),
@@ -389,7 +389,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     }
 
     // Datapacks im Welt-Ordner: gleiche Prüfung mit Loader "datapack"
-    progress(0.6, "Prüfe Datapacks …");
+    progress(0.6, &crate::sprache::t!("fort-pruefe-dp"));
     let mut packs = installed_datapacks(dir);
     let pack_hashes: Vec<String> = packs.iter().filter_map(|p| p.sha1.clone()).collect();
     let pk_known = version_files(&pack_hashes)?;
@@ -451,7 +451,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         notes,
         ..Default::default()
     };
-    progress(0.85, &format!("Suche {}-Server für {target} …", kind.label()));
+    progress(0.85, &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = target));
     if change_version {
         plan.server = Some(flavor::server_artifact(kind, target)?);
     } else if matches!(kind, Kind::Paper | Kind::NeoForge) {
@@ -464,7 +464,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     if plan.server.is_some() {
         plan.java_required = net::required_java(target)?;
     }
-    progress(0.9, "Prüfe Java und Speicherplatz …");
+    progress(0.9, &crate::sprache::t!("fort-pruefe-java-platz"));
     let java_now = env.get("MC_JAVA").cloned().unwrap_or_else(java::default_java);
     plan.java_have = java::java_major(&java::resolve_java(&java_now));
     plan.java_path = java_now;
@@ -561,7 +561,7 @@ pub fn apply(
                 mods::set_note(dir, &m.rel, None)?;
             }
             "missing" if disable_missing && !m.disabled => {
-                mods::disable(dir, &m.rel, &format!("gibt es nicht für Minecraft {}", plan.target))?
+                mods::disable(dir, &m.rel, &crate::sprache::t!("upd-grund-fehlt", mc = plan.target.clone()))?
             }
             "unknown" if disable_unknown && !m.disabled => {
                 mods::disable(dir, &m.rel, "nicht auf Modrinth – passende Version unklar")?
@@ -711,7 +711,7 @@ pub fn export_mrpack(dir: &Path, dest: &Path, name: &str) -> Result<(usize, usiz
         "fabric" if info.loader.is_empty() => ("fabric-loader", net::fabric_server_jar_url(&info.version)?.1),
         "fabric" => ("fabric-loader", info.loader.clone()),
         "neoforge" => ("neoforge", info.loader.clone()),
-        _ => return err("Ein Modpack für Freunde gibt es nur bei Fabric- und NeoForge-Servern."),
+        _ => return err(crate::sprache::t!("upd-export-tipp")),
     };
     let index = json!({
         "formatVersion": 1,

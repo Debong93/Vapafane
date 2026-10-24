@@ -100,20 +100,20 @@ pub fn decode(code: &str) -> Result<Invite> {
     let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
     let Some(body) = code.strip_prefix(PREFIX) else {
         if code.starts_with("VPF") {
-            return err("Dieser Einladungs-Code ist für eine neuere Vapafane-Version. Bitte Vapafane aktualisieren.");
+            return err(crate::sprache::t!("inv-err-neuer"));
         }
         return err("Das ist kein Vapafane-Einladungs-Code (er beginnt mit „VPF1-“).");
     };
     let bytes = bs58::decode(body)
         .into_vec()
-        .map_err(|_| Error("Der Code ist unvollständig oder beschädigt – bitte ganz kopieren.".into()))?;
+        .map_err(|_| Error(crate::sprache::t!("inv-err-unvollstaendig")))?;
     let mut json = Vec::new();
     flate2::read::DeflateDecoder::new(&bytes[..])
         .take(1024 * 1024)
         .read_to_end(&mut json)
-        .map_err(|_| Error("Der Code ist beschädigt – bitte nochmal kopieren.".into()))?;
+        .map_err(|_| Error(crate::sprache::t!("inv-err-kaputt")))?;
     let inv: Invite =
-        serde_json::from_slice(&json).map_err(|_| Error("Der Code ist beschädigt – bitte nochmal kopieren.".into()))?;
+        serde_json::from_slice(&json).map_err(|_| Error(crate::sprache::t!("inv-err-kaputt")))?;
     check(&inv)?;
     Ok(inv)
 }
@@ -121,7 +121,7 @@ pub fn decode(code: &str) -> Result<Invite> {
 /// Inhalt auf Plausibilität prüfen (die Daten kommen von außen).
 pub fn check(inv: &Invite) -> Result<()> {
     if inv.format != 1 {
-        return err("Diese Einladung ist für eine andere Vapafane-Version.");
+        return err(crate::sprache::t!("inv-err-version"));
     }
     if Kind::parse(&inv.loader).is_none() {
         return err("Unbekannter Server-Typ in der Einladung.");
@@ -133,7 +133,7 @@ pub fn check(inv: &Invite) -> Result<()> {
         || !ok_text(&inv.loader_version, 60)
         || !(inv.address6.is_empty() || (inv.address6.starts_with('[') && ok_text(&inv.address6, 60)))
     {
-        return err("Die Einladung enthält ungültige Angaben.");
+        return err(crate::sprache::t!("inv-err-angaben"));
     }
     for m in &inv.mods {
         let safe_id = !m.id.is_empty()
@@ -145,7 +145,7 @@ pub fn check(inv: &Invite) -> Result<()> {
             || !safe_id
             || !m.hash.chars().all(|c| c.is_ascii_hexdigit())
         {
-            return err("Die Einladung enthält eine ungültige Mod-Angabe.");
+            return err(crate::sprache::t!("inv-err-mod"));
         }
     }
     Ok(())
@@ -157,7 +157,7 @@ pub fn check(inv: &Invite) -> Result<()> {
 pub fn build(dir: &Path, address: &str) -> Result<Built> {
     let info = server::detect_server(dir);
     let kind = Kind::parse(&info.kind)
-        .ok_or_else(|| Error("Einladungen gibt es für Fabric-, NeoForge-, Paper- und Vanilla-Server.".into()))?;
+        .ok_or_else(|| Error(crate::sprache::t!("inv-err-typ")))?;
     if info.version.is_empty() {
         return err("Die Minecraft-Version des Servers ist unbekannt – bitte den Server einmal starten.");
     }
@@ -302,14 +302,14 @@ pub fn write_file(built: &Built, dest: &Path) -> Result<Invite> {
 /// Einladung aus einer .vapafane-Datei lesen.
 pub fn read_file(path: &Path) -> Result<Invite> {
     let mut z = zip::ZipArchive::new(fs::File::open(path)?)
-        .map_err(|_| Error("Das ist keine gültige Vapafane-Einladungs-Datei.".into()))?;
+        .map_err(|_| Error(crate::sprache::t!("inv-err-datei")))?;
     let mut s = String::new();
     z.by_name(MANIFEST)
         .map_err(|_| Error("In der Datei fehlt die Einladung (vapafane.json).".into()))?
         .take(1024 * 1024)
         .read_to_string(&mut s)?;
     let inv: Invite =
-        serde_json::from_str(&s).map_err(|_| Error("Die Einladung in der Datei ist beschädigt.".into()))?;
+        serde_json::from_str(&s).map_err(|_| Error(crate::sprache::t!("inv-err-datei-kaputt")))?;
     check(&inv)?;
     Ok(inv)
 }
@@ -327,7 +327,7 @@ pub fn lan_address(dir: &Path) -> String {
 pub fn public_address(dir: &Path) -> Result<String> {
     let ip = net::get_text("https://api.ipify.org")?.trim().to_string();
     if ip.parse::<std::net::IpAddr>().is_err() {
-        return err("Die öffentliche Adresse ließ sich nicht ermitteln.");
+        return err(crate::sprache::t!("inv-err-oeffentlich"));
     }
     let port = server::read_properties(dir)
         .get("server-port")

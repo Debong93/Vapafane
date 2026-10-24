@@ -38,18 +38,18 @@ pub fn split_address(addr: &str) -> Result<(String, u16)> {
     }
     if let Some(rest) = a.strip_prefix('[') {
         // [IPv6]:Port
-        let (host, port) = rest.split_once(']').ok_or_else(|| Error("Ungültige Adresse".into()))?;
+        let (host, port) = rest.split_once(']').ok_or_else(|| Error(crate::sprache::t!("err-adresse")))?;
         let port = port
             .strip_prefix(':')
             .map(|p| p.parse())
             .transpose()
-            .map_err(|_| Error("Ungültiger Port".into()))?;
+            .map_err(|_| Error(crate::sprache::t!("cli-err-port")))?;
         return Ok((host.to_string(), port.unwrap_or(25565)));
     }
     match a.rsplit_once(':') {
         Some((h, p)) if !h.contains(':') => Ok((
             h.to_string(),
-            p.parse().map_err(|_| Error("Ungültiger Port in der Adresse".into()))?,
+            p.parse().map_err(|_| Error(crate::sprache::t!("cli-err-port")))?,
         )),
         _ => Ok((a.to_string(), 25565)),
     }
@@ -77,7 +77,7 @@ fn read_varint(r: &mut impl Read) -> Result<i32> {
             return Ok(out as i32);
         }
     }
-    err("Ungültige Antwort vom Server")
+    err(crate::sprache::t!("cli-err-antwort"))
 }
 
 /// „Server List Ping“ über den normalen Spiel-Port – wie die Serverliste im Spiel.
@@ -106,7 +106,7 @@ pub fn ping(address: &str) -> Result<Value> {
     s.write_all(&pkt)?;
     let len = read_varint(&mut s)?;
     if !(1..=1_000_000).contains(&len) {
-        return err("Ungültige Antwort vom Server");
+        return err(crate::sprache::t!("cli-err-antwort"));
     }
     let mut body = vec![0u8; len as usize];
     s.read_exact(&mut body)?;
@@ -114,7 +114,7 @@ pub fn ping(address: &str) -> Result<Value> {
     let _id = read_varint(&mut r)?;
     let slen = read_varint(&mut r)? as usize;
     let text = String::from_utf8_lossy(&r[..slen.min(r.len())]).into_owned();
-    let v: Value = serde_json::from_str(&text).map_err(|_| Error("Ungültige Antwort vom Server".into()))?;
+    let v: Value = serde_json::from_str(&text).map_err(|_| Error(crate::sprache::t!("cli-err-antwort")))?;
     let motd = match v.get("description") {
         Some(Value::String(s)) => s.clone(),
         Some(d) => d.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
@@ -197,8 +197,8 @@ fn upsert_profile(file: &Path, key: &str, name: &str, version_id: &str, game_dir
     backup(file)?;
     let mut v: Value = serde_json::from_str(&fs::read_to_string(file)?).map_err(|_| {
         Error(format!(
-            "{} ist beschädigt – bitte den Launcher einmal starten.",
-            file.display()
+            "{}",
+            crate::sprache::t!("cli-err-profil-kaputt", datei = file.display().to_string())
         ))
     })?;
     if !v.get("profiles").map(|p| p.is_object()).unwrap_or(false) {
@@ -604,8 +604,8 @@ pub fn install(
         .and_then(|t| serde_json::from_str(&t).ok());
     if old_meta.is_none() && game_dir.exists() && fs::read_dir(&game_dir)?.next().is_some() {
         return err(format!(
-            "Der Ordner {} ist nicht leer und gehört nicht zu Vapafane.",
-            game_dir.display()
+            "{}",
+            crate::sprache::t!("cli-err-nicht-leer", ordner = game_dir.display().to_string())
         ));
     }
     fs::create_dir_all(game_dir.join("mods"))?;
@@ -620,7 +620,7 @@ pub fn install(
         let _ = fs::remove_file(p);
     }
 
-    progress(0.05, "Prüfe die Mods …");
+    progress(0.05, &crate::sprache::t!("fort-pruefe-mods"));
     let all = plan_mods(inv, zip, selected)?;
 
     // Alte Mods aus einer früheren Einladung entfernen
@@ -641,7 +641,7 @@ pub fn install(
     let mut installed = vec![];
     let mut manual = vec![];
     for (i, m) in all.iter().enumerate() {
-        progress(0.1 + 0.6 * i as f64 / total, &format!("Lade {} …", m.title));
+        progress(0.1 + 0.6 * i as f64 / total, &crate::sprache::t!("fort-lade", name = m.title.clone()));
         let name = updater::safe_filename(&m.file).unwrap_or_default();
         if m.source == "file" {
             let Some(zp) = zip else {
@@ -663,7 +663,7 @@ pub fn install(
                 hex::encode(sha1::Sha1::digest(&data))
             };
             if !got.starts_with(&want) {
-                return err(format!("Datei {} aus der Einladung ist beschädigt.", m.file));
+                return err(crate::sprache::t!("cli-err-datei-kaputt", datei = m.file.clone()));
             }
             util::write_atomic(&game_dir.join("mods").join(&name), &data)?;
             installed.push(name);
@@ -687,7 +687,7 @@ pub fn install(
     }
 
     // Loader in den offiziellen Launcher
-    progress(0.75, "Richte den Launcher ein …");
+    progress(0.75, &crate::sprache::t!("fort-launcher"));
     let launchers = launcher_dirs();
     let mut notes: Vec<String> = vec![];
     let version_id = match kind {
@@ -704,7 +704,7 @@ pub fn install(
             ))?;
             let id = prof.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
             if id.is_empty() || id.contains(['/', '\\']) || id.contains("..") {
-                return err("Fabric-Profil ungültig.");
+                return err(crate::sprache::t!("cli-err-fabric-profil"));
             }
             for l in &launchers {
                 let d = l.join("versions").join(&id);
@@ -725,15 +725,12 @@ pub fn install(
                 }
                 let profiles = l.join("launcher_profiles.json");
                 if !profiles.is_file() {
-                    notes.push(
-                        "Bitte den Minecraft-Launcher einmal starten und wieder schließen, dann nochmal einrichten."
-                            .into(),
-                    );
+                    notes.push(crate::sprache::t!("cli-hinweis-launcher-starten"));
                     continue;
                 }
                 progress(
                     0.8,
-                    &format!("Installiere NeoForge {v} (kann ein paar Minuten dauern) …"),
+                    &crate::sprache::t!("fort-neoforge-install", version = v.clone()),
                 );
                 let art = flavor::server_artifact(Kind::NeoForge, &inv.mc)?;
                 let base = format!(
@@ -760,7 +757,7 @@ pub fn install(
                 )?;
                 let need = net::required_java(&inv.mc).ok().flatten().unwrap_or(21);
                 let java = java_for(need, l).ok_or_else(|| {
-                    Error(format!("Für NeoForge wird Java {need} gebraucht. Bitte den Minecraft-Launcher einmal starten (er bringt Java mit) oder Java installieren."))
+                    Error(crate::sprache::t!("cli-err-neoforge-java", version = need))
                 })?;
                 // Der Installer legt selbst ein Profil an – das machen wir rückgängig, nur unseres bleibt
                 let before: Vec<(PathBuf, Option<String>)> =
@@ -796,12 +793,12 @@ pub fn install(
 
     let mut taken = Value::Null;
     if let Some(t) = take {
-        progress(0.85, "Übernehme Einstellungen …");
+        progress(0.85, &crate::sprache::t!("fort-uebernehme"));
         let files = transfer::gather(t)?;
         taken = transfer::copy_missing(&files, &game_dir)?.json(&t.dir, t.has("servers"));
     }
 
-    progress(0.9, "Trage den Server ein …");
+    progress(0.9, &crate::sprache::t!("fort-trage-ein"));
     let lists: Vec<Vec<u8>> = [fs::read(game_dir.join("servers.dat")).ok(), take.and_then(Take::servers)]
         .into_iter()
         .flatten()
@@ -816,12 +813,9 @@ pub fn install(
         upsert_profile(f, &key, &inv.name, &version_id, &game_dir)?;
     }
     if launchers.is_empty() {
-        notes.push("Der offizielle Minecraft-Launcher wurde nicht gefunden. Bitte installieren, einmal starten und dann hier „Aktualisieren“ drücken.".into());
+        notes.push(crate::sprache::t!("cli-hinweis-kein-launcher"));
     } else if files.is_empty() {
-        notes.push(
-            "Der Launcher wurde noch nie gestartet. Bitte einmal starten und wieder schließen, dann „Aktualisieren“."
-                .into(),
-        );
+        notes.push(crate::sprache::t!("cli-hinweis-nie-gestartet"));
     }
     let meta = json!({
         "invite": inv,
@@ -838,7 +832,7 @@ pub fn install(
         idx.push(game_dir.clone());
         write_index(&idx)?;
     }
-    progress(1.0, "Fertig.");
+    progress(1.0, &crate::sprache::t!("fort-fertig"));
     Ok(json!({
         "dir": game_dir,
         "version_id": version_id,
@@ -1060,8 +1054,8 @@ pub fn install_mrpack(
     let meta_path = dir.join(META);
     if !meta_path.exists() && dir.exists() && fs::read_dir(&dir)?.next().is_some() {
         return err(format!(
-            "Der Ordner {} ist nicht leer und gehört nicht zu Vapafane.",
-            dir.display()
+            "{}",
+            crate::sprache::t!("cli-err-nicht-leer", ordner = dir.display().to_string())
         ));
     }
     fs::create_dir_all(&dir)?;
@@ -1088,7 +1082,7 @@ pub fn install_mrpack(
             let _ = fs::remove_file(dir.join("mods").join(Path::new(f).file_name().unwrap_or_default()));
         }
     }
-    progress(0.05, "Prüfe die Mods …");
+    progress(0.05, &crate::sprache::t!("fort-pruefe-mods"));
     let all = plan_mods(inv, zip, selected)?;
 
     let mut files = vec![];
@@ -1151,7 +1145,7 @@ pub fn install_mrpack(
         "game": "minecraft",
         "versionId": chrono::Local::now().format("%Y.%m.%d-%H%M").to_string(),
         "name": format!("{} (Vapafane)", inv.name),
-        "summary": format!("Eingerichtet von Vapafane für den Server {} ({})", inv.name, inv.address),
+        "summary": crate::sprache::t!("cli-paket-summary", name = inv.name.clone(), adresse = inv.address.clone()),
         "files": files,
         "dependencies": deps,
     });
@@ -1159,7 +1153,7 @@ pub fn install_mrpack(
     let take = if instance.is_some() { None } else { take };
     let taken_files = match take {
         Some(t) => {
-            progress(0.82, "Sammle die Einstellungen …");
+            progress(0.82, &crate::sprache::t!("fort-sammle"));
             transfer::gather(t)?
         }
         None => Default::default(),
@@ -1172,7 +1166,7 @@ pub fn install_mrpack(
     let servers = servers_dat(&lists, &inv.name, &game_address(inv));
     let taken: Option<Value>;
 
-    progress(0.85, "Packe das Modrinth-Paket …");
+    progress(0.85, &crate::sprache::t!("fort-packe"));
     let pack = dir.join(format!("{}.mrpack", util::safe_name(&inv.name)));
     let tmp = pack.with_extension("part");
     {
@@ -1209,7 +1203,7 @@ pub fn install_mrpack(
         "updated": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
     });
     util::write_atomic(&meta_path, serde_json::to_string_pretty(&meta)?.as_bytes())?;
-    progress(1.0, "Fertig.");
+    progress(1.0, &crate::sprache::t!("fort-fertig"));
     Ok(json!({
         "dir": dir,
         "target": "modrinth",

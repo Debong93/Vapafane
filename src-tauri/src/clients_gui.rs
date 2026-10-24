@@ -142,7 +142,7 @@ pub fn client_install(
 ) -> Cmd<()> {
     let dest = destination.unwrap_or_else(|| "launcher".into());
     let take = take.filter(|t| !t.parts.is_empty() && !t.dir.as_os_str().is_empty());
-    run_task(&app, "Client einrichten", move |progress| {
+    run_task(&app, &crate::sprache::t!("task-client"), move |progress| {
         let (inv, zip) = load(&source)?;
         let selected: HashSet<String> = selected.into_iter().collect();
         // Gewähltes Ziel merken

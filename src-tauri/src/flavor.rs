@@ -243,7 +243,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
             let v = net::get_json(url)?;
             let s = v
                 .pointer("/downloads/server")
-                .ok_or_else(|| Error(format!("Für Minecraft {game} gibt es keinen Server.")))?;
+                .ok_or_else(|| Error(crate::sprache::t!("flv-err-kein-server", mc = game)))?;
             Ok(Artifact {
                 url: s.get("url").and_then(|u| u.as_str()).unwrap_or_default().to_string(),
                 file: "server.jar".into(),
@@ -267,7 +267,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
                     builds
                         .iter()
                         .max_by_key(|b| id(b))
-                        .ok_or_else(|| Error(format!("Kein Paper für {game}.")))?,
+                        .ok_or_else(|| Error(crate::sprache::t!("flv-err-kein-paper", mc = game)))?,
                     true,
                 ),
             };
@@ -295,7 +295,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
             let all = neoforge_versions()?;
             let mut matching: Vec<&(String, String, bool)> = all.iter().filter(|(_, mc, _)| mc == game).collect();
             if matching.is_empty() {
-                return err(format!("Für Minecraft {game} gibt es kein NeoForge."));
+                return err(crate::sprache::t!("flv-err-kein-neoforge", mc = game));
             }
             let any_stable = matching.iter().any(|(_, _, b)| !b);
             if any_stable {
@@ -303,7 +303,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
             }
             matching.sort_by(|a, b| cmp_versions(&a.0, &b.0));
             let Some((v, _, beta)) = matching.last() else {
-                return err(format!("Für Minecraft {game} gibt es kein NeoForge."));
+                return err(crate::sprache::t!("flv-err-kein-neoforge", mc = game));
             };
             let base =
                 format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{v}/neoforge-{v}-installer.jar");
@@ -344,7 +344,7 @@ pub fn newer_build(kind: Kind, dir: &Path, art: &Artifact) -> bool {
 
 /// NeoForge-Installer ausführen: richtet den Server in `dir` ein (Bibliotheken, Startargumente).
 pub fn run_neoforge_installer(installer: &Path, dir: &Path, java: &str, progress: Progress) -> Result<()> {
-    progress(0.5, "NeoForge-Installer richtet den Server ein (lädt Bibliotheken) …");
+    progress(0.5, &crate::sprache::t!("fort-neoforge"));
     let workdir = installer.parent().unwrap_or(dir);
     let out = util::command(java)
         .arg("-jar")
@@ -396,11 +396,11 @@ pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress
     let created_dir = !target.exists();
     fs::create_dir_all(target)?;
     let res = (|| -> Result<()> {
-        progress(0.05, &format!("Suche {} für Minecraft {game} …", kind.label()));
+        progress(0.05, &crate::sprache::t!("fort-suche-server", was = kind.label(), mc = game));
         let art = server_artifact(kind, game)?;
 
         // Java: was braucht diese Minecraft-Version?
-        progress(0.1, "Prüfe Java …");
+        progress(0.1, &crate::sprache::t!("fort-pruefe-java"));
         let mut java = crate::java::resolve_java(&crate::java::default_java());
         if let Ok(Some(need)) = net::required_java(game)
             && crate::java::java_major(&java) < need

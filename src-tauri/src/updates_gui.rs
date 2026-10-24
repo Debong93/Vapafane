@@ -29,9 +29,9 @@ static PLAN: Mutex<Option<Plan>> = Mutex::new(None);
 fn take_plan(dir: &Path) -> Result<Plan> {
     let plan = crate::util::lock(&PLAN)
         .clone()
-        .ok_or_else(|| Error("Bitte zuerst „Prüfen“ drücken.".into()))?;
+        .ok_or_else(|| Error(crate::sprache::t!("upd-err-erst-pruefen")))?;
     if util::canonical(&plan.dir) != util::canonical(dir) {
-        return err("Die Prüfung gehört zu einem anderen Server. Bitte neu prüfen.");
+        return err(crate::sprache::t!("upd-err-anderer-server"));
     }
     Ok(plan)
 }
@@ -75,7 +75,7 @@ pub async fn upd_versions() -> Cmd<Vec<String>> {
         let dir = active_dir(&cfg)?;
         let info = server::detect_server(&dir);
         let kind = crate::flavor::Kind::parse(&info.kind)
-            .ok_or_else(|| Error("Den Update-Assistenten gibt es für diesen Server-Typ nicht.".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("upd-nicht-unterstuetzt")))?;
         updater::target_versions(kind, &info.version)
     })
     .await
@@ -84,7 +84,7 @@ pub async fn upd_versions() -> Cmd<Vec<String>> {
 #[tauri::command]
 pub fn upd_check(app: AppHandle, target: String) -> Cmd<()> {
     *crate::util::lock(&PLAN) = None;
-    run_task(&app, &format!("Prüfe Mods für {target}"), move |progress| {
+    run_task(&app, &crate::sprache::t!("task-pruefe-mods", mc = target.clone()), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let plan = updater::check(&dir, &target, progress)?;
@@ -115,9 +115,9 @@ fn start_and_wait(progress: Progress, from: f64) -> Result<()> {
             "running" => return Ok(()),
             "failed" | "restarting" => {
                 let why = st.get("last_exit").and_then(|l| l.as_str()).unwrap_or("").to_string();
-                return err(format!("Der Server ist beim Start abgestürzt. {why}"));
+                return err(crate::sprache::t!("upd-err-absturz", grund = why));
             }
-            "stopped" => return err("Der Server hat sich direkt wieder beendet."),
+            "stopped" => return err(crate::sprache::t!("upd-err-beendet")),
             _ => {}
         }
         let last = st
@@ -144,7 +144,7 @@ fn start_and_wait(progress: Progress, from: f64) -> Result<()> {
 
 #[tauri::command]
 pub fn upd_run(app: AppHandle, disable_missing: bool, disable_unknown: bool) -> Cmd<()> {
-    run_task(&app, "Update", move |progress| {
+    run_task(&app, &crate::sprache::t!("task-update"), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let plan = take_plan(&dir)?;
@@ -171,7 +171,7 @@ pub fn do_update(
     };
     let st = state();
     if st == "external" {
-        return err("Der Server läuft außerhalb von Vapafane. Bitte zuerst dort stoppen.");
+        return err(crate::sprache::t!("err-start-extern"));
     }
     if matches!(st.as_str(), "running" | "starting") && players_online(dir) {
         progress(0.0, "Warne Spieler (30 Sekunden) …");
@@ -199,7 +199,7 @@ pub fn do_update(
     // Erst nach geglücktem Start aufräumen – bei Fehlern bleibt alles für den Rückweg liegen
     let mut cleaned = json!(null);
     if res.is_ok() {
-        progress(0.98, "Räume alte Dateien auf …");
+        progress(0.98, &crate::sprache::t!("fort-raeume-auf"));
         let loader = plan
             .server
             .as_ref()
@@ -264,13 +264,13 @@ pub async fn cleanup_preview() -> Cmd<Value> {
 
 #[tauri::command]
 pub fn cleanup_run(app: AppHandle) -> Cmd<()> {
-    run_task(&app, "Aufräumen", |progress| {
+    run_task(&app, &crate::sprache::t!("mods-aufraeumen-titel"), |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         if !matches!(state().as_str(), "stopped" | "failed" | "none") {
-            return err("Aufräumen geht nur, wenn der Server gestoppt ist.");
+            return err(crate::sprache::t!("cln-err-laeuft"));
         }
-        progress(0.3, "Lösche alte Dateien …");
+        progress(0.3, &crate::sprache::t!("fort-loesche"));
         let items = cleanup::candidates(&dir);
         let (freed, failed) = cleanup::delete(&dir, &items);
         Ok(json!({"count": items.len() - failed.len(), "freed": freed, "failed": failed}))
@@ -281,7 +281,7 @@ pub fn cleanup_run(app: AppHandle) -> Cmd<()> {
 /// Zurück zum Stand vor dem letzten Update (über dessen Backup).
 #[tauri::command]
 pub fn upd_rollback(app: AppHandle) -> Cmd<()> {
-    run_task(&app, "Zurück zum Stand vor dem Update", |progress| {
+    run_task(&app, &crate::sprache::t!("task-rollback"), |progress| {
         let mut cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let backup = cfg
@@ -295,7 +295,7 @@ pub fn upd_rollback(app: AppHandle) -> Cmd<()> {
             })
             .and_then(|l| l.get("backup").and_then(|b| b.as_str()).map(PathBuf::from))
             .filter(|b| b.is_file())
-            .ok_or_else(|| Error("Für diesen Server gibt es kein Backup vom letzten Update.".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("upd-err-kein-backup")))?;
         stop_and_wait(progress)?;
         let aside = archive::restore_backup(&backup, &dir, progress)?;
         server::prepare_server(&dir, false)?;
@@ -348,7 +348,7 @@ fn copy_server(src: &Path, dest: &Path, progress: Progress) -> Result<()> {
 /// prüft, ob sie fertig startet, stoppt sie und löscht die Kopie wieder.
 #[tauri::command]
 pub fn upd_trial(app: AppHandle, disable_missing: bool, disable_unknown: bool) -> Cmd<()> {
-    run_task(&app, "Probelauf", move |progress| {
+    run_task(&app, &crate::sprache::t!("upd-trial"), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let plan = take_plan(&dir)?;
@@ -369,14 +369,11 @@ pub fn do_trial(
     fs::create_dir_all(&base)?;
     if util::free_space(&base) < size + size / 5 + 1024 * 1024 * 1024 {
         let _ = fs::remove_dir_all(&base);
-        return err(format!(
-            "Zu wenig Platz im Temp-Ordner für eine Kopie ({} nötig).",
-            util::fmt_bytes(size + size / 5)
-        ));
+        return err(crate::sprache::t!("upd-err-temp-platz", groesse = util::fmt_bytes(size + size / 5)));
     }
     let copy = base.join(dir.file_name().unwrap_or_default());
     let result = trial_inner(dir, &copy, plan, disable_missing, disable_unknown, progress);
-    progress(1.0, "Lösche die Kopie …");
+    progress(1.0, &crate::sprache::t!("fort-loesche-kopie"));
     let deleted = fs::remove_dir_all(&base).is_ok();
     let mut r = result?;
     r["copy_deleted"] = json!(deleted);

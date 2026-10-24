@@ -584,7 +584,7 @@ pub fn set_backup_keep(keep: usize) -> Cmd<()> {
 
 #[tauri::command]
 pub fn backup_now(app: AppHandle) -> Cmd<()> {
-    run_task(&app, "Backup (ganzer Server als ZIP)", |progress| {
+    run_task(&app, &crate::sprache::t!("task-backup"), |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let running = is_running(&cfg);
@@ -596,7 +596,7 @@ pub fn backup_now(app: AppHandle) -> Cmd<()> {
 
 #[tauri::command]
 pub fn restore_backup(app: AppHandle, path: String) -> Cmd<()> {
-    run_task(&app, "Backup wiederherstellen", move |progress| {
+    run_task(&app, &crate::sprache::t!("task-restore"), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         stop_and_wait(progress)?;
