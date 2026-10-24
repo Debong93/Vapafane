@@ -102,7 +102,7 @@ pub fn decode(code: &str) -> Result<Invite> {
         if code.starts_with("VPF") {
             return err(crate::sprache::t!("inv-err-neuer"));
         }
-        return err("Das ist kein Vapafane-Einladungs-Code (er beginnt mit „VPF1-“).");
+        return err(crate::sprache::t!("inv-err-kein-code"));
     };
     let bytes = bs58::decode(body)
         .into_vec()
@@ -123,7 +123,7 @@ pub fn check(inv: &Invite) -> Result<()> {
         return err(crate::sprache::t!("inv-err-version"));
     }
     if Kind::parse(&inv.loader).is_none() {
-        return err("Unbekannter Server-Typ in der Einladung.");
+        return err(crate::sprache::t!("inv-err-typ-unbekannt"));
     }
     let ok_text = |s: &str, max: usize| s.len() <= max && !s.chars().any(|c| c.is_control());
     if !ok_text(&inv.name, 80)
@@ -157,7 +157,7 @@ pub fn build(dir: &Path, address: &str) -> Result<Built> {
     let info = server::detect_server(dir);
     let kind = Kind::parse(&info.kind).ok_or_else(|| Error(crate::sprache::t!("inv-err-typ")))?;
     if info.version.is_empty() {
-        return err("Die Minecraft-Version des Servers ist unbekannt – bitte den Server einmal starten.");
+        return err(crate::sprache::t!("err-mc-unbekannt"));
     }
     let cfg = crate::config::Config::load();
     let mut inv = Invite {
@@ -302,7 +302,7 @@ pub fn read_file(path: &Path) -> Result<Invite> {
     let mut z = zip::ZipArchive::new(fs::File::open(path)?).map_err(|_| Error(crate::sprache::t!("inv-err-datei")))?;
     let mut s = String::new();
     z.by_name(MANIFEST)
-        .map_err(|_| Error("In der Datei fehlt die Einladung (vapafane.json).".into()))?
+        .map_err(|_| Error(crate::sprache::t!("inv-err-datei-leer")))?
         .take(1024 * 1024)
         .read_to_string(&mut s)?;
     let inv: Invite = serde_json::from_str(&s).map_err(|_| Error(crate::sprache::t!("inv-err-datei-kaputt")))?;

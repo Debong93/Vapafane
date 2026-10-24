@@ -37,11 +37,11 @@ fn wait_for(want: &[&str], secs: u64) -> Result<()> {
             return Ok(());
         }
         if s == "failed" {
-            return err("Server ist abgestürzt");
+            return err(crate::sprache::t!("ueb-ev-absturz"));
         }
         std::thread::sleep(Duration::from_secs(1));
     }
-    err(format!("Zeitüberschreitung (Zustand: {})", state()))
+    err(crate::sprache::t!("ctl-timeout", zustand = state()))
 }
 
 fn run_inner(args: &[String]) -> Result<()> {
@@ -55,23 +55,23 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             if !server::eula_accepted(&dir) {
-                return err("EULA nicht akzeptiert (im Fenster bestätigen)");
+                return err(crate::sprache::t!("svc-err-eula"));
             }
             ops::check_port(&dir)?;
             launcher::ensure_service()?;
             ipc::call("start", Value::Null)?;
-            println!("Server wird gestartet.");
+            println!("{}", crate::sprache::t!("ctl-startet"));
         }
         "stop" | "restart" => {
             ops::stop_server(secs(0), cmd == "restart")?;
             println!(
                 "{}",
                 if cmd == "stop" {
-                    "Server wird gestoppt."
+                    crate::sprache::t!("ctl-stoppt")
                 } else {
-                    "Server wird neu gestartet."
+                    crate::sprache::t!("ctl-neustart")
                 }
             );
         }
@@ -81,7 +81,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let _lock = ops::JobLock::acquire("Backup (Befehlszeile)")?;
             let running = state() == "running";
             let progress = |_: f64, _: &str| {};
@@ -92,31 +92,31 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             println!("{}", crate::rcon::once(&dir, &args[1..].join(" "))?);
         }
         "aktiv" => {
             let want = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Namen angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-name")))?;
             let mut cfg = Config::load();
             let entry = cfg
                 .servers
                 .iter()
                 .find(|s| &s.name == want || &s.path == want)
                 .cloned()
-                .ok_or_else(|| crate::util::Error(format!("„{want}“ ist nicht in der Liste")))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-nicht-in-liste", name = want.to_string())))?;
             if !matches!(state().as_str(), "stopped" | "failed" | "none") {
-                return err("Umschalten geht nur, wenn der Server gestoppt ist.");
+                return err(crate::sprache::t!("err-umschalten-laeuft"));
             }
             cfg.set_active(Some(std::path::Path::new(&entry.path)))?;
             println!("Aktiv: {} ({})", entry.name, entry.path);
         }
         "neu" => {
             let (Some(kind), Some(name), Some(version)) = (args.get(1), args.get(2), args.get(3)) else {
-                return err("Benutzung: --ctl neu TYP NAME VERSION [ORDNER]");
+                return err(crate::sprache::t!("ctl-neu-benutzung"));
             };
-            let kind = crate::flavor::Kind::parse(kind).ok_or_else(|| crate::util::Error("Unbekannter Typ".into()))?;
+            let kind = crate::flavor::Kind::parse(kind).ok_or_else(|| crate::util::Error(crate::sprache::t!("err-typ-unbekannt")))?;
             let target = match args.get(4) {
                 Some(t) => std::path::PathBuf::from(t),
                 None => crate::util::unique_dir(&crate::config::servers_dir(), &crate::util::safe_name(name)),
@@ -134,10 +134,10 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let target = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Zielversion angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-version")))?;
             let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
             let plan = crate::updater::check(&dir, target, &print)?;
             for m in plan.mods.iter().chain(&plan.extra).chain(&plan.datapacks) {
@@ -151,19 +151,22 @@ fn run_inner(args: &[String]) -> Result<()> {
                 );
             }
             println!(
-                "Version {} → {}, Java nötig {:?} (ok: {}), Platz ok: {}, etwas zu tun: {}",
-                plan.current,
-                plan.target,
-                plan.java_required,
-                plan.java_ok,
-                plan.space_ok,
-                plan.has_work()
+                "{}",
+                crate::sprache::t!(
+                    "ctl-update-plan",
+                    von = plan.current.to_string(),
+                    nach = plan.target.to_string(),
+                    java = plan.java_required.map(|v| v.to_string()).unwrap_or_else(|| "–".into()),
+                    javaok = plan.java_ok.to_string(),
+                    platzok = plan.space_ok.to_string(),
+                    tun = plan.has_work().to_string()
+                )
             );
             if cmd == "update-check" {
                 return Ok(());
             }
             if !plan.java_ok || !plan.space_ok {
-                return err("Java oder Speicherplatz passt nicht.");
+                return err(crate::sprache::t!("ctl-java-platz"));
             }
             let _lock = ops::JobLock::acquire(if cmd == "trial" { "Probelauf" } else { "Update" })?;
             let r = if cmd == "trial" {
@@ -177,7 +180,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             match cmd {
                 "mods" => {
                     let l = crate::mods::list(&dir);
@@ -203,7 +206,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                 "mod-an" | "mod-aus" => {
                     let rel = args
                         .get(1)
-                        .ok_or_else(|| crate::util::Error("Bitte Pfad angeben".into()))?;
+                        .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-pfad")))?;
                     crate::mods::set_enabled(&dir, rel, cmd == "mod-an")?;
                     println!("{rel}: {}", if cmd == "mod-an" { "an" } else { "aus" });
                 }
@@ -216,12 +219,12 @@ fn run_inner(args: &[String]) -> Result<()> {
                     println!("Zusammen: {}", crate::util::fmt_bytes(total));
                     if args.get(1).map(String::as_str) == Some("--ja") {
                         if !matches!(state().as_str(), "stopped" | "failed" | "none") {
-                            return err("Aufräumen geht nur, wenn der Server gestoppt ist.");
+                            return err(crate::sprache::t!("cln-err-laeuft"));
                         }
                         let (freed, failed) = crate::cleanup::delete(&dir, &items);
                         println!(
-                            "Gelöscht: {} (nicht möglich: {failed:?})",
-                            crate::util::fmt_bytes(freed)
+                            "{}",
+                            crate::sprache::t!("ctl-geloescht", groesse = crate::util::fmt_bytes(freed), fehler = format!("{failed:?}"))
                         );
                     }
                 }
@@ -231,7 +234,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let what = if args.iter().any(|a| a == "--datapack") {
                 crate::catalog::What::Datapacks
             } else {
@@ -246,10 +249,13 @@ fn run_inner(args: &[String]) -> Result<()> {
                 let r = crate::catalog::search(&dir, what, &rest.join(" "), 0, Some(0))?;
                 let have = crate::catalog::installed_projects(&dir)?;
                 println!(
-                    "{} Treffer für Minecraft {} ({}):",
-                    r["total"],
-                    r["mc"].as_str().unwrap_or(""),
-                    r["type"].as_str().unwrap_or("")
+                    "{}",
+                    crate::sprache::t!(
+                        "ctl-treffer",
+                        anzahl = r["total"].to_string(),
+                        mc = r["mc"].as_str().unwrap_or("").to_string(),
+                        typ = r["type"].as_str().unwrap_or("").to_string()
+                    )
                 );
                 for h in r["hits"].as_array().into_iter().flatten() {
                     let id = h["id"].as_str().unwrap_or("");
@@ -285,7 +291,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             } else {
                 let project = rest
                     .first()
-                    .ok_or_else(|| crate::util::Error("Bitte Projekt angeben".into()))?;
+                    .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-projekt")))?;
                 let _lock = ops::JobLock::acquire("Mod installieren")?;
                 let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
                 let r = crate::catalog::install(&dir, what, project, &print)?;
@@ -295,7 +301,7 @@ fn run_inner(args: &[String]) -> Result<()> {
         "curseforge-schluessel" => {
             if args.get(1).map(String::as_str) == Some("--loeschen") {
                 crate::curseforge::delete_key()?;
-                println!("CurseForge-Schlüssel gelöscht.");
+                println!("{}", crate::sprache::t!("ctl-cf-geloescht"));
                 return Ok(());
             }
             let mut k = String::new();
@@ -305,18 +311,18 @@ fn run_inner(args: &[String]) -> Result<()> {
         }
         "curseforge-test" => {
             let k = crate::curseforge::key()
-                .ok_or_else(|| crate::util::Error("Kein CurseForge-Schlüssel hinterlegt.".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("cf-err-fehlt")))?;
             crate::curseforge::test_key(&k)?;
             println!(
-                "CurseForge-Schlüssel funktioniert ({}).",
-                crate::curseforge::masked().unwrap_or_default()
+                "{}",
+                crate::sprache::t!("ctl-cf-ok", schluessel = crate::curseforge::masked().unwrap_or_default())
             );
         }
         "einladung" | "einladung-datei" => {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let (dest, addr) = if cmd == "einladung-datei" {
                 (args.get(1).cloned(), args.get(2).cloned())
             } else {
@@ -326,8 +332,8 @@ fn run_inner(args: &[String]) -> Result<()> {
             let built = crate::invite::build(&dir, &addr)?;
             if !built.server_only.is_empty() {
                 eprintln!(
-                    "Nur auf dem Server (nicht in der Einladung): {}",
-                    built.server_only.join(", ")
+                    "{}",
+                    crate::sprache::t!("ctl-nur-server", mods = built.server_only.join(", "))
                 );
             }
             match dest {
@@ -339,8 +345,8 @@ fn run_inner(args: &[String]) -> Result<()> {
                     if !built.files.is_empty() {
                         let names: Vec<&str> = built.files.iter().map(|(t, _)| t.as_str()).collect();
                         eprintln!(
-                            "Ohne Quelle (nur in der Einladungs-Datei möglich): {}",
-                            names.join(", ")
+                            "{}",
+                            crate::sprache::t!("ctl-ohne-quelle", mods = names.join(", "))
                         );
                     }
                     let code = crate::invite::encode(&built.invite)?;
@@ -352,7 +358,7 @@ fn run_inner(args: &[String]) -> Result<()> {
         "einloesen" => {
             let what = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Code oder Datei angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-code")))?;
             let folder = args
                 .iter()
                 .position(|a| a == "--ordner")
@@ -423,7 +429,7 @@ fn run_inner(args: &[String]) -> Result<()> {
         "erreichbarkeit" => {
             let dir = Config::load()
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server.".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let r = crate::reach::check(&dir)?;
             println!("{}: {}\n{}\nIPv4: {}\nIPv6: {}", r.light, r.title, r.text, r.v4, r.v6);
         }
@@ -431,31 +437,31 @@ fn run_inner(args: &[String]) -> Result<()> {
         "client-entfernen" => {
             let d = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Ordner angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-ordner")))?;
             crate::client::remove(std::path::Path::new(d))?;
             println!("Entfernt.");
         }
         "ping" => {
             let a = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Adresse angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-adresse")))?;
             println!("{}", crate::client::ping(a)?);
         }
         "mrpack" => {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
-                .ok_or_else(|| crate::util::Error("Kein aktiver Server".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
             let dest = args
                 .get(1)
-                .ok_or_else(|| crate::util::Error("Bitte Zieldatei angeben".into()))?;
+                .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-zieldatei")))?;
             let (files, overrides) =
                 crate::updater::export_mrpack(&dir, std::path::Path::new(dest), &cfg.name_of(&dir))?;
             println!("{dest}: {files} Mods von Modrinth, {overrides} direkt eingepackt");
         }
         "quit-service" => {
             ipc::call("quit", Value::Null)?;
-            println!("Dienst wird beendet.");
+            println!("{}", crate::sprache::t!("ctl-dienst-ende"));
         }
         _ => println!("{}", help()),
     }

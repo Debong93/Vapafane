@@ -268,12 +268,9 @@ pub fn sources(exclude: Option<&Path>) -> Vec<Value> {
 pub fn describe(dir: &Path) -> Result<Value> {
     let parts = part_sizes(dir);
     if parts.is_empty() {
-        return err(
-            "In diesem Ordner gibt es nichts zu übernehmen. Gesucht wird ein Minecraft-Spielordner – \
-             darin liegen z. B. „options.txt“, „config“, „shaderpacks“ oder „saves“.",
-        );
+        return err(crate::sprache::t!("err-nichts-zu-uebernehmen"));
     }
-    Ok(json!({ "kind": "folder", "label": format!("Ordner: {}", folder_name(dir)), "dir": dir, "parts": parts }))
+    Ok(json!({ "kind": "folder", "label": crate::sprache::t!("cli-quelle-ordner", ordner = folder_name(dir).to_string()), "dir": dir, "parts": parts }))
 }
 
 // ---------------------------------------------------------------- Dateien sammeln und übernehmen
@@ -291,12 +288,12 @@ fn relative(base: &Path, p: &Path) -> Option<String> {
 pub fn gather(take: &Take) -> Result<BTreeMap<String, PathBuf>> {
     let src = &take.dir;
     if !src.is_dir() {
-        return err(format!("Der Ordner {} ist nicht mehr da.", src.display()));
+        return err(crate::sprache::t!("err-ordner-weg", ordner = src.display().to_string()));
     }
     let mut out = BTreeMap::new();
     for part in &take.parts {
         if !PARTS.iter().any(|(k, _)| k == part) {
-            return err(format!("Unbekannter Teil: {part}"));
+            return err(crate::sprache::t!("err-teil-unbekannt", teil = part.to_string()));
         }
         let (files, dirs) = members(part);
         for f in files {

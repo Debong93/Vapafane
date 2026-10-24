@@ -40,7 +40,7 @@ impl Rcon {
     fn credentials(&self) -> Result<(u16, String)> {
         let props = server::read_properties(&self.dir);
         if props.get("enable-rcon").map(String::as_str) != Some("true") {
-            return err("RCON ist in server.properties ausgeschaltet");
+            return err(crate::sprache::t!("err-rcon-aus"));
         }
         let port = props.get("rcon.port").and_then(|p| p.parse().ok()).unwrap_or(25575);
         Ok((port, props.get("rcon.password").cloned().unwrap_or_default()))
@@ -60,13 +60,13 @@ impl Rcon {
         payload.extend_from_slice(&[0, 0]);
         let mut packet = (payload.len() as i32).to_le_bytes().to_vec();
         packet.extend_from_slice(&payload);
-        let sock = self.sock.as_mut().ok_or_else(|| Error("nicht verbunden".into()))?;
+        let sock = self.sock.as_mut().ok_or_else(|| Error(crate::sprache::t!("err-rcon-nicht-verbunden")))?;
         sock.write_all(&packet)?;
         Ok(id)
     }
 
     fn recv(&mut self) -> Result<(i32, String)> {
-        let sock = self.sock.as_mut().ok_or_else(|| Error("nicht verbunden".into()))?;
+        let sock = self.sock.as_mut().ok_or_else(|| Error(crate::sprache::t!("err-rcon-nicht-verbunden")))?;
         let mut len = [0u8; 4];
         sock.read_exact(&mut len)?;
         let len = i32::from_le_bytes(len);
@@ -96,7 +96,7 @@ impl Rcon {
             Ok((id, _)) if id == login => Ok(()),
             Ok(_) => {
                 self.close();
-                err("RCON-Passwort falsch")
+                err(crate::sprache::t!("err-rcon-passwort"))
             }
             Err(e) => {
                 self.close();
@@ -112,7 +112,7 @@ impl Rcon {
     /// Befehl schicken und Antwort zurückgeben (ohne Farbcodes).
     pub fn command(&mut self, cmd: &str) -> Result<String> {
         let cmd = cmd.trim().trim_start_matches('/');
-        let mut last = Error("RCON nicht erreichbar".into());
+        let mut last = Error(crate::sprache::t!("err-rcon-erreichbar"));
         for _ in 0..2 {
             if self.sock.is_none()
                 && let Err(e) = self.connect()

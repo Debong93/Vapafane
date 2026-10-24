@@ -34,7 +34,7 @@ pub const LAUNCHER_DOWNLOAD: &str = "https://www.minecraft.net/download";
 pub fn split_address(addr: &str) -> Result<(String, u16)> {
     let a = addr.trim();
     if a.is_empty() {
-        return err("Keine Serveradresse angegeben.");
+        return err(crate::sprache::t!("cli-err-keine-adresse"));
     }
     if let Some(rest) = a.strip_prefix('[') {
         // [IPv6]:Port
@@ -87,11 +87,11 @@ pub fn ping(address: &str) -> Result<Value> {
     let (host, port) = split_address(address)?;
     let sock_addr = (host.as_str(), port)
         .to_socket_addrs()
-        .map_err(|_| Error(format!("Adresse „{host}“ nicht gefunden.")))?
+        .map_err(|_| Error(crate::sprache::t!("cli-err-adresse", adresse = host.to_string())))?
         .next()
-        .ok_or_else(|| Error(format!("Adresse „{host}“ nicht gefunden.")))?;
+        .ok_or_else(|| Error(crate::sprache::t!("cli-err-adresse", adresse = host.to_string())))?;
     let mut s = TcpStream::connect_timeout(&sock_addr, Duration::from_secs(5))
-        .map_err(|_| Error("Server nicht erreichbar (aus, falsche Adresse oder Port nicht freigegeben).".into()))?;
+        .map_err(|_| Error(crate::sprache::t!("cli-err-nicht-erreichbar")))?;
     s.set_read_timeout(Some(Duration::from_secs(5)))?;
     s.set_write_timeout(Some(Duration::from_secs(5)))?;
     let mut hs = vec![];
@@ -309,10 +309,7 @@ pub fn resolve(inv: &Invite, zip: Option<&Path>) -> Result<Vec<Resolved>> {
         let infos = updater::project_infos(&pids)?;
         for m in mr {
             let Some(v) = by_id.get(&m.id) else {
-                return err(format!(
-                    "Eine Mod aus der Einladung gibt es auf Modrinth nicht mehr ({}).",
-                    m.id
-                ));
+                return err(crate::sprache::t!("cli-err-mod-weg", id = m.id.to_string()));
             };
             let files = v.get("files").and_then(|f| f.as_array()).cloned().unwrap_or_default();
             let f = files
@@ -323,7 +320,7 @@ pub fn resolve(inv: &Invite, zip: Option<&Path>) -> Result<Vec<Resolved>> {
                         .map(|h| h.starts_with(&m.hash))
                         .unwrap_or(false)
                 })
-                .ok_or_else(|| Error("Eine Mod-Datei passt nicht zur Einladung (Hash stimmt nicht).".into()))?;
+                .ok_or_else(|| Error(crate::sprache::t!("cli-err-hash")))?;
             let pid = v.get("project_id").and_then(|p| p.as_str()).unwrap_or("").to_string();
             let deps = v
                 .get("dependencies")
@@ -648,7 +645,7 @@ pub fn install(
         let name = updater::safe_filename(&m.file).unwrap_or_default();
         if m.source == "file" {
             let Some(zp) = zip else {
-                manual.push(json!({"title": m.title, "page": Value::Null, "file": m.file, "reason": "nur in der Einladungs-Datei enthalten"}));
+                manual.push(json!({"title": m.title, "page": Value::Null, "file": m.file, "reason": crate::sprache::t!("cli-nur-in-datei")}));
                 continue;
             };
             let mut a = zip::ZipArchive::new(fs::File::open(zp)?)?;
@@ -780,10 +777,7 @@ pub fn install(
                 if !out.status.success() {
                     let text = String::from_utf8_lossy(&out.stdout).into_owned();
                     let tail: Vec<&str> = text.lines().rev().take(6).collect();
-                    return err(format!(
-                        "NeoForge-Installer ist fehlgeschlagen:\n{}",
-                        tail.into_iter().rev().collect::<Vec<_>>().join("\n")
-                    ));
+                    return err(crate::sprache::t!("err-neoforge-installer", details = tail.into_iter().rev().collect::<Vec<_>>().join("\n")));
                 }
             }
             id
@@ -876,7 +870,7 @@ pub fn list() -> Vec<Value> {
 
 pub fn remove(dir: &Path) -> Result<()> {
     let meta: Value = serde_json::from_str(
-        &fs::read_to_string(dir.join(META)).map_err(|_| Error("Das ist kein Vapafane-Client.".into()))?,
+        &fs::read_to_string(dir.join(META)).map_err(|_| Error(crate::sprache::t!("cli-err-kein-client")))?,
     )?;
     // Bei Modrinth-Clients gibt es kein Launcher-Profil – die Instanz löscht man in der App selbst
     if let Some(key) = meta.get("profile_key").and_then(|k| k.as_str()) {
@@ -943,9 +937,7 @@ pub fn open_launcher() -> Result<()> {
             return Ok(());
         }
     }
-    err(format!(
-        "Der offizielle Minecraft-Launcher wurde nicht gefunden. Download: {LAUNCHER_DOWNLOAD}"
-    ))
+    err(crate::sprache::t!("cli-err-launcher-fehlt", link = LAUNCHER_DOWNLOAD))
 }
 
 // ---------------------------------------------------------------- Ziel: Modrinth-App
@@ -996,8 +988,8 @@ pub fn open_mrpack(path: &Path) -> Result<()> {
     if config::test_home().is_some() {
         let how = modrinth_app()
             .map(|(c, a)| format!("{c} {}", a.join(" ")))
-            .unwrap_or_else(|| "(keine App)".into());
-        eprintln!("Testmodus – würde öffnen: {how} {}", path.display());
+            .unwrap_or_else(|| crate::sprache::t!("cli-keine-app"));
+        eprintln!("{}", crate::sprache::t!("cli-test-oeffnen", wie = how.to_string(), pfad = path.display().to_string()));
         return Ok(());
     }
     #[cfg(windows)]
@@ -1018,7 +1010,7 @@ pub fn open_mrpack(path: &Path) -> Result<()> {
             .spawn()?;
         return Ok(());
     }
-    err("Die Modrinth-App wurde nicht gefunden.")
+    err(crate::sprache::t!("cli-modrinth-fehlt"))
 }
 
 /// Modrinth-App ohne Paket öffnen (für „Spielen“).
@@ -1031,7 +1023,7 @@ pub fn open_modrinth_app() -> Result<()> {
             .spawn()?;
         return Ok(());
     }
-    err("Die Modrinth-App wurde nicht gefunden. Download: https://modrinth.com/app")
+    err(format!("{} – https://modrinth.com/app", crate::sprache::t!("cli-modrinth-fehlt")))
 }
 
 /// Aus der Einladung ein Modrinth-Paket (.mrpack) bauen und – wenn gewünscht – öffnen.
@@ -1107,7 +1099,7 @@ pub fn install_mrpack(
             // Datei aus der Einladungs-Datei: direkt einpacken
             "file" => {
                 let Some(zp) = zip else {
-                    manual.push(json!({"title": m.title, "page": Value::Null, "file": m.file, "reason": "nur in der Einladungs-Datei enthalten"}));
+                    manual.push(json!({"title": m.title, "page": Value::Null, "file": m.file, "reason": crate::sprache::t!("cli-nur-in-datei")}));
                     continue;
                 };
                 let mut a = zip::ZipArchive::new(fs::File::open(zp)?)?;

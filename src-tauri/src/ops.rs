@@ -35,7 +35,7 @@ impl JobLock {
             .write(true)
             .open(lock_path())?;
         if f.try_lock().is_err() {
-            let other = current_job().unwrap_or_else(|| "eine andere Aufgabe".into());
+            let other = current_job().unwrap_or_else(|| crate::sprache::t!("err-andere-aufgabe"));
             return err(crate::sprache::t!("err-schon-beschaeftigt", was = other.clone()));
         }
         let _ = fs::write(job_text_path(), what);
@@ -65,7 +65,7 @@ pub fn backup_with_save(dir: &Path, cfg: &Config, running: bool, progress: Progr
     let mut rcon = Rcon::new(dir).with_timeout(Duration::from_secs(30));
     let mut paused = false;
     if running {
-        progress(0.0, "Server speichert die Welt …");
+        progress(0.0, &crate::sprache::t!("fort-speichert"));
         if rcon
             .command(&format!("say {}", crate::sprache::t!("say-backup-start")))
             .is_ok()
@@ -151,10 +151,7 @@ pub fn check_port(dir: &Path) -> Result<()> {
     crate::reach::release_port(port);
     if !procs::port_free(port) && procs::java_in_dir(dir, None).is_none() {
         let free = procs::free_port(port.saturating_add(1), &[]);
-        return err(format!(
-            "Port {port} ist schon belegt – wahrscheinlich läuft dort ein anderer Minecraft-Server. \
-             Stell unter Einstellungen → „Server-Port“ einen freien Port ein, z. B. {free}."
-        ));
+        return err(crate::sprache::t!("err-port-belegt", port = port.to_string(), frei = free.to_string()));
     }
     Ok(())
 }

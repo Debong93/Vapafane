@@ -72,10 +72,10 @@ pub async fn invite_file(app: AppHandle, address: String) -> Cmd<Option<Value>> 
         let Some(dest) = app
             .dialog()
             .file()
-            .set_title("Einladungs-Datei speichern")
+            .set_title(crate::sprache::t!("inv-datei-titel"))
             .set_directory(crate::config::home())
-            .set_file_name(format!("Einladung_{}.vapafane", util::safe_name(&name)))
-            .add_filter("Vapafane-Einladung", &["vapafane"])
+            .set_file_name(format!("{}_{}.vapafane", crate::sprache::t!("inv-datei-name"), util::safe_name(&name)))
+            .add_filter(crate::sprache::t!("inv-datei-filter"), &["vapafane"])
             .blocking_save_file()
             .and_then(|p| p.into_path().ok())
         else {
@@ -119,7 +119,7 @@ pub async fn client_pick_file(app: AppHandle) -> Cmd<Option<String>> {
             .dialog()
             .file()
             .set_title(crate::sprache::t!("cli-datei-titel"))
-            .add_filter("Vapafane-Einladung", &["vapafane"])
+            .add_filter(crate::sprache::t!("inv-datei-filter"), &["vapafane"])
             .blocking_pick_file()
             .and_then(|p| p.into_path().ok())
             .map(|p| p.to_string_lossy().into_owned()))
@@ -248,7 +248,7 @@ pub fn client_settings() -> Value {
 #[tauri::command]
 pub fn set_client_target(target: String) -> Cmd<()> {
     if !matches!(target.as_str(), "launcher" | "modrinth") {
-        return Err("Unbekanntes Ziel".into());
+        return Err(crate::sprache::t!("err-ziel-unbekannt").into());
     }
     let mut cfg = Config::load();
     cfg.client_target = Some(target);
@@ -276,7 +276,7 @@ pub fn client_open_folder(app: AppHandle, dir: String) -> Cmd<()> {
     use tauri_plugin_opener::OpenerExt;
     let p = PathBuf::from(&dir);
     if !p.join("vapafane-client.json").is_file() {
-        return Err("Das ist kein Vapafane-Client.".into());
+        return Err(crate::sprache::t!("cli-err-kein-client").into());
     }
     app.opener().open_path(dir, None::<&str>).map_err(|e| e.to_string())
 }

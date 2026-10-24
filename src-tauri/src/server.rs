@@ -106,8 +106,8 @@ pub fn write_env(dir: &Path, updates: &[(&str, String)]) -> Result<()> {
         env.insert(k.to_string(), clean_value(v).replace('"', ""));
     }
     let mut lines = vec![
-        "# Einstellungen des Bedienfensters für diesen Server".to_string(),
-        "# (wird beim Start gelesen, nicht ausgeführt)".to_string(),
+        "# Vapafane settings for this server".to_string(),
+        "# (read on start, not executed)".to_string(),
     ];
     for (k, v) in &env {
         if v.contains(' ') {
@@ -155,7 +155,7 @@ pub fn accept_eula(dir: &Path) -> Result<()> {
     let now = chrono::Local::now().format("%d.%m.%Y %H:%M");
     fs::write(
         dir.join("eula.txt"),
-        format!("# Akzeptiert über Vapafane am {now}\neula=true\n"),
+        format!("# Accepted via Vapafane on {now}\neula=true\n"),
     )?;
     Ok(())
 }
@@ -353,7 +353,7 @@ pub fn prepare_server(dir: &Path, accept: bool) -> Result<(ServerInfo, Vec<Strin
     }
     write_env(dir, &env)?;
     if info.jar.is_empty() && info.kind != "forge" && info.kind != "neoforge" {
-        notes.push("Keine Server-Jar gefunden. Bitte die Jar in den Ordner legen.".into());
+        notes.push(crate::sprache::t!("err-keine-jar"));
     }
     Ok((info, notes))
 }
@@ -412,7 +412,7 @@ pub fn launch_command(dir: &Path) -> Result<(String, Vec<String>)> {
     } else {
         let info = detect_server(dir);
         if info.jar.is_empty() {
-            return util::err(format!("Keine Server-Jar gefunden (MC_JAR={jar})"));
+            return util::err(crate::sprache::t!("err-keine-jar-name", jar = jar.to_string()));
         }
         args.push("-jar".into());
         args.push(info.jar);

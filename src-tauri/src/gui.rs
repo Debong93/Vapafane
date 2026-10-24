@@ -152,7 +152,7 @@ pub async fn get_live(app: AppHandle) -> Cmd<Value> {
             *guard = Some(Rcon::new(&dir).with_timeout(Duration::from_secs(4)));
         }
         let Some(rcon) = guard.as_mut() else {
-            return err("Keine RCON-Verbindung");
+            return err(crate::sprache::t!("err-rcon-weg"));
         };
         let list = rcon.command("list")?;
         let tick = rcon.command("tick query").unwrap_or_default();
@@ -296,7 +296,7 @@ pub async fn send_command(app: AppHandle, cmd: String) -> Cmd<String> {
         }
         match guard.as_mut() {
             Some(r) => r.command(c),
-            None => err("Keine RCON-Verbindung"),
+            None => err(crate::sprache::t!("err-rcon-weg")),
         }
     })
     .await
@@ -532,7 +532,7 @@ pub(crate) fn stop_and_wait(progress: &(dyn Fn(f64, &str) + Sync)) -> Result<()>
         "other" => return err(crate::sprache::t!("err-start-anderer")),
         _ => {}
     }
-    progress(0.0, "Stoppe Server (speichert die Welt) …");
+    progress(0.0, &crate::sprache::t!("fort-stoppe"));
     let _ = ipc::call("stop", json!({"warn": 0}));
     for _ in 0..240 {
         std::thread::sleep(Duration::from_secs(1));
@@ -651,7 +651,7 @@ pub fn open_folder(app: AppHandle, which: String) -> Cmd<()> {
         "datapacks" => dir.join(crate::updater::level_name(&dir)).join("datapacks"),
         "backups" => cfg.backup_dir_for(&cfg.name_of(&dir)),
         "logs" => dir.join("logs"),
-        _ => return Err("Unbekannter Ordner".into()),
+        _ => return Err(crate::sprache::t!("err-ordner-unbekannt").into()),
     };
     let _ = fs::create_dir_all(&path);
     app.opener()
@@ -786,7 +786,7 @@ pub fn run() -> i32 {
     match result {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("Fenster konnte nicht gestartet werden: {e}");
+            eprintln!("{}", crate::sprache::t!("err-fenster", fehler = e.to_string()));
             1
         }
     }

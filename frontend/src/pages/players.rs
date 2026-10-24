@@ -134,9 +134,9 @@ pub fn Players() -> impl IntoView {
             } else {
                 tauri::invoke::<()>("whitelist_remove_offline", json!({ "name": name }))
                     .await
-                    .map(|_| format!("{name} entfernt."))
+                    .map(|_| crate::sprache::t!("spi-entfernt", name = name.clone()))
             };
-            hint.set(r.unwrap_or_else(|e| format!("Fehler: {e}")));
+            hint.set(r.unwrap_or_else(|e| crate::sprache::t!("kon-fehler", fehler = e)));
             reload_soon();
         });
     };

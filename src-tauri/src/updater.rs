@@ -285,7 +285,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
     };
     let loaders = kind.loaders();
     let sub = kind.mod_dir().unwrap_or("");
-    progress(0.05, "Lese installierte Mods und Plugins …");
+    progress(0.05, &crate::sprache::t!("fort-lese-mods"));
     let mut mods = if sub.is_empty() { vec![] } else { installed_in(dir, sub) };
     // Ausgeschaltete mitprüfen: gibt es jetzt eine passende Version, wird sie wieder eingeschaltet
     let disabled = if sub.is_empty() {
@@ -418,7 +418,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         }
     }
 
-    progress(0.75, "Lade Namen der Mods …");
+    progress(0.75, &crate::sprache::t!("fort-lade-namen"));
     let ids: HashSet<String> = mods
         .iter()
         .chain(&extra)
@@ -520,7 +520,7 @@ pub fn apply(
         let Some(f) = &m.new_file else { continue };
         let name = safe_filename(&f.filename)?;
         let sub = if m.kind == "datapack" { "datapacks" } else { "mods" };
-        let text = format!("Lade {} {} …", m.title, m.new_version.clone().unwrap_or_default());
+        let text = crate::sprache::t!("fort-lade-version", name = m.title.clone(), version = m.new_version.clone().unwrap_or_default());
         progress(i as f64 / total, &text);
         net::download(
             &f.url,
@@ -534,13 +534,13 @@ pub fn apply(
         )?;
     }
     if let Some(art) = &plan.server {
-        progress(downloads.len() as f64 / total, &format!("Lade {} …", art.label));
+        progress(downloads.len() as f64 / total, &crate::sprache::t!("fort-lade", name = art.label.to_string()));
         let name = safe_filename(&art.file)?;
         art.download(&staging.join("server").join(&name), &|_| {})?;
     }
 
     // Ab hier wird getauscht – alles ist heruntergeladen und geprüft
-    progress(0.97, "Tausche Dateien …");
+    progress(0.97, &crate::sprache::t!("fort-tausche"));
     fs::create_dir_all(alt.join("mods"))?;
     fs::create_dir_all(alt.join("datapacks"))?;
     // Ersetzte Dateien kommen nach .panel-alt (nach geglücktem Start wird aufgeräumt).
@@ -652,7 +652,7 @@ pub fn apply(
             }
             Kind::NeoForge => {
                 // Der Installer legt die neue Version zusätzlich ab; die alte räumt das Aufräumen weg
-                progress(0.98, &format!("Richte {} ein …", art.label));
+                progress(0.98, &crate::sprache::t!("fort-richte-ein", name = art.label.to_string()));
                 flavor::run_neoforge_installer(&new, dir, &java, &|_, _| {})?;
                 env.push(("MC_JAR", String::new()));
             }
@@ -665,7 +665,7 @@ pub fn apply(
     }
     server::write_env(dir, &env)?;
     let _ = fs::remove_dir_all(&staging);
-    progress(1.0, "Dateien getauscht.");
+    progress(1.0, &crate::sprache::t!("fort-getauscht"));
     Ok(alt)
 }
 

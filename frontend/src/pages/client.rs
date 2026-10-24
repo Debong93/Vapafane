@@ -376,7 +376,7 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
     let open_dir = move |d: String| {
         leptos::task::spawn_local(async move {
             if let Err(e) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await {
-                show_error("Ordner", e);
+                show_error(crate::sprache::t!("gem-ordner"), e);
             }
         })
     };
@@ -387,7 +387,7 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
         move |_| crate::pages::extras::show_guide(t.clone(), name.clone(), d.clone(), loader.clone())
     };
     if modrinth && !update.is_null() {
-        let inst = format!("„{}“", update.s("name"));
+        let inst = crate::sprache::t!("gem-zitat", text = update.s("name"));
         let inst2 = inst.clone();
         return view! {
             <p class="hint">"✓ "{t!("cli-paket-update-1")}" "<b>{inst}</b>" – "{t!("cli-paket-update-2")}</p>

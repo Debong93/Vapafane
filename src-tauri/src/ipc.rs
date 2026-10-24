@@ -80,11 +80,11 @@ pub fn call_at(file: &std::path::Path, cmd: &str, arg: Value) -> Result<Value> {
     sock.write_all(line.as_bytes())?;
     let mut resp = String::new();
     BufReader::new(sock).read_line(&mut resp)?;
-    let resp: Response = serde_json::from_str(&resp).map_err(|_| Error("Keine Antwort vom Dienst".into()))?;
+    let resp: Response = serde_json::from_str(&resp).map_err(|_| Error(crate::sprache::t!("err-dienst-antwort")))?;
     if resp.ok {
         Ok(resp.data)
     } else {
-        Err(Error(resp.error.unwrap_or_else(|| "Fehler im Dienst".into())))
+        Err(Error(resp.error.unwrap_or_else(|| crate::sprache::t!("err-dienst-fehler"))))
     }
 }
 

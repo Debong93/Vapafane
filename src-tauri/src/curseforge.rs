@@ -153,9 +153,9 @@ fn request(k: &str, method: &str, path: &str, query: &[(&str, String)], body: Op
             .read_json()
             .map_err(|e| clean(crate::sprache::t!("cf-err-antwort", fehler = e.to_string()), k)),
         401 | 403 => err(crate::sprache::t!("cf-err-abgelehnt")),
-        404 => err("Bei CurseForge nicht gefunden."),
-        429 => err("CurseForge meldet zu viele Anfragen – bitte kurz warten."),
-        code => err(format!("CurseForge antwortet mit Fehler {code}.")),
+        404 => err(crate::sprache::t!("cf-err-404")),
+        429 => err(crate::sprache::t!("cf-err-429")),
+        code => err(crate::sprache::t!("cf-err-code", code = code.to_string())),
     }
 }
 
@@ -199,7 +199,7 @@ fn class_id(slug: &str) -> Result<u64> {
     }
     g.as_ref()
         .and_then(|m| m.get(slug).copied())
-        .ok_or_else(|| Error(format!("CurseForge-Bereich „{slug}“ nicht gefunden.")))
+        .ok_or_else(|| Error(crate::sprache::t!("cf-err-bereich", bereich = slug.to_string())))
 }
 
 /// Was auf CurseForge gesucht wird: (Klassen-Slug, Loader-Typ)

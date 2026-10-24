@@ -118,7 +118,7 @@ fn old_version_files(dir: &Path, version: &str, loader: &str) -> Vec<Candidate> 
     }
     for v in subdirs(&dir.join("versions")) {
         if v.file_name().map(|n| n.to_string_lossy() != version).unwrap_or(false) {
-            out.push(cand(dir, v, "Dateien einer alten Minecraft-Version"));
+            out.push(cand(dir, v, &crate::sprache::t!("cln-alte-mc-dateien")));
         }
     }
     let fabric = dir.join(".fabric");
@@ -136,7 +136,7 @@ fn old_version_files(dir: &Path, version: &str, loader: &str) -> Vec<Candidate> 
             let current = n == format!("{version}-server.jar")
                 || (n.ends_with(&format!("-minecraft-{version}.jar")) && (loader.is_empty() || n.contains(loader)));
             if !current {
-                out.push(cand(dir, e.path(), "Server-Datei einer alten Version"));
+                out.push(cand(dir, e.path(), &crate::sprache::t!("cln-alte-server-datei")));
             }
         }
     }
@@ -145,7 +145,7 @@ fn old_version_files(dir: &Path, version: &str, loader: &str) -> Vec<Candidate> 
         for e in rd.filter_map(|e| e.ok()) {
             let n = e.file_name().to_string_lossy().into_owned();
             if n.starts_with("mojang_") && n.ends_with(".jar") && n != format!("mojang_{version}.jar") {
-                out.push(cand(dir, e.path(), "Minecraft-Datei einer alten Version"));
+                out.push(cand(dir, e.path(), &crate::sprache::t!("cln-alte-mc-datei")));
             }
         }
     }
@@ -185,7 +185,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
             .map(|n| n.to_string_lossy().starts_with("vor_Update_"))
             .unwrap_or(false)
         {
-            out.push(cand(dir, v, "Dateien vor einem Update (das ZIP-Backup davon bleibt)"));
+            out.push(cand(dir, v, &crate::sprache::t!("cln-vor-update")));
         }
     }
     let processed = dir.join(".fabric").join("processedMods");
@@ -205,7 +205,7 @@ pub fn candidates(dir: &Path) -> Vec<Candidate> {
 pub fn after_update(dir: &Path, alt: &Path, version: &str, loader: &str) -> Vec<Candidate> {
     let mut out = vec![];
     if alt.exists() {
-        out.push(cand(dir, alt.to_path_buf(), "ersetzte Dateien aus diesem Update"));
+        out.push(cand(dir, alt.to_path_buf(), &crate::sprache::t!("cln-ersetzt")));
     }
     out.extend(old_version_files(dir, version, loader));
     out

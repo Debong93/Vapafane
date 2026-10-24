@@ -29,8 +29,8 @@ static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
 
 fn net_err(e: ureq::Error) -> Error {
     match e {
-        ureq::Error::StatusCode(code) => Error(format!("Server antwortet mit Fehler {code}")),
-        other => Error(format!("Keine Verbindung: {other}")),
+        ureq::Error::StatusCode(code) => Error(crate::sprache::t!("err-http-code", code = code.to_string())),
+        other => Error(crate::sprache::t!("err-keine-verbindung", fehler = other.to_string())),
     }
 }
 
@@ -111,16 +111,14 @@ pub fn send_polite(
         let wait = header_u64(&resp, "retry-after").unwrap_or(2u64 << attempt).clamp(1, 60);
         pause(&host, wait);
     }
-    err(format!(
-        "{host} meldet zu viele Anfragen. Bitte ein paar Minuten warten und es dann nochmal versuchen."
-    ))
+    err(crate::sprache::t!("err-zu-viele-anfragen", host = host.to_string()))
 }
 
 /// Fehlercodes (ab 400) in eine Meldung verwandeln.
 fn ok_status(resp: Response) -> Result<Response> {
     let code = resp.status().as_u16();
     if code >= 400 {
-        return err(format!("Server antwortet mit Fehler {code}"));
+        return err(crate::sprache::t!("err-http-code", code = code.to_string()));
     }
     Ok(resp)
 }
@@ -293,7 +291,7 @@ pub fn fabric_server_jar_url(game: &str) -> Result<(String, String)> {
         .find(|i| i.get("stable").and_then(|s| s.as_bool()).unwrap_or(false))
         .or(installers.first())
         .and_then(|i| i.get("version").and_then(|v| v.as_str()))
-        .ok_or_else(|| Error("Kein Fabric-Installer gefunden".into()))?
+        .ok_or_else(|| Error(crate::sprache::t!("err-fabric-installer")))?
         .to_string();
     Ok((
         format!("https://meta.fabricmc.net/v2/versions/loader/{game}/{loader}/{installer}/server/jar"),

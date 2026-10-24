@@ -114,6 +114,100 @@ fn alle_benutzten_schluessel_sind_uebersetzt() {
     assert!(fehlt.is_empty(), "In de.ftl fehlen: {fehlt:?}");
 }
 
+/// Quelltext ohne Test-Module (`#[cfg(test)]` vor `mod …`): Zeilen mit Nummer.
+fn ohne_tests(text: &str) -> Vec<(usize, &str)> {
+    let zeilen: Vec<&str> = text.lines().collect();
+    let mut out = vec![];
+    let mut i = 0;
+    while i < zeilen.len() {
+        let z = zeilen[i].trim();
+        if z == "#[cfg(test)]" && zeilen.get(i + 1).is_some_and(|n| n.trim_start().starts_with("mod ")) {
+            break; // Test-Modul steht am Dateiende
+        }
+        out.push((i + 1, zeilen[i]));
+        i += 1;
+    }
+    out
+}
+
+/// String-Literale einer Zeile (ohne Raw-Strings), mit Escape-Behandlung.
+fn literale_der_zeile(zeile: &str) -> Vec<String> {
+    let mut out = vec![];
+    let mut zeichen = zeile.chars().peekable();
+    let mut vorher = ' ';
+    while let Some(c) = zeichen.next() {
+        if c == '"' && vorher != '\'' && vorher != '#' {
+            let mut s = String::new();
+            while let Some(d) = zeichen.next() {
+                match d {
+                    '\\' => {
+                        zeichen.next();
+                    }
+                    '"' => break,
+                    _ => s.push(d),
+                }
+            }
+            out.push(s);
+        }
+        vorher = c;
+    }
+    out
+}
+
+/// Sieht der Text nach deutscher Oberflächen-Sprache aus? (Umlaute/Anführungszeichen
+/// oder typische deutsche Wörter – verglichen wird Wort für Wort.)
+fn klingt_deutsch(s: &str) -> bool {
+    const ZEICHEN: &[char] = &['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß', '„', '“'];
+    const WOERTER: &[&str] = &[
+        "nicht", "bitte", "Bitte", "kein", "keine", "Kein", "Keine", "ist", "der", "die", "das",
+        "und", "ein", "eine", "mit", "wird", "schon", "geht", "oder", "Unbekannt", "Unbekannter",
+        "Unbekanntes", "Unbekannte", "Sekunden", "Spieler", "Datei", "Dateien", "Ordner",
+        "Fehler", "falsch", "Benutzung", "Speicherplatz", "gefunden", "Anfragen", "Einladung",
+        "eingeben", "Warne", "Stoppe", "Lade", "Sortiere", "Starte", "Entpacke", "Kopiere", "Hole",
+        "Suche", "Tausche", "Lese", "doppelt", "passende", "unklar", "Treffer", "Quelle",
+        "entfernt", "gestartet", "gestoppt", "ausgeschaltet", "eingeschaltet", "aktualisiert",
+        "gespeichert", "angelegt", "fehlt", "Importiere", "Erstelle", "Richte",
+    ];
+    s.chars().any(|c| ZEICHEN.contains(&c))
+        || s.split(|c: char| !c.is_alphanumeric()).any(|w| WOERTER.contains(&w))
+}
+
+/// Ruft die Zeile `t!(` bzw. `::text(` auf? (`format!(` zählt nicht.)
+fn ruft_uebersetzung(zeile: &str) -> bool {
+    zeile.contains("::text(")
+        || zeile.match_indices("t!(").any(|(i, _)| {
+            i == 0 || !zeile[..i].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '_')
+        })
+}
+
+/// Fest eingebaute Texte, die bewusst so bleiben: Datei- und Ordnernamen, Sprach-Eigennamen.
+const FESTE_TEXTE_ERLAUBT: &[&str] = &["_vor_Wiederherstellung_", "Türkçe", "schemas.microsoft.com"];
+
+/// Nutzer-sichtbare Texte gehören in die Sprachdateien, nicht fest in den Quelltext.
+#[test]
+fn keine_festen_deutschen_texte() {
+    let mut funde = vec![];
+    for datei in quelldateien() {
+        let Ok(text) = fs::read_to_string(&datei) else { continue };
+        for (nr, zeile) in ohne_tests(&text) {
+            let z = zeile.trim_start();
+            if z.starts_with("//") || z.starts_with("#[") || ruft_uebersetzung(zeile) {
+                continue;
+            }
+            for lit in literale_der_zeile(zeile) {
+                // Sprach-Schlüssel selbst („kat-err-keine-version“) sind kein Text
+                let ist_schluessel =
+                    lit.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
+                if !ist_schluessel && klingt_deutsch(&lit) && !FESTE_TEXTE_ERLAUBT.iter().any(|e| lit.contains(e)) {
+                    let name = datei.strip_prefix(repo()).unwrap_or(&datei).display().to_string();
+                    funde.push(format!("{name}:{nr}: {lit}"));
+                }
+            }
+        }
+    }
+    assert!(funde.is_empty(), "Feste deutsche Texte ({}):\n{}", funde.len(), funde.join("\n"));
+}
+
 #[test]
 fn keine_ungenutzten_schluessel() {
     let quelltext = literale();

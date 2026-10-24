@@ -239,7 +239,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
                 .and_then(|a| a.iter().find(|v| v.get("id").and_then(|i| i.as_str()) == Some(game)))
                 .and_then(|v| v.get("url"))
                 .and_then(|u| u.as_str())
-                .ok_or_else(|| Error(format!("Minecraft {game} gibt es bei Mojang nicht.")))?;
+                .ok_or_else(|| Error(crate::sprache::t!("err-mc-gibt-es-nicht", mc = game.to_string())))?;
             let v = net::get_json(url)?;
             let s = v
                 .pointer("/downloads/server")
@@ -273,7 +273,7 @@ pub fn server_artifact(kind: Kind, game: &str) -> Result<Artifact> {
             };
             let d = b
                 .pointer("/downloads/server:default")
-                .ok_or_else(|| Error("Paper-Download fehlt".into()))?;
+                .ok_or_else(|| Error(crate::sprache::t!("err-paper-download")))?;
             Ok(Artifact {
                 url: d.get("url").and_then(|u| u.as_str()).unwrap_or_default().to_string(),
                 file: d
@@ -353,7 +353,7 @@ pub fn run_neoforge_installer(installer: &Path, dir: &Path, java: &str, progress
         .arg(dir)
         .current_dir(workdir)
         .output()
-        .map_err(|e| Error(format!("NeoForge-Installer konnte nicht starten ({java}): {e}")))?;
+        .map_err(|e| Error(crate::sprache::t!("err-neoforge-start", java = java.to_string(), fehler = e.to_string())))?;
     // Logdatei des Installers aufräumen
     if let Ok(rd) = fs::read_dir(workdir) {
         for e in rd.filter_map(|e| e.ok()) {
@@ -365,10 +365,7 @@ pub fn run_neoforge_installer(installer: &Path, dir: &Path, java: &str, progress
     if !out.status.success() {
         let text = String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
         let tail: Vec<&str> = text.lines().rev().take(8).collect();
-        return err(format!(
-            "NeoForge-Installer ist fehlgeschlagen:\n{}",
-            tail.into_iter().rev().collect::<Vec<_>>().join("\n")
-        ));
+        return err(crate::sprache::t!("err-neoforge-installer", details = tail.into_iter().rev().collect::<Vec<_>>().join("\n")));
     }
     Ok(())
 }
@@ -391,7 +388,7 @@ pub fn target_state(path: &Path) -> &'static str {
 /// Neuen Server anlegen. `target` muss frei oder leer sein.
 pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress: Progress) -> Result<PathBuf> {
     if !matches!(target_state(target), "free" | "empty") {
-        return err(format!("Der Ordner {} ist nicht leer.", target.display()));
+        return err(crate::sprache::t!("err-ordner-nicht-leer", ordner = target.display().to_string()));
     }
     let created_dir = !target.exists();
     fs::create_dir_all(target)?;
@@ -418,9 +415,9 @@ pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress
             })?;
         }
 
-        progress(0.15, &format!("Lade {} …", art.label));
+        progress(0.15, &crate::sprache::t!("fort-lade", name = art.label.to_string()));
         let dest = target.join(&art.file);
-        art.download(&dest, &|f| progress(0.15 + f * 0.35, &format!("Lade {} …", art.label)))?;
+        art.download(&dest, &|f| progress(0.15 + f * 0.35, &crate::sprache::t!("fort-lade", name = art.label.to_string())))?;
         let mut env = vec![
             ("MC_VERSION", game.to_string()),
             ("MC_TYPE", kind.id().to_string()),

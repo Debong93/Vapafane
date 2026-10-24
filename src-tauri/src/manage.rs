@@ -38,14 +38,14 @@ pub async fn select_server(path: String) -> Cmd<()> {
     blocking(move || {
         let mut cfg = Config::load();
         if !is_stopped(&cfg) {
-            return err("Umschalten geht nur, wenn der aktuelle Server gestoppt ist.");
+            return err(crate::sprache::t!("err-umschalten-laeuft"));
         }
         if crate::ops::current_job().is_some() {
-            return err("Bitte warten, bis die laufende Aufgabe fertig ist.");
+            return err(crate::sprache::t!("err-aufgabe-laeuft"));
         }
         let p = PathBuf::from(&path);
         if !p.is_dir() {
-            return err(format!("Ordner fehlt: {path}"));
+            return err(crate::sprache::t!("err-ordner-fehlt", ordner = path.to_string()));
         }
         cfg.set_active(Some(&p))
     })
@@ -60,14 +60,11 @@ pub async fn inspect_folder(path: String) -> Cmd<Value> {
         let info = server::detect_server(&root);
         let has_props = root.join("server.properties").is_file();
         if info.kind == "unbekannt" && !has_props {
-            return err(format!(
-                "In {} liegt weder eine Server-Jar noch eine server.properties.",
-                root.display()
-            ));
+            return err(crate::sprache::t!("err-kein-server-ordner", ordner = root.display().to_string()));
         }
         let cfg = Config::load();
         if cfg.entry(&root).is_some() {
-            return err("Dieser Ordner ist schon in der Liste.");
+            return err(crate::sprache::t!("err-ordner-doppelt"));
         }
         Ok(json!({
             "root": root,
@@ -85,7 +82,7 @@ pub async fn add_server(path: String, name: String, eula: bool) -> Cmd<Value> {
     blocking(move || {
         let name = name.trim().to_string();
         if name.is_empty() {
-            return err("Bitte einen Namen eingeben.");
+            return err(crate::sprache::t!("err-name-fehlt"));
         }
         let root = util::canonical(Path::new(&path));
         let (_info, notes) = server::prepare_server(&root, eula && !server::eula_accepted(&root))?;
@@ -102,7 +99,7 @@ pub async fn add_server(path: String, name: String, eula: bool) -> Cmd<Value> {
 
 #[tauri::command]
 pub fn import_server(app: AppHandle, archive: String, name: String, target: Option<String>) -> Cmd<()> {
-    run_task(&app, &format!("Importiere „{name}“"), move |progress| {
+    run_task(&app, &crate::sprache::t!("task-import", name = name.to_string()), move |progress| {
         let target = match target.filter(|t| !t.trim().is_empty()) {
             Some(t) => PathBuf::from(t),
             None => default_dir(&name)?,
@@ -140,7 +137,7 @@ pub fn check_dir(path: String, name: String) -> Cmd<Value> {
 #[tauri::command]
 pub async fn server_versions(kind: String) -> Cmd<Vec<String>> {
     blocking(move || {
-        let k = Kind::parse(&kind).ok_or_else(|| Error("Unbekannter Server-Typ".into()))?;
+        let k = Kind::parse(&kind).ok_or_else(|| Error(crate::sprache::t!("err-typ-unbekannt")))?;
         flavor::game_versions(k)
     })
     .await
@@ -148,10 +145,10 @@ pub async fn server_versions(kind: String) -> Cmd<Vec<String>> {
 
 #[tauri::command]
 pub fn create_server(app: AppHandle, kind: String, name: String, version: String, target: Option<String>) -> Cmd<()> {
-    let k = Kind::parse(&kind).ok_or_else(|| "Unbekannter Server-Typ".to_string())?;
+    let k = Kind::parse(&kind).ok_or_else(|| crate::sprache::t!("err-typ-unbekannt"))?;
     run_task(
         &app,
-        &format!("Erstelle {}-Server „{name}“", k.label()),
+        &crate::sprache::t!("task-erstelle", typ = k.label(), name = name.to_string()),
         move |progress| {
             let target = match target.filter(|t| !t.trim().is_empty()) {
                 Some(t) => PathBuf::from(t),
@@ -180,7 +177,7 @@ pub fn get_language() -> Value {
 pub fn set_language(language: String) -> Cmd<String> {
     let wunsch = language.trim().to_ascii_lowercase();
     if wunsch != "system" && !vapafane_shared::sprache::SPRACHEN.iter().any(|(c, ..)| *c == wunsch) {
-        return Err("Unbekannte Sprache".into());
+        return Err(crate::sprache::t!("err-sprache-unbekannt").into());
     }
     let mut cfg = Config::load();
     cfg.language = (wunsch != "system").then_some(wunsch);
@@ -205,7 +202,7 @@ pub async fn remove_server(path: String) -> Cmd<()> {
         let p = util::canonical(Path::new(&path));
         let is_active = cfg.active_path().as_deref() == Some(p.as_path());
         if is_active && !is_stopped(&cfg) {
-            return err("Bitte den Server erst stoppen.");
+            return err(crate::sprache::t!("err-erst-stoppen"));
         }
         cfg.servers.retain(|s| util::canonical(Path::new(&s.path)) != p);
         cfg.save()?;
@@ -290,9 +287,9 @@ pub async fn save_settings(props: BTreeMap<String, String>, ram_gb: u64) -> Cmd<
             .filter(|(k, v)| PROP_KEYS.iter().any(|(p, _)| p == k) && !v.is_empty())
             .collect();
         if let Some(port) = props.get("server-port") {
-            let p: u32 = port.parse().map_err(|_| Error("Port muss eine Zahl sein.".into()))?;
+            let p: u32 = port.parse().map_err(|_| Error(crate::sprache::t!("err-port-zahl")))?;
             if !(1024..=65535).contains(&p) {
-                return err("Port muss zwischen 1024 und 65535 liegen.");
+                return err(crate::sprache::t!("err-port-bereich"));
             }
         }
         server::write_properties(&dir, &props)?;
@@ -360,7 +357,7 @@ pub async fn set_daily_backup(on: bool) -> Cmd<()> {
 #[tauri::command]
 pub fn set_daily_time(time: String) -> Cmd<String> {
     let t = chrono::NaiveTime::parse_from_str(time.trim(), "%H:%M")
-        .map_err(|_| "Bitte eine Uhrzeit wie 05:00 angeben.".to_string())?;
+        .map_err(|_| crate::sprache::t!("err-uhrzeit"))?;
     let mut cfg = Config::load();
     cfg.daily_backup_time = t.format("%H:%M").to_string();
     cfg.save().map_err(|e| e.0)?;
@@ -381,7 +378,7 @@ pub async fn reach_check() -> Cmd<crate::reach::Report> {
         let cfg = Config::load();
         let dir = cfg
             .active_path()
-            .ok_or_else(|| Error("Noch kein Server angelegt.".into()))?;
+            .ok_or_else(|| Error(crate::sprache::t!("err-noch-kein-server")))?;
         crate::reach::check(&dir)
     })
     .await

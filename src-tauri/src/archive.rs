@@ -241,7 +241,7 @@ pub fn extract_archive(archive: &Path, dest: &Path, progress: Progress) -> Resul
             };
             extract_tar(reader, dest, total, progress)?;
         }
-        None => return err("Unbekanntes Archivformat (erlaubt: .zip, .tar, .tar.gz, .tar.zst)"),
+        None => return err(crate::sprache::t!("err-archivformat")),
     }
     Ok(server::find_server_root(dest))
 }
@@ -294,7 +294,7 @@ fn extract_zip(archive: &Path, dest: &Path, progress: Progress) -> Result<()> {
             let _ = fs::set_permissions(&target, fs::Permissions::from_mode(mode));
         }
         done += f.size();
-        progress(done as f64 / total as f64, &format!("Entpacke {}", short(&raw_name)));
+        progress(done as f64 / total as f64, &crate::sprache::t!("fort-entpacke", datei = short(&raw_name)));
     }
     Ok(())
 }
@@ -328,7 +328,7 @@ fn extract_tar(reader: Box<dyn Read>, dest: &Path, _total: u64, progress: Progre
         }
         count += 1;
         if count.is_multiple_of(50) {
-            progress(0.5, &format!("Entpacke {}", short(&rel.to_string_lossy())));
+            progress(0.5, &crate::sprache::t!("fort-entpacke", datei = short(&rel.to_string_lossy())));
         }
     }
     Ok(())
@@ -338,7 +338,7 @@ fn extract_tar(reader: Box<dyn Read>, dest: &Path, _total: u64, progress: Progre
 pub fn import_archive_to(archive: &Path, target: &Path, progress: Progress) -> Result<PathBuf> {
     match crate::flavor::target_state(target) {
         "free" | "empty" => {}
-        _ => return err(format!("Der Ordner {} ist nicht leer.", target.display())),
+        _ => return err(crate::sprache::t!("err-ordner-nicht-leer", ordner = target.display().to_string())),
     }
     let parent = target.parent().unwrap_or(Path::new("."));
     fs::create_dir_all(parent)?;

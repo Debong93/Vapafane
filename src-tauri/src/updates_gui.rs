@@ -143,7 +143,7 @@ fn start_and_wait(progress: Progress, from: f64) -> Result<()> {
         );
         std::thread::sleep(Duration::from_secs(2));
     }
-    err("Der Server war nach 15 Minuten noch nicht fertig gestartet.")
+    err(crate::sprache::t!("err-start-timeout"))
 }
 
 #[tauri::command]
@@ -178,13 +178,13 @@ pub fn do_update(
         return err(crate::sprache::t!("err-start-extern"));
     }
     if matches!(st.as_str(), "running" | "starting") && players_online(dir) {
-        progress(0.0, "Warne Spieler (30 Sekunden) …");
+        progress(0.0, &crate::sprache::t!("fort-warne"));
         let _ = Rcon::new(dir).command(&format!("say {}", crate::sprache::t!("say-update-neustart")));
         ipc::call("stop", json!({"warn": 30}))?;
     }
     stop_and_wait(progress)?;
 
-    progress(0.0, "Erstelle Backup …");
+    progress(0.0, &crate::sprache::t!("fort-backup"));
     let cfg = Config::load();
     let backup = archive::backup_server(dir, &cfg.name_of(dir), &cfg, &|f, t| progress(f * 0.5, t))?;
     let mut cfg = Config::load();
@@ -198,7 +198,7 @@ pub fn do_update(
     let alt = updater::apply(dir, plan, disable_missing, disable_unknown, &|f, t| {
         progress(0.5 + f * 0.3, t)
     })?;
-    progress(0.8, "Starte Server (der erste Start kann ein paar Minuten dauern) …");
+    progress(0.8, &crate::sprache::t!("fort-starte"));
     let res = start_and_wait(progress, 0.85);
     // Erst nach geglücktem Start aufräumen – bei Fehlern bleibt alles für den Rückweg liegen
     let mut cleaned = json!(null);
@@ -245,7 +245,7 @@ pub async fn mod_set_enabled(rel: String, on: bool) -> Cmd<Value> {
         let running = !matches!(state().as_str(), "stopped" | "failed" | "none");
         if let Err(e) = mods::set_enabled(&dir, &rel, on) {
             if running {
-                return err(format!("{e}\nBitte erst den Server stoppen."));
+                return err(format!("{e}\n{}", crate::sprache::t!("err-erst-stoppen")));
             }
             return Err(e);
         }
@@ -342,7 +342,7 @@ fn copy_server(src: &Path, dest: &Path, progress: Progress) -> Result<()> {
                 continue;
             }
             done += fs::copy(e.path(), &target)?;
-            progress(done as f64 / total as f64, &format!("Kopiere {}", rel.display()));
+            progress(done as f64 / total as f64, &crate::sprache::t!("fort-kopiere", datei = rel.display().to_string()));
         }
     }
     Ok(())
@@ -438,7 +438,7 @@ fn trial_inner(
         progress(0.4 + f * 0.2, t)
     })?;
 
-    progress(0.6, &format!("Starte die Kopie auf Port {game_port} …"));
+    progress(0.6, &crate::sprache::t!("fort-starte-kopie", port = game_port.to_string()));
     let (java, args) = server::launch_command(copy)?;
     let mut child = util::command(&java)
         .args(&args)
@@ -447,7 +447,7 @@ fn trial_inner(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| Error(format!("Java konnte nicht gestartet werden ({java}): {e}")))?;
+        .map_err(|e| Error(crate::sprache::t!("svc-err-java-start", java = java.to_string(), fehler = e.to_string())))?;
     let lines: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
     for stream in [
         child
@@ -491,7 +491,7 @@ fn trial_inner(
     }
 
     if exited.is_none() {
-        progress(0.92, "Stoppe die Kopie …");
+        progress(0.92, &crate::sprache::t!("fort-stoppe-kopie"));
         let mut stopped = Rcon::new(copy).command("stop").is_ok();
         if !stopped && let Some(stdin) = child.stdin.as_mut() {
             use std::io::Write;

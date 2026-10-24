@@ -154,7 +154,7 @@ pub fn open_folder(which: &'static str) {
         if let Err(e) =
             tauri::invoke::<()>("open_folder", serde_json::json!({ "which": which })).await
         {
-            crate::dialog::error("Ordner", e).await;
+            crate::dialog::error(crate::sprache::t!("gem-ordner"), e).await;
         }
     });
 }

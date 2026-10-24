@@ -33,10 +33,7 @@ pub fn ensure_service() -> Result<()> {
             .args(["--user", "start", crate::autostart::UNIT])
             .output()?;
         if !out.status.success() {
-            return err(format!(
-                "Dienst konnte nicht gestartet werden: {}",
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
+            return err(crate::sprache::t!("err-dienst-start", details = String::from_utf8_lossy(&out.stderr).trim().to_string()));
         }
         return wait_for_service();
     }
@@ -52,10 +49,7 @@ fn wait_for_service() -> Result<()> {
         }
         std::thread::sleep(Duration::from_millis(200));
     }
-    err(format!(
-        "Der Hintergrund-Dienst antwortet nicht. Details stehen in {}",
-        config::state_dir().join("dienst.log").display()
-    ))
+    err(crate::sprache::t!("err-dienst-stumm", datei = config::state_dir().join("dienst.log").display().to_string()))
 }
 
 fn spawn_detached() -> Result<()> {

@@ -289,10 +289,7 @@ mod windows {
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])
             .output()?;
         if !out.status.success() {
-            return err(format!(
-                "Aufgabenplanung hat nicht geklappt (abgebrochen oder keine Berechtigung). {}",
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
+            return err(crate::sprache::t!("err-aufgabenplanung", details = String::from_utf8_lossy(&out.stderr).trim().to_string()));
         }
         Ok(())
     }

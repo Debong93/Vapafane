@@ -38,7 +38,7 @@ fn target(dir: &Path, what: What) -> Result<Target> {
     let info = server::detect_server(dir);
     let kind = Kind::parse(&info.kind).ok_or_else(|| Error(crate::sprache::t!("kat-err-typ")))?;
     if info.version.is_empty() {
-        return err("Die Minecraft-Version des Servers ist unbekannt (einmal starten hilft).");
+        return err(crate::sprache::t!("err-mc-unbekannt"));
     }
     let datapacks = what == What::Datapacks || kind == Kind::Vanilla;
     Ok(if datapacks {
@@ -251,7 +251,7 @@ fn cf_only(t: &Target, query: &str, index: u32, modrinth_hits: &Value) -> Result
 /// Projekt-ID oder Slug → Projekt-ID und Titel.
 fn project_info(id_or_slug: &str) -> Result<(String, String)> {
     let p = net::get_json(&format!("{API}/project/{id_or_slug}"))
-        .map_err(|_| Error(format!("Projekt „{id_or_slug}“ gibt es auf Modrinth nicht.")))?;
+        .map_err(|_| Error(crate::sprache::t!("kat-err-projekt", projekt = id_or_slug.to_string())))?;
     let id = p.get("id").and_then(|i| i.as_str()).unwrap_or(id_or_slug).to_string();
     let title = p
         .get("title")
@@ -272,7 +272,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
     let mut have = installed_projects(dir)?;
     let (root_id, root_title) = project_info(project)?;
     if have.contains(&root_id) {
-        return err(format!("„{root_title}“ ist schon installiert."));
+        return err(crate::sprache::t!("kat-err-schon-da", name = root_title.to_string()));
     }
     let dest_dir = dir.join(&t.sub);
     fs::create_dir_all(&dest_dir)?;
@@ -312,7 +312,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
                 missing.push(title);
                 continue;
             };
-            let file = updater::primary_file(&version).ok_or_else(|| Error(format!("„{title}“ hat keine Datei.")))?;
+            let file = updater::primary_file(&version).ok_or_else(|| Error(crate::sprache::t!("kat-err-keine-datei", name = title.to_string())))?;
             let name = updater::safe_filename(&file.filename)?;
             if dest_dir.join(&name).exists() || dest_dir.join(format!("{name}{}", mods::DISABLED)).exists() {
                 skipped.push(title);
@@ -320,7 +320,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
             }
             progress(
                 0.1 + 0.6 * (planned.len() as f64 / (planned.len() + queue.len() + 1) as f64),
-                &format!("Lade {title} …"),
+                &crate::sprache::t!("fort-lade", name = title.to_string()),
             );
             net::download(
                 &file.url,
@@ -368,7 +368,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
                 queue.push((dep_pid, dep_title, false));
             }
         }
-        progress(0.9, "Sortiere ein …");
+        progress(0.9, &crate::sprache::t!("fort-sortiere"));
         for (_, _, name) in &planned {
             fs::rename(staging.join(name), dest_dir.join(name))?;
         }
@@ -393,7 +393,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
 fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<Value> {
     let have = installed_projects(dir)?;
     if have.contains(&format!("cf:{root}")) {
-        return err("Das ist schon installiert.");
+        return err(crate::sprache::t!("kat-err-installiert"));
     }
     let dest_dir = dir.join(&t.sub);
     fs::create_dir_all(&dest_dir)?;
@@ -441,7 +441,7 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
                 manual.push(json!({"title": title, "page": curseforge::file_page(&m, &file), "file": name}));
                 continue;
             };
-            progress(0.5, &format!("Lade {title} von CurseForge …"));
+            progress(0.5, &crate::sprache::t!("fort-lade-cf", name = title.to_string()));
             net::download(
                 &url,
                 &staging.join(&name),
@@ -462,7 +462,7 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
                 queue.push((dep, false));
             }
         }
-        progress(0.9, "Sortiere ein …");
+        progress(0.9, &crate::sprache::t!("fort-sortiere"));
         for (_, _, name, mid, fid) in &planned {
             fs::rename(staging.join(name), dest_dir.join(name))?;
             mods::set_source(
