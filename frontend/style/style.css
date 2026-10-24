@@ -498,6 +498,13 @@ body.client-mode .tabs { height: 0; overflow: hidden; }
 
 .dest { margin: 10px 0 4px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .dest .check { margin: 4px 0; }
+.take { margin: 10px 0 4px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.take .row { margin: 0; }
+.take select { min-width: 0; max-width: 100%; }
+.take-parts { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 6px 0 2px; }
+.take-parts .check { margin: 2px 0; }
+ol.steps { padding-left: 22px; margin: 6px 0 10px; }
+ol.steps li { margin: 4px 0; }
 
 /* ================================================================ Minecraft-Look
    Eigene Nachbildung des typischen Stils: eckige Flächen mit 2-px-Pixelrand

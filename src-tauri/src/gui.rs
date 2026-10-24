@@ -739,6 +739,8 @@ pub fn run() -> i32 {
             crate::clients_gui::client_preview,
             crate::clients_gui::client_pick_file,
             crate::clients_gui::client_install,
+            crate::clients_gui::client_sources,
+            crate::clients_gui::client_source,
             crate::clients_gui::client_list,
             crate::clients_gui::client_status,
             crate::clients_gui::client_remove,

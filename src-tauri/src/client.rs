@@ -18,7 +18,9 @@ use crate::archive::Progress;
 use crate::config;
 use crate::flavor::{self, Kind};
 use crate::invite::{Invite, InviteMod};
+use crate::nbt;
 use crate::net;
+use crate::transfer::{self, Take};
 use crate::updater;
 use crate::util::{self, Error, Result, err};
 
@@ -245,30 +247,13 @@ fn java_for(need: u32, launcher: &Path) -> Option<String> {
         .find(|j| crate::java::java_major(j) >= need)
 }
 
-// ---------------------------------------------------------------- servers.dat (NBT)
+// ---------------------------------------------------------------- servers.dat
 
-fn nbt_str(out: &mut Vec<u8>, s: &str) {
-    out.extend_from_slice(&(s.len() as u16).to_be_bytes());
-    out.extend_from_slice(s.as_bytes());
-}
-
-/// servers.dat mit genau diesem Server (das Spielverzeichnis gehört Vapafane).
-fn write_servers_dat(game_dir: &Path, name: &str, address: &str) -> Result<()> {
-    let mut b = vec![10u8]; // Compound (Wurzel)
-    nbt_str(&mut b, "");
-    b.push(9); // Liste
-    nbt_str(&mut b, "servers");
-    b.push(10); // aus Compounds
-    b.extend_from_slice(&1i32.to_be_bytes());
-    b.push(8);
-    nbt_str(&mut b, "name");
-    nbt_str(&mut b, name);
-    b.push(8);
-    nbt_str(&mut b, "ip");
-    nbt_str(&mut b, address);
-    b.push(0); // Ende Server
-    b.push(0); // Ende Wurzel
-    util::write_atomic(&game_dir.join("servers.dat"), &b)
+/// Server-Liste für einen Spielordner: vorhandene Einträge bleiben (auch die der übernommenen
+/// Quelle), der Server dieser Einladung steht sicher drin.
+fn servers_dat(lists: &[Vec<u8>], name: &str, address: &str) -> Vec<u8> {
+    let refs: Vec<&[u8]> = lists.iter().map(Vec::as_slice).collect();
+    nbt::servers_with(&refs, name, address)
 }
 
 // ---------------------------------------------------------------- Vorschau
@@ -487,7 +472,16 @@ pub fn preview(inv: &Invite, zip: Option<&Path>) -> Result<Value> {
         "launcher": !launcher_dirs().is_empty(),
         "profiles": !profile_files().is_empty(),
         "default_dir": default_dir(&inv.name),
+        "modrinth_existing": modrinth_existing(inv)
+            .iter()
+            .filter_map(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .collect::<Vec<_>>(),
     }))
+}
+
+/// Instanzen in der Modrinth-App, die aus einem früheren Paket dieses Servers stammen.
+fn modrinth_existing(inv: &Invite) -> Vec<PathBuf> {
+    transfer::modrinth_instances_for(&util::safe_name(&inv.name), &transfer::modrinth_profile_dirs())
 }
 
 // ---------------------------------------------------------------- Einrichten
@@ -569,6 +563,7 @@ pub fn install(
     zip: Option<&Path>,
     target: Option<&Path>,
     selected: &HashSet<String>,
+    take: Option<&Take>,
     progress: Progress,
 ) -> Result<Value> {
     let kind = kind_of(inv);
@@ -763,8 +758,22 @@ pub fn install(
         }
     };
 
+    let mut taken = Value::Null;
+    if let Some(t) = take {
+        progress(0.85, "Übernehme Einstellungen …");
+        let files = transfer::gather(t)?;
+        taken = transfer::copy_missing(&files, &game_dir)?.json(&t.dir, t.has("servers"));
+    }
+
     progress(0.9, "Trage den Server ein …");
-    write_servers_dat(&game_dir, &inv.name, &game_address(inv))?;
+    let lists: Vec<Vec<u8>> = [fs::read(game_dir.join("servers.dat")).ok(), take.and_then(Take::servers)]
+        .into_iter()
+        .flatten()
+        .collect();
+    util::write_atomic(
+        &game_dir.join("servers.dat"),
+        &servers_dat(&lists, &inv.name, &game_address(inv)),
+    )?;
     let key = profile_key(&inv.name);
     let files = profile_files();
     for f in &files {
@@ -801,6 +810,7 @@ pub fn install(
         "manual": manual,
         "notes": notes,
         "profile": !files.is_empty(),
+        "taken": taken,
     }))
 }
 
@@ -992,14 +1002,22 @@ pub fn open_modrinth_app() -> Result<()> {
 }
 
 /// Aus der Einladung ein Modrinth-Paket (.mrpack) bauen und – wenn gewünscht – öffnen.
+///
+/// `update`: Gibt es in der Modrinth-App schon eine Instanz aus einem früheren Paket dieses
+/// Servers, wird das Paket für deren „Modpack neu installieren“ gebaut (Welten, Optionen usw.
+/// bleiben dort, die Server-Liste der Instanz wird übernommen) und nicht als neue Instanz
+/// geöffnet. Sonst entsteht beim Import eine neue Instanz – mit den Einstellungen aus `take`.
 pub fn install_mrpack(
     inv: &Invite,
     zip: Option<&Path>,
     selected: &HashSet<String>,
+    take: Option<&Take>,
+    update: bool,
     open: bool,
     progress: Progress,
 ) -> Result<Value> {
     let kind = kind_of(inv);
+    let instance = if update { modrinth_existing(inv).into_iter().next() } else { None };
     let dir = default_dir(&inv.name);
     let meta_path = dir.join(META);
     if !meta_path.exists() && dir.exists() && fs::read_dir(&dir)?.next().is_some() {
@@ -1096,6 +1114,23 @@ pub fn install_mrpack(
         "files": files,
         "dependencies": deps,
     });
+    // Einstellungen übernehmen – nur für eine neue Instanz (eine vorhandene behält ihre eigenen)
+    let take = if instance.is_some() { None } else { take };
+    let taken_files = match take {
+        Some(t) => {
+            progress(0.82, "Sammle die Einstellungen …");
+            transfer::gather(t)?
+        }
+        None => Default::default(),
+    };
+    // Server-Liste: die der vorhandenen Instanz bzw. der Quelle, dazu dieser Server
+    let lists: Vec<Vec<u8>> = match &instance {
+        Some(i) => fs::read(i.join("servers.dat")).ok().into_iter().collect(),
+        None => take.and_then(Take::servers).into_iter().collect(),
+    };
+    let servers = servers_dat(&lists, &inv.name, &game_address(inv));
+    let taken: Option<Value>;
+
     progress(0.85, "Packe das Modrinth-Paket …");
     let pack = dir.join(format!("{}.mrpack", util::safe_name(&inv.name)));
     let tmp = pack.with_extension("part");
@@ -1104,10 +1139,17 @@ pub fn install_mrpack(
         let o = zip::write::SimpleFileOptions::default();
         z.start_file("modrinth.index.json", o)?;
         z.write_all(serde_json::to_string_pretty(&index)?.as_bytes())?;
-        // servers.dat mit dem Server-Eintrag
-        write_servers_dat(&dir, &inv.name, &game_address(inv))?;
+        // Übernommene Einstellungen (ohne Mods und Server-Liste – die kommen hier vom Server)
+        let copied = transfer::add_overrides(
+            &mut z,
+            &taken_files
+                .into_iter()
+                .filter(|(rel, _)| !rel.starts_with("mods/"))
+                .collect(),
+        )?;
+        taken = take.map(|t| copied.json(&t.dir, t.has("servers")));
         z.start_file("overrides/servers.dat", o)?;
-        z.write_all(&fs::read(dir.join("servers.dat"))?)?;
+        z.write_all(&servers)?;
         for (path, data) in &overrides {
             z.start_file(path.as_str(), o.compression_method(zip::CompressionMethod::Stored))?;
             z.write_all(data)?;
@@ -1115,9 +1157,8 @@ pub fn install_mrpack(
         z.finish()?;
     }
     fs::rename(&tmp, &pack)?;
-    let _ = fs::remove_file(dir.join("servers.dat"));
 
-    let opened = open && open_mrpack(&pack).is_ok();
+    let opened = instance.is_none() && open && open_mrpack(&pack).is_ok();
     let meta = json!({
         "invite": inv,
         "target": "modrinth",
@@ -1133,6 +1174,13 @@ pub fn install_mrpack(
         "target": "modrinth",
         "mrpack": pack,
         "opened": opened,
+        // So heißt die Instanz in der App (Name aus dem Paket); der Ordner nur zur Sicherheit
+        "update": instance.as_ref().map(|i| json!({
+            "name": format!("{} (Vapafane)", inv.name),
+            "folder": i.file_name().map(|n| n.to_string_lossy().into_owned()),
+            "dir": i,
+        })),
+        "taken": taken,
         "app": modrinth_app().is_some(),
         "installed": meta["mods"],
         "manual": manual,
@@ -1163,14 +1211,14 @@ mod tests {
 
     #[test]
     fn servers_dat_layout() {
-        let d = std::env::temp_dir().join(format!("vapafane-nbt-{}", std::process::id()));
-        fs::create_dir_all(&d).unwrap();
-        write_servers_dat(&d, "Welt", "a.b:1").unwrap();
-        let b = fs::read(d.join("servers.dat")).unwrap();
+        let b = servers_dat(&[], "Welt", "a.b:1");
         assert_eq!(&b[..3], &[10, 0, 0]);
         assert!(b.windows(4).any(|w| w == b"Welt"));
         assert_eq!(*b.last().unwrap(), 0);
-        fs::remove_dir_all(&d).unwrap();
+        // eigene Einträge bleiben beim erneuten Einrichten
+        let mine = nbt::servers_with(&[], "Mein Server", "mein.de");
+        let again = servers_dat(&[mine], "Welt", "a.b:1");
+        assert_eq!(nbt::addresses(&again), vec!["a.b:1", "mein.de"]);
     }
 
     #[test]

@@ -40,7 +40,7 @@ fn cleanup(display: &str) {
 
 /// Startet Xvfb + tauri-driver und räumt beim Beenden wieder auf.
 pub struct Env {
-    procs: Procs,
+    _procs: Procs,
     pub home: PathBuf,
     pub client: Client,
     pub shots: PathBuf,
@@ -95,7 +95,7 @@ impl Env {
         caps.insert("tauri:options".into(), serde_json::json!({ "application": app }));
         caps.insert("browserName".into(), serde_json::json!("wry"));
         let client = ClientBuilder::rustls()?.capabilities(caps).connect("http://127.0.0.1:4444").await?;
-        Ok(Env { procs, home: home.to_path_buf(), client, shots })
+        Ok(Env { _procs: procs, home: home.to_path_buf(), client, shots })
     }
 
     /// Bildschirmfoto (für Fehlersuche und Bericht).

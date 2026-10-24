@@ -94,7 +94,23 @@ struct Client {
     installing: RwSignal<bool>,
     result: RwSignal<Option<Result<Value, String>>>,
     watching: RwSignal<bool>,
+    /// „Einstellungen übernehmen“: mögliche Quellen, gewählte Quelle („“ = nichts) und Teile
+    sources: RwSignal<Vec<Value>>,
+    take_dir: RwSignal<String>,
+    take_parts: RwSignal<Vec<String>>,
+    /// Modrinth-App: vorhandene Instanz aktualisieren statt neu anlegen
+    update: RwSignal<bool>,
 }
+
+/// Was übernommen werden kann (wie im Backend, transfer::PARTS).
+const PARTS: [(&str, &str); 6] = [
+    ("options", "Optionen & Tastenbelegung"),
+    ("config", "Mod-Einstellungen"),
+    ("shaders", "Shader"),
+    ("resourcepacks", "Ressourcenpakete"),
+    ("servers", "Server-Liste"),
+    ("worlds", "Welten"),
+];
 
 fn refresh(c: Client) {
     leptos::task::spawn_local(async move {
@@ -145,6 +161,8 @@ fn check(c: Client, source: String) {
     c.result.set(None);
     c.dir.set(None);
     c.selected.set(vec![]);
+    c.take_dir.set(String::new());
+    c.take_parts.set(vec![]);
     leptos::task::spawn_local(async move {
         let r = tauri::invoke::<Value>("client_preview", json!({ "source": source })).await;
         let target = c.info.get_untracked().s("target");
@@ -153,9 +171,103 @@ fn check(c: Client, source: String) {
         } else {
             target
         });
+        let exclude = r.as_ref().map(|p| p.s("default_dir")).unwrap_or_default();
+        c.update.set(r.as_ref().is_ok_and(|p| !p.a("modrinth_existing").is_empty()));
         c.preview.set(Some(r));
         c.checking.set(false);
+        let sources = tauri::invoke::<Vec<Value>>("client_sources", json!({ "exclude": exclude }))
+            .await
+            .unwrap_or_default();
+        c.sources.set(sources);
     });
+}
+
+/// Quelle wählen: alles vorhandene außer Welten ist vorausgewählt.
+fn select_source(c: Client, dir: String) {
+    let parts = c
+        .sources
+        .get_untracked()
+        .into_iter()
+        .find(|s| s.s("dir") == dir)
+        .and_then(|s| s.o("parts").as_object().map(|o| o.keys().filter(|k| *k != "worlds").cloned().collect()))
+        .unwrap_or_default();
+    c.take_parts.set(parts);
+    c.take_dir.set(dir);
+}
+
+/// Wird gerade eine vorhandene Instanz der Modrinth-App aktualisiert? (Dann nichts übernehmen.)
+fn updating(c: Client) -> bool {
+    c.dest.get() == "modrinth"
+        && c.update.get()
+        && c.preview.with(|p| matches!(p, Some(Ok(v)) if !v.a("modrinth_existing").is_empty()))
+}
+
+/// „Einstellungen übernehmen von …“
+fn take_view(c: Client) -> AnyView {
+    let pick = move |_| {
+        leptos::task::spawn_local(async move {
+            let Ok(Some(d)) = tauri::invoke::<Option<String>>(
+                "pick_folder",
+                json!({ "title": "Minecraft-Ordner wählen, aus dem übernommen wird" }),
+            )
+            .await
+            else {
+                return;
+            };
+            match tauri::invoke::<Value>("client_source", json!({ "dir": d })).await {
+                Ok(src) => {
+                    let dir = src.s("dir");
+                    c.sources.update(|l| {
+                        l.retain(|s| s.s("dir") != dir);
+                        l.insert(0, src);
+                    });
+                    select_source(c, dir);
+                }
+                Err(e) => error("Nichts zu übernehmen", e).await,
+            }
+        })
+    };
+    let parts = move || {
+        let dir = c.take_dir.get();
+        let src = c.sources.get().into_iter().find(|s| s.s("dir") == dir)?;
+        let avail = src.o("parts");
+        Some(view! {
+            <div class="take-parts">
+                {PARTS.iter().filter(|(k, _)| avail.get(*k).is_some()).map(|(k, label)| {
+                    let (k1, k2) = (k.to_string(), k.to_string());
+                    let size = fmt_bytes(avail.f(k));
+                    view! { <label class="check"><input type="checkbox" prop:checked=move || c.take_parts.get().contains(&k1)
+                        on:change=move |e| {
+                            let on = event_target_checked(&e);
+                            let k = k2.clone();
+                            c.take_parts.update(|p| { p.retain(|x| *x != k); if on { p.push(k); } });
+                        }/>{format!(" {label} ({size})")}</label> }
+                }).collect_view()}
+            </div>
+            {move || c.take_parts.get().iter().any(|p| p == "worlds").then(|| view! {
+                <p class="dim small">"Welten aus einer neueren Minecraft-Version lassen sich in einer älteren nicht öffnen. Große Welten machen das Einrichten langsamer."</p> })}
+            {move || (c.dest.get() == "launcher").then(|| view! {
+                <p class="dim small">"Was im Ordner schon liegt, bleibt unverändert – übernommen wird nur, was fehlt."</p> })}
+        })
+    };
+    view! {
+        <div class="take">
+            <div class="row">
+                <b>"Einstellungen übernehmen von:"</b>
+                <select id="cl-take" class="grow" prop:value=move || c.take_dir.get() on:change=move |e| select_source(c, event_target_value(&e))>
+                    <option value="" selected=move || c.take_dir.get().is_empty()>"Nichts übernehmen"</option>
+                    {move || c.sources.get().into_iter().map(|s| {
+                        let dir = s.s("dir");
+                        let d = dir.clone();
+                        view! { <option value=dir selected=move || c.take_dir.get() == d>{s.s("label")}</option> }
+                    }).collect_view()}
+                </select>
+                <button on:click=pick>"Anderer Ordner …"</button>
+            </div>
+            {parts}
+            <p class="dim small">"Zum Beispiel aus deiner bisherigen Instanz: Optionen, Tastenbelegung, Mod-Einstellungen, Shader, Ressourcenpakete und Server-Liste. Mods kommen immer passend vom Server. Die Quelle wird nur gelesen, nicht verändert."</p>
+        </div>
+    }.into_any()
 }
 
 fn install(app: AppState, c: Client) {
@@ -164,7 +276,11 @@ fn install(app: AppState, c: Client) {
     };
     c.installing.set(true);
     leptos::task::spawn_local(async move {
-        let args = json!({ "source": p.s("source"), "target": c.dir.get_untracked(), "selected": c.selected.get_untracked(), "destination": c.dest.get_untracked() });
+        let take_dir = c.take_dir.get_untracked();
+        let take = (!take_dir.is_empty() && !untrack(move || updating(c)))
+            .then(|| json!({ "dir": take_dir, "parts": c.take_parts.get_untracked() }));
+        let args = json!({ "source": p.s("source"), "target": c.dir.get_untracked(), "selected": c.selected.get_untracked(),
+            "destination": c.dest.get_untracked(), "take": take, "update": c.update.get_untracked() });
         let r = task("client_install", args).await;
         c.installing.set(false);
         if r.is_ok() {
@@ -197,7 +313,9 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
         .filter_map(|n| n.as_str().map(String::from))
         .collect();
     let manual = r.a("manual");
-    let (d1, d2) = (dir.clone(), dir.clone());
+    let update = r.o("update");
+    let taken = r.o("taken");
+    let (d1, d2, d3) = (dir.clone(), dir.clone(), dir.clone());
     let open_dir = move |d: String| {
         leptos::task::spawn_local(async move {
             if let Err(e) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await {
@@ -205,6 +323,49 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             }
         })
     };
+    if modrinth && !update.is_null() {
+        let inst = format!("„{}“", update.s("name"));
+        let inst2 = inst.clone();
+        return view! {
+            <p class="hint">"✓ Das neue Modrinth-Paket ist fertig. So aktualisierst du deine Instanz "<b>{inst}</b>
+                " – Welten, Optionen, Shader, Ressourcenpakete und deine Server-Liste bleiben dabei erhalten:"</p>
+            <ol class="steps">
+                <li>"Modrinth-App öffnen und die Instanz "<b>{inst2}</b>" anklicken."</li>
+                <li>"Oben auf das Zahnrad "<b>"„Instanz-Einstellungen“"</b>" klicken und den Reiter "<b>"„Installation“"</b>" wählen."</li>
+                <li><b>"„Modpack neu installieren“"</b>" klicken, bestätigen und diese Datei wählen:"<br/><code>{r.s("mrpack")}</code></li>
+            </ol>
+            <div class="row">
+                <button class="primary" on:click=move |_| play("modrinth".into())>"Modrinth-App öffnen"</button>
+                <button on:click=move |_| open_dir(d3.clone())>"Ordner mit dem Paket öffnen"</button>
+            </div>
+            <p class="dim small">"Die Modrinth-App sichert die Instanz vorher selbst. Mods, die du dort selbst zusätzlich hinzugefügt hast, entfernt sie dabei womöglich."</p>
+        }.into_any();
+    }
+    let taken_note = (!taken.is_null()).then(|| {
+        let from = taken.s("from");
+        let text = if modrinth {
+            format!("Die Einstellungen aus „{from}“ sind im Paket – die Modrinth-App übernimmt sie beim Import.")
+        } else {
+            let kept = taken.f("kept").unwrap_or(0.0);
+            format!(
+                "Aus „{from}“ übernommen: {} Dateien{}.",
+                taken.f("copied").unwrap_or(0.0),
+                if kept > 0.0 { format!(" ({kept} waren schon da und blieben unverändert)") } else { String::new() }
+            )
+        };
+        let failed: Vec<String> = taken.a("failed").iter().filter_map(|f| f.as_str().map(String::from)).collect();
+        let failed_note = (!failed.is_empty()).then(|| {
+            let mut list = failed.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+            if failed.len() > 3 {
+                list.push_str(" …");
+            }
+            format!(
+                " {} Dateien ließen sich nicht lesen und fehlen deshalb – ist Minecraft dort noch offen? ({list})",
+                failed.len()
+            )
+        });
+        view! { <p class="hint">{text}{failed_note}</p> }
+    });
     view! {
         {if modrinth {
             if r.b("opened") {
@@ -220,6 +381,7 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             view! { <p class="hint">{format!("✓ Eingerichtet: {} Mods geladen.", r.a("installed").len())}
                 {r.b("profile").then(|| view! { " Im Minecraft-Launcher gibt es jetzt das Profil "<b>{format!("„Vapafane – {name}“")}</b>"." })}</p> }.into_any()
         }}
+        {taken_note}
         {notes.into_iter().map(|n| view! { <p class="hint">{n}</p> }).collect_view()}
         {(!manual.is_empty()).then(|| view! {
             <p><b>"Bitte selbst herunterladen"</b>" und in den Ordner "<code>"mods"</code>" legen:"</p>
@@ -302,6 +464,13 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
         })
     };
     let ping_version = ping.s("version");
+    let existing: Vec<String> = p
+        .a("modrinth_existing")
+        .iter()
+        .filter_map(|v| v.as_str().map(String::from))
+        .collect();
+    // so heißt die Instanz in der Modrinth-App (Name aus dem Paket)
+    let first = format!("{} (Vapafane)", inv.s("n"));
     view! {
         <div class="preview-head"><span class="big">{inv.s("n")}</span>" "<code>{inv.s("a")}</code>" "
             {move || c.preview.get().and_then(|r| r.ok()).map(|p| ping_pill(&p.o("ping"), p.b("version_ok")))}</div>
@@ -317,13 +486,29 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
             <label class="check"><input type="radio" name="cl-dest" prop:checked=move || c.dest.get() == "modrinth" on:change=move |_| c.dest.set("modrinth".into())/>
                 " Modrinth-App "{found(info.b("modrinth"))}</label>
         </div>
-        <Show when=move || c.dest.get() == "launcher" fallback=|| view! {
-            <p class="dim small">"Die Modrinth-App öffnet sich – dort nur noch den Import bestätigen. Nach einem Server-Update entsteht dort eine neue Instanz; die alte dann löschen."</p>
+        {(!existing.is_empty()).then(|| view! {
+            <Show when=move || c.dest.get() == "modrinth">
+                <div class="dest">
+                    <b>"In der Modrinth-App:"</b>
+                    <label class="check"><input type="radio" name="cl-mr" prop:checked=move || c.update.get() on:change=move |_| c.update.set(true)/>
+                        {format!(" Vorhandene Instanz „{first}“ aktualisieren (empfohlen)")}</label>
+                    <label class="check"><input type="radio" name="cl-mr" prop:checked=move || !c.update.get() on:change=move |_| c.update.set(false)/>
+                        " Neue Instanz anlegen"</label>
+                </div>
+            </Show>
+        })}
+        <Show when=move || c.dest.get() == "launcher" fallback=move || view! {
+            <p class="dim small">{move || if updating(c) {
+                "Beim Aktualisieren bleibt in der Instanz alles erhalten: Welten, Optionen, Shader, Ressourcenpakete und deine Server-Liste."
+            } else {
+                "Die Modrinth-App öffnet sich – dort nur noch den Import bestätigen."
+            }}</p>
         }>
             <div class="row"><span>"Ordner:"</span><code class="grow">{let d = default_dir.clone(); move || c.dir.get().unwrap_or_else(|| d.clone())}</code>
                 <button on:click=pick>"Anderer Ordner …"</button></div>
             <p class="dim small">"Bitte den Minecraft-Launcher vor dem Einrichten schließen, damit er die Änderung nicht überschreibt."</p>
         </Show>
+        <Show when=move || !updating(c)>{take_view(c)}</Show>
         <div class="row"><button class="primary" disabled=move || c.installing.get() on:click=move |_| install(app, c)>"Einrichten"</button></div>
         <div>{move || c.result.get().map(|r| result_view(c, r))}</div>
     }.into_any()
@@ -346,6 +531,10 @@ pub fn ClientPage() -> impl IntoView {
         installing: RwSignal::new(false),
         result: RwSignal::new(None),
         watching: RwSignal::new(false),
+        sources: RwSignal::new(vec![]),
+        take_dir: RwSignal::new(String::new()),
+        take_parts: RwSignal::new(vec![]),
+        update: RwSignal::new(false),
     };
     Effect::new(move |_| {
         if app.page.get() == Page::Client {
@@ -390,7 +579,7 @@ pub fn ClientPage() -> impl IntoView {
     let row = move |e: Value| {
         let dir = e.s("dir");
         let target = e.s("target");
-        let (d_open, d_rm, d_st, t_rm) = (dir.clone(), dir.clone(), dir.clone(), target.clone());
+        let (d_open, d_rm, d_st, t_rm, t_up) = (dir.clone(), dir.clone(), dir.clone(), target.clone(), target.clone());
         let name = e.s("name");
         let remove = move |_| {
             let (dir, name, modrinth) = (d_rm.clone(), name.clone(), t_rm == "modrinth");
@@ -419,9 +608,13 @@ pub fn ClientPage() -> impl IntoView {
                         if target == "modrinth" { "Modrinth-App" } else { "Minecraft-Launcher" }, e.s("updated"))}</div>
                 </div>
                 <button class="primary" on:click=move |_| play(target.clone())>"Spielen"</button>
-                <button on:click=move |_| leptos::task::spawn_local(async {
-                    info("Aktualisieren", "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt.").await;
-                })>"Aktualisieren"</button>
+                <button on:click=move |_| { let modrinth = t_up == "modrinth"; leptos::task::spawn_local(async move {
+                    info("Aktualisieren", if modrinth {
+                        "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen. Vapafane baut dann ein neues Paket für deine vorhandene Instanz in der Modrinth-App und zeigt, wie du sie damit aktualisierst – Welten, Optionen und Shader bleiben erhalten."
+                    } else {
+                        "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt, deine Einstellungen und Welten bleiben."
+                    }).await;
+                }); }>"Aktualisieren"</button>
                 <button on:click=move |_| { let d = d_open.clone(); leptos::task::spawn_local(async move {
                     if let Err(er) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await { error("Ordner", er).await; }
                 }); }>"Ordner öffnen"</button>

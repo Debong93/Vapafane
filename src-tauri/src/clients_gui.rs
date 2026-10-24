@@ -11,6 +11,7 @@ use crate::client;
 use crate::config::Config;
 use crate::gui::{Cmd, active_dir, blocking, run_task};
 use crate::invite::{self, Invite};
+use crate::transfer::{self, Take};
 use crate::util::{self, Result};
 
 // ---------------------------------------------------------------- Server: einladen
@@ -126,15 +127,21 @@ pub async fn client_pick_file(app: AppHandle) -> Cmd<Option<String>> {
     .await
 }
 
+/// `take`: Einstellungen aus dieser Quelle übernehmen. `update`: vorhandene Instanz in der
+/// Modrinth-App aktualisieren statt eine neue anzulegen.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn client_install(
     app: AppHandle,
     source: String,
     target: Option<String>,
     selected: Vec<String>,
     destination: Option<String>,
+    take: Option<Take>,
+    update: Option<bool>,
 ) -> Cmd<()> {
     let dest = destination.unwrap_or_else(|| "launcher".into());
+    let take = take.filter(|t| !t.parts.is_empty() && !t.dir.as_os_str().is_empty());
     run_task(&app, "Client einrichten", move |progress| {
         let (inv, zip) = load(&source)?;
         let selected: HashSet<String> = selected.into_iter().collect();
@@ -143,12 +150,32 @@ pub fn client_install(
         cfg.client_target = Some(dest.clone());
         cfg.save()?;
         if dest == "modrinth" {
-            return client::install_mrpack(&inv, zip.as_deref(), &selected, true, progress);
+            return client::install_mrpack(
+                &inv,
+                zip.as_deref(),
+                &selected,
+                take.as_ref(),
+                update.unwrap_or(true),
+                true,
+                progress,
+            );
         }
         let target = target.filter(|t| !t.trim().is_empty()).map(PathBuf::from);
-        client::install(&inv, zip.as_deref(), target.as_deref(), &selected, progress)
+        client::install(&inv, zip.as_deref(), target.as_deref(), &selected, take.as_ref(), progress)
     })
     .map_err(|e| e.0)
+}
+
+/// Selbst gewählter Ordner als Quelle für „Einstellungen übernehmen“.
+#[tauri::command]
+pub async fn client_source(dir: String) -> Cmd<Value> {
+    blocking(move || transfer::describe(Path::new(&dir))).await
+}
+
+/// Mögliche Quellen für „Einstellungen übernehmen“ (ohne den Ordner, in den eingerichtet wird).
+#[tauri::command]
+pub async fn client_sources(exclude: Option<String>) -> Cmd<Vec<Value>> {
+    blocking(move || Ok(transfer::sources(exclude.as_deref().map(Path::new)))).await
 }
 
 #[tauri::command]

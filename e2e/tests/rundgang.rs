@@ -6,7 +6,7 @@
 //! Programm: VAPAFANE_APP (Standard: ../src-tauri/target/debug/vapafane).
 //! Alle Daten landen in einem eigenen, leeren Ordner – echte Server bleiben unberührt.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use vapafane_e2e::{Env, Res, fail};
 
 const PORT: &str = "25599";
@@ -20,6 +20,67 @@ fn app() -> PathBuf {
 fn home() -> PathBuf {
     let base = std::env::var_os("VAPAFANE_E2E_HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
     base.join(format!("vapafane-e2e-{}", std::process::id()))
+}
+
+/// Server-Liste im Format von Minecraft (unkomprimiertes NBT).
+fn servers_dat(entries: &[(&str, &str)]) -> Vec<u8> {
+    fn s(out: &mut Vec<u8>, t: &str) {
+        out.extend_from_slice(&(t.len() as u16).to_be_bytes());
+        out.extend_from_slice(t.as_bytes());
+    }
+    let mut b = vec![10u8];
+    s(&mut b, "");
+    b.push(9);
+    s(&mut b, "servers");
+    b.push(10);
+    b.extend_from_slice(&(entries.len() as i32).to_be_bytes());
+    for (name, ip) in entries {
+        b.push(8);
+        s(&mut b, "name");
+        s(&mut b, name);
+        b.push(8);
+        s(&mut b, "ip");
+        s(&mut b, ip);
+        b.push(0);
+    }
+    b.push(0);
+    b
+}
+
+fn put(dir: &Path, rel: &str, data: &[u8]) -> Res<()> {
+    let p = dir.join(rel);
+    if let Some(parent) = p.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(p, data)?;
+    Ok(())
+}
+
+/// Eine Instanz der Modrinth-App, wie sie ein Spieler schon hat (nur im Test-HOME).
+fn modrinth_instance(home: &Path, name: &str) -> PathBuf {
+    home.join(".local/share/ModrinthApp/profiles").join(name)
+}
+
+fn has(hay: &[u8], needle: &str) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle.as_bytes())
+}
+
+/// Dateien im Modrinth-Paket.
+fn pack_entries(pack: &Path) -> Res<Vec<String>> {
+    let mut z = zip::ZipArchive::new(std::fs::File::open(pack)?)?;
+    let mut names = vec![];
+    for i in 0..z.len() {
+        names.push(z.by_index(i)?.name().to_string());
+    }
+    names.sort();
+    Ok(names)
+}
+
+fn pack_file(pack: &Path, name: &str) -> Res<Vec<u8>> {
+    let mut z = zip::ZipArchive::new(std::fs::File::open(pack)?)?;
+    let mut out = vec![];
+    std::io::Read::read_to_end(&mut z.by_name(name)?, &mut out)?;
+    Ok(out)
 }
 
 macro_rules! schritt {
@@ -177,16 +238,106 @@ async fn rundgang() -> Res<()> {
         e.wait("//h2[normalize-space()='Wiederhergestellt']", 180).await?;
         e.click_button("OK").await
     });
-    schritt!(e, "Client: Einladung prüfen und einrichten", async {
+    // Eine Instanz, die der Spieler in der Modrinth-App schon hat
+    let inst = modrinth_instance(&e.home, "Meine Instanz");
+    let clients = e.home.join(".local/share/vapafane/clients/E2E");
+    let pack = clients.join("E2E.mrpack");
+    schritt!(e, "Client: Einstellungen aus einer Modrinth-Instanz übernehmen", async {
+        put(&inst, "options.txt", b"version:4189\nguiScale:3\nlang:de_de\n")?;
+        put(&inst, "config/sodium-options.json", b"{\"e2e\":true}")?;
+        put(&inst, "shaderpacks/E2E-Shader.zip", b"zip")?;
+        put(&inst, "saves/Welt/level.dat", b"level")?;
+        put(&inst, "mods/fremd.jar", b"jar")?;
+        put(&inst, "servers.dat", &servers_dat(&[("Freund", "freund.example:25565")]))?;
         e.click_button("Client").await?;
         e.type_into("//textarea[@id='cl-code']", &code).await?;
         e.click_button("Einladung prüfen").await?;
         e.wait("//span[@class='big' and normalize-space()='E2E']", 60).await?;
         e.wait("//label[input[@name='cl-dest'] and contains(.,'Minecraft-Launcher')]", 10).await?.click().await?;
+        e.wait("//select[@id='cl-take']/option[contains(.,'Modrinth-App: Meine Instanz')]", 20).await?;
+        e.select("//select[@id='cl-take']", &inst.to_string_lossy()).await?;
+        // alles außer Welten ist vorausgewählt
+        e.until("(() => { const l = Array.from(document.querySelectorAll('.take-parts label')); \
+            const on = (t) => l.find(x => x.innerText.includes(t)).querySelector('input').checked; \
+            return l.length === 5 && on('Optionen') && on('Shader') && on('Server-Liste') && !on('Welten'); })()", 10).await?;
+        e.shot("08-client-uebernehmen").await;
         e.click_button("Einrichten").await?;
         e.wait("//p[contains(.,'Eingerichtet')]", 600).await?;
+        e.sees("Aus „Modrinth-App: Meine Instanz“ übernommen: 3 Dateien.", 10).await?;
         e.wait("//div[@class='item']//b[normalize-space()='E2E']", 30).await?;
+        e.js("document.querySelector('.take') && document.querySelector('.take').scrollIntoView(); return 1;").await?;
         e.shot("08-client").await;
+        // Im Spielordner: Optionen, Mod-Einstellungen, Shader; keine Welt, keine fremde Mod
+        if std::fs::read(clients.join("options.txt"))? != b"version:4189\nguiScale:3\nlang:de_de\n" {
+            return fail("options.txt wurde nicht übernommen");
+        }
+        if !clients.join("config/sodium-options.json").is_file() || !clients.join("shaderpacks/E2E-Shader.zip").is_file() {
+            return fail("Mod-Einstellungen oder Shader fehlen");
+        }
+        if clients.join("saves").exists() || clients.join("mods/fremd.jar").exists() {
+            return fail("Welt oder fremde Mod wurde mitkopiert");
+        }
+        let servers = std::fs::read(clients.join("servers.dat"))?;
+        if !has(&servers, "freund.example") || !has(&servers, PORT) {
+            return fail("Server-Liste: eigener Server oder der des Freundes fehlt");
+        }
+        // Die Quelle bleibt unverändert
+        if std::fs::read(inst.join("options.txt"))? != b"version:4189\nguiScale:3\nlang:de_de\n" {
+            return fail("Quelle wurde verändert");
+        }
+        Ok(())
+    });
+    schritt!(e, "Client: Modrinth-App, neue Instanz mit Einstellungen", async {
+        e.click_button("Einladung prüfen").await?;
+        e.wait("//span[@class='big' and normalize-space()='E2E']", 60).await?;
+        e.wait("//label[input[@name='cl-dest'] and contains(.,'Modrinth-App')]", 10).await?.click().await?;
+        e.wait("//select[@id='cl-take']/option[contains(.,'Modrinth-App: Meine Instanz')]", 20).await?;
+        e.select("//select[@id='cl-take']", &inst.to_string_lossy()).await?;
+        e.click_button("Einrichten").await?;
+        e.sees("sind im Paket", 300).await?;
+        let names = pack_entries(&pack)?;
+        for want in ["modrinth.index.json", "overrides/options.txt", "overrides/config/sodium-options.json",
+            "overrides/shaderpacks/E2E-Shader.zip", "overrides/servers.dat"] {
+            if !names.iter().any(|n| n == want) {
+                return fail(format!("{want} fehlt im Paket: {names:?}"));
+            }
+        }
+        if names.iter().any(|n| n.starts_with("overrides/saves/") || n.contains("fremd.jar")) {
+            return fail(format!("Welt oder fremde Mod im Paket: {names:?}"));
+        }
+        let servers = pack_file(&pack, "overrides/servers.dat")?;
+        if !has(&servers, "freund.example") || !has(&servers, PORT) {
+            return fail("Server-Liste im Paket unvollständig");
+        }
+        Ok(())
+    });
+    schritt!(e, "Client: vorhandene Modrinth-Instanz aktualisieren", async {
+        // So legt die Modrinth-App die Instanz beim Import an: Ordner nach der Paket-Datei
+        let imported = modrinth_instance(&e.home, "E2E");
+        put(&imported, "options.txt", b"eigene Optionen")?;
+        put(&imported, "servers.dat", &servers_dat(&[("Kumpel", "kumpel.example")]))?;
+        e.click_button("Einladung prüfen").await?;
+        e.wait("//span[@class='big' and normalize-space()='E2E']", 60).await?;
+        e.wait("//label[input[@name='cl-dest'] and contains(.,'Modrinth-App')]", 10).await?.click().await?;
+        e.wait("//label[input[@name='cl-mr'] and contains(.,'Vorhandene Instanz „E2E (Vapafane)“ aktualisieren')]", 20).await?;
+        e.until("document.querySelector('#cl-take') === null", 5).await?;
+        e.click_button("Einrichten").await?;
+        e.sees("So aktualisierst du deine Instanz „E2E (Vapafane)“", 300).await?;
+        e.sees("Modpack neu installieren", 5).await?;
+        e.sees("Instanz-Einstellungen", 5).await?;
+        e.js("document.querySelector('ol.steps').scrollIntoView(); return 1;").await?;
+        e.shot("08b-modrinth-aktualisieren").await;
+        let names = pack_entries(&pack)?;
+        if names.iter().any(|n| n == "overrides/options.txt") {
+            return fail("Beim Aktualisieren gehören keine Optionen ins Paket");
+        }
+        let servers = pack_file(&pack, "overrides/servers.dat")?;
+        if !has(&servers, "kumpel.example") || !has(&servers, PORT) {
+            return fail("Server-Liste der vorhandenen Instanz wurde nicht übernommen");
+        }
+        if std::fs::read(imported.join("options.txt"))? != b"eigene Optionen" {
+            return fail("Die vorhandene Instanz wurde verändert");
+        }
         Ok(())
     });
     schritt!(e, "Client entfernen", async {

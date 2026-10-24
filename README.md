@@ -69,10 +69,18 @@ grün über IPv4 und IPv6, gelb nur über IPv6 (z. B. bei DS-Lite), rot gar nich
 1. Vapafane installieren und im Bereich **„Client“** bleiben.
 2. Den Einladungs-Code einfügen und **„Einladung prüfen“** klicken (oder eine
    `.vapafane`-Datei öffnen). Vapafane zeigt Server, Version und Mods.
-3. Wählen, wofür eingerichtet wird – **Minecraft-Launcher** oder **Modrinth-App** – und
-   **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
-4. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
+3. Wählen, wofür eingerichtet wird – **Minecraft-Launcher** oder **Modrinth-App**.
+4. Wer schon Minecraft eingerichtet hat, wählt unter **„Einstellungen übernehmen von“** seine
+   bisherige Instanz: Optionen, Tastenbelegung, Mod-Einstellungen, Shader, Ressourcenpakete,
+   Server-Liste und auf Wunsch Welten kommen mit. Die bisherige Instanz bleibt unverändert.
+5. **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
+6. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
    online ist, siehst du direkt daneben.
+
+**Nach einem Server-Update** den neuen Einladungs-Code einlösen. Beim Minecraft-Launcher
+aktualisiert Vapafane das Profil direkt. Bei der Modrinth-App baut Vapafane ein neues Paket
+und zeigt, wie du damit deine vorhandene Instanz aktualisierst (dort „Instanz-Einstellungen“ →
+„Installation“ → „Modpack neu installieren“) – Welten, Optionen und Shader bleiben erhalten.
 
 Vapafane startet Minecraft nicht selbst und fasst kein Microsoft-Konto an.
 
@@ -88,6 +96,7 @@ Komplett in Rust; jede Komponente hat eine eigene kurze README:
 - [`frontend/`](frontend/README.md) – die Oberfläche (Leptos/WebAssembly)
 - [`shared/`](shared/README.md) – gemeinsame Datentypen
 - [`werkzeuge/`](werkzeuge/README.md) – erzeugt die Pixel-Texturen
+- [`e2e/`](e2e/README.md) – Oberflächen-Tests, die das echte Programm bedienen
 
 Selbst bauen: `rustup target add wasm32-unknown-unknown`, `cargo install tauri-cli trunk --locked`,
 dann `cd src-tauri && cargo tauri build`. Testmodus ohne echte Daten: `VAPAFANE_HOME=/tmp/test vapafane`.

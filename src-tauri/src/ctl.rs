@@ -33,7 +33,10 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
   einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
   einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
-                                    Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket)
+            [--einstellungen-von ORDNER] [--neue-instanz]
+                                    Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket);
+                                    Einstellungen (ohne Welten) aus ORDNER übernehmen; mit --neue-instanz wird
+                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert
   clients                           eingerichtete Clients anzeigen
   client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
   ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
@@ -425,10 +428,23 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .and_then(|i| args.get(i + 1))
                 .map(String::as_str)
                 == Some("modrinth");
+            let take = args
+                .iter()
+                .position(|a| a == "--einstellungen-von")
+                .and_then(|i| args.get(i + 1))
+                .map(|d| crate::transfer::Take {
+                    dir: std::path::PathBuf::from(d),
+                    parts: crate::transfer::PARTS
+                        .iter()
+                        .map(|(k, _)| k.to_string())
+                        .filter(|k| k != "worlds")
+                        .collect(),
+                });
+            let update = !args.iter().any(|a| a == "--neue-instanz");
             let r = if modrinth {
-                crate::client::install_mrpack(&inv, zip, &selected, true, &print)?
+                crate::client::install_mrpack(&inv, zip, &selected, take.as_ref(), update, true, &print)?
             } else {
-                crate::client::install(&inv, zip, folder.as_deref(), &selected, &print)?
+                crate::client::install(&inv, zip, folder.as_deref(), &selected, take.as_ref(), &print)?
             };
             println!("{}", serde_json::to_string_pretty(&r)?);
         }
