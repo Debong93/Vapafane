@@ -11,12 +11,18 @@ use unic_langid::LanguageIdentifier;
 pub const SPRACHEN: &[(&str, &str, bool)] = &[
     ("de", "Deutsch", false),
     ("en", "English", false),
+    ("es", "Español", true),
+    ("fr", "Français", true),
+    ("it", "Italiano", true),
 ];
 
 /// Quelltexte der Sprachdateien (beim Bauen eingebettet, Reihenfolge wie `SPRACHEN`).
 const QUELLEN: &[(&str, &str)] = &[
     ("de", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/de.ftl"))),
     ("en", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/en.ftl"))),
+    ("es", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/es.ftl"))),
+    ("fr", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/fr.ftl"))),
+    ("it", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/it.ftl"))),
 ];
 
 /// Gibt es diese Sprache? Liefert den Code aus der Liste (mit fester Lebensdauer).
@@ -104,7 +110,8 @@ mod tests {
     fn aufloesung() {
         assert_eq!(aufloesen(Some("de"), &[]), "de");
         assert_eq!(aufloesen(Some("system"), &["de-DE".into()]), "de");
-        assert_eq!(aufloesen(None, &["fr_FR".into(), "de_DE".into()]), "de");
+        assert_eq!(aufloesen(None, &["fr_FR".into(), "de_DE".into()]), "fr");
+        assert_eq!(aufloesen(None, &["xx-XX".into(), "de_DE".into()]), "de");
         assert_eq!(aufloesen(None, &["xx".into()]), "en");
         assert_eq!(aufloesen(Some("xx"), &[]), "en");
         assert_eq!(aufloesen(None, &[]), "en");
