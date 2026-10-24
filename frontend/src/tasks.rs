@@ -57,7 +57,7 @@ pub async fn task(cmd: &str, args: impl Serialize) -> Result<Value, String> {
     use_app().refresh_status();
     let (tx, rx) = oneshot::channel();
     WAITERS.with(|w| w.borrow_mut().push_back(tx));
-    rx.await.unwrap_or_else(|_| Err("Abgebrochen".into()))
+    rx.await.unwrap_or_else(|_| Err(crate::sprache::t!("task-abgebrochen")))
 }
 
 /// Einmal beim Start: auf Fortschritt und Ende der Aufgaben hören.

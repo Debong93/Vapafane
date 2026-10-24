@@ -33,7 +33,7 @@ pub fn run_reach(app: AppState) {
             Ok(r) => app.reach.set(Some(r)),
             Err(e) => app.reach.update(|r| {
                 if r.is_none() {
-                    *r = Some(serde_json::json!({ "light": "gray", "title": "Prüfung fehlgeschlagen", "text": e }));
+                    *r = Some(serde_json::json!({ "light": "gray", "title": crate::sprache::t!("rch-fehlgeschlagen"), "text": e }));
                 }
             }),
         }
@@ -83,13 +83,13 @@ pub fn Reach() -> impl IntoView {
     let r = app.reach;
     let title = move || match r.get() {
         Some(r) => r.s("title"),
-        None if app.reach_server.get() => "Noch nicht geprüft".into(),
-        None => "Kein Server ausgewählt".into(),
+        None if app.reach_server.get() => crate::sprache::t!("rch-noch-nicht"),
+        None => crate::sprache::t!("rch-kein-server"),
     };
     let text = move || match r.get() {
         Some(r) => r.s("text"),
         None if app.reach_server.get() => String::new(),
-        None => "Leg oben mit „+“ einen Server an oder wähl einen aus, dann wird geprüft.".into(),
+        None => crate::sprache::t!("rch-kein-server-text"),
     };
     let row = move |k: &'static str| {
         view! {
@@ -100,11 +100,11 @@ pub fn Reach() -> impl IntoView {
     };
     let when = move || {
         if app.reach_busy.get() {
-            return "Wird geprüft …".to_string();
+            return crate::sprache::t!("rch-prueft");
         }
         r.get()
             .and_then(|r| r.f("checked"))
-            .map(|c| format!("Geprüft um {}", clock_of(c)))
+            .map(|c| crate::sprache::t!("rch-geprueft-um", zeit = clock_of(c)))
             .unwrap_or_default()
     };
     view! {
@@ -122,17 +122,17 @@ pub fn Reach() -> impl IntoView {
             <div class="reach-rows">
                 <div class="reach-row"><span>"IPv4"</span>{row("v4")}</div>
                 <div class="reach-row"><span>"IPv6"</span>{row("v6")}</div>
-                <p class="dim small">"IPv4 ist die klassische Internet-Adresse, IPv6 die neue mit eigener Adresse für jedes Gerät. Bei DS-Lite teilt dein Anbieter die IPv4-Adresse, dann geht nur IPv6."</p>
+                <p class="dim small">{crate::sprache::t!("rch-ip-erklaerung")}</p>
             </div>
             <div class="row">
                 <button class="primary" disabled=move || app.reach_busy.get() || !app.reach_server.get()
-                    on:click=move |_| run_reach(app)>"Erneut prüfen"</button>
+                    on:click=move |_| run_reach(app)>{crate::sprache::t!("rch-erneut")}</button>
                 <Show when=move || r.get().is_some_and(|r| r.b("guide"))>
-                    <button on:click=|_| open_link("portforward")>"Anleitung Portfreigabe ↗"</button>
+                    <button on:click=|_| open_link("portforward")>{crate::sprache::t!("rch-portfreigabe")}</button>
                 </Show>
                 <span class="dim small">{when}</span>
             </div>
-            <p class="dim small">"Zum Prüfen fragt Vapafane einen Prüfdienst im Internet (ifconfig.co), ob der Server-Port von außen offen ist. Abschalten: Einstellungen → Automatik."</p>
+            <p class="dim small">{crate::sprache::t!("rch-dienst-hinweis")}</p>
         </section>
     }
 }

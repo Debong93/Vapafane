@@ -52,7 +52,7 @@ fn App() -> impl IntoView {
     // Einmal beim ersten Start: Hinweis, dass Vapafane kein offizielles Produkt ist
     if stored("hinweis_nicht_offiziell").is_none() {
         leptos::task::spawn_local(async {
-            dialog::info("Willkommen bei Vapafane", "Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen.\n\nFragen, Ideen oder Fehler: über die GitHub-Seite des Projekts (Einstellungen → Über Vapafane).").await;
+            dialog::info(sprache::t!("willkommen-titel"), sprache::t!("willkommen-text")).await;
             store("hinweis_nicht_offiziell", Some("1"));
         });
     }

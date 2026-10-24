@@ -18,20 +18,20 @@ pub fn restore(app: AppState, path: String, file: String) {
             .server
             .map(|s| s.name)
             .unwrap_or_default();
-        if !confirm(format!("„{name}“ auf {file} zurücksetzen?"),
-            "Der Server wird dafür gestoppt. Der jetzige Stand wird nicht gelöscht, sondern bleibt als Ordner „…_vor_Wiederherstellung_<Datum>“ daneben liegen.",
-            "Wiederherstellen").await
+        if !confirm(crate::sprache::t!("bak-restore-frage", name = name, datei = file),
+            crate::sprache::t!("bak-restore-text"),
+            crate::sprache::t!("bak-wiederherstellen")).await
         {
             return;
         }
         match task("restore_backup", json!({ "path": path })).await {
             Ok(r) => {
-                app.add_event("Backup wiederhergestellt");
+                app.add_event(crate::sprache::t!("bak-ev-wiederhergestellt"));
                 let aside = r.s("aside");
-                info("Wiederhergestellt", format!("Der Server ist auf dem Stand von {}. Du kannst ihn jetzt starten.{}", r.s("label"),
-                    if aside.is_empty() { String::new() } else { format!("\n\nDer vorherige Stand liegt in:\n{aside}\n(kann gelöscht werden, wenn alles passt)") })).await;
+                info(crate::sprache::t!("bak-restore-fertig-titel"), format!("{}{}", crate::sprache::t!("bak-restore-fertig", label = r.s("label")),
+                    if aside.is_empty() { String::new() } else { format!("\n\n{}", crate::sprache::t!("bak-restore-daneben", ordner = aside)) })).await;
             }
-            Err(e) => error("Wiederherstellen fehlgeschlagen", e).await,
+            Err(e) => error(crate::sprache::t!("bak-err-restore"), e).await,
         }
         crate::pages::console::reset_log();
     });
@@ -66,7 +66,7 @@ pub fn Backups() -> impl IntoView {
             let start = (!start.is_empty()).then_some(start);
             if let Ok(Some(path)) = tauri::invoke::<Option<String>>(
                 "pick_archive",
-                json!({ "title": "Backup wählen", "start": start }),
+                json!({ "title": crate::sprache::t!("bak-waehlen"), "start": start }),
             )
             .await
             {
@@ -79,7 +79,7 @@ pub fn Backups() -> impl IntoView {
         let k = event_target_value(&e).parse::<u32>().unwrap_or(5).max(1);
         leptos::task::spawn_local(async move {
             if let Err(er) = tauri::invoke::<()>("set_backup_keep", json!({ "keep": k })).await {
-                error("Speichern", er).await;
+                error(crate::sprache::t!("gem-speichern"), er).await;
             }
             app.backups_tick.update(|n| *n += 1);
         });
@@ -89,22 +89,22 @@ pub fn Backups() -> impl IntoView {
             <p class="dim">{move || {
                 let b = data.get();
                 if b.is_null() { String::new() } else {
-                    format!("Jedes Backup ist der komplette Server-Ordner als ZIP, mit Datum im Namen. Gespeichert in {}. Die neuesten {} bleiben, ältere werden gelöscht.", b.s("dir"), b.s("keep"))
+                    crate::sprache::t!("bak-erklaerung", ordner = b.s("dir"), anzahl = b.s("keep"))
                 }
             }}</p>
             <div class="row">
-                <button class="primary" disabled=move || !free() on:click=move |_| crate::pages::overview::backup_now(app)>"Jetzt sichern"</button>
-                <button on:click=|_| open_folder("backups")>"Backup-Ordner öffnen"</button>
-                <button on:click=pick>"Andere ZIP wiederherstellen …"</button>
+                <button class="primary" disabled=move || !free() on:click=move |_| crate::pages::overview::backup_now(app)>{crate::sprache::t!("bak-jetzt")}</button>
+                <button on:click=|_| open_folder("backups")>{crate::sprache::t!("bak-ordner")}</button>
+                <button on:click=pick>{crate::sprache::t!("bak-andere")}</button>
                 <span class="spacer"></span>
-                <label>"Aufheben:"</label>
+                <label>{crate::sprache::t!("bak-aufheben")}</label>
                 <input type="number" min="1" max="100" class="num" prop:value=keep on:change=set_keep/>
             </div>
             <div class="list">
                 {move || {
                     let items = data.get().a("items");
                     if items.is_empty() {
-                        view! { <div class="empty">"Noch keine Backups für diesen Server."</div> }.into_any()
+                        view! { <div class="empty">{crate::sprache::t!("bak-leer")}</div> }.into_any()
                     } else {
                         items.into_iter().map(|it| {
                             let (path, file) = (it.s("path"), it.s("file"));
@@ -112,7 +112,7 @@ pub fn Backups() -> impl IntoView {
                                 <div class="item">
                                     <div class="grow"><div>{it.s("label")}</div>
                                         <div class="sub">{format!("{} · {}", it.s("file"), fmt_bytes(it.f("size")))}</div></div>
-                                    <button on:click=move |_| restore(app, path.clone(), file.clone())>"Wiederherstellen"</button>
+                                    <button on:click=move |_| restore(app, path.clone(), file.clone())>{crate::sprache::t!("bak-wiederherstellen")}</button>
                                 </div>
                             }
                         }).collect_view().into_any()

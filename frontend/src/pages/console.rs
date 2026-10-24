@@ -137,15 +137,15 @@ fn log_events(app: AppState, new: &[String]) {
     for line in new {
         if let Some((name, joined)) = join_of(line) {
             let text = if joined {
-                format!("{name} ist beigetreten")
+                crate::sprache::t!("kon-beigetreten", name = name)
             } else {
-                format!("{name} hat das Spiel verlassen")
+                crate::sprache::t!("kon-verlassen", name = name)
             };
             app.add_event(text.clone());
             crate::util::notify(&text, "");
             set_timeout(move || app.refresh_live(), Duration::from_millis(800));
         } else if let Some(s) = done_of(line) {
-            app.add_event(format!("Server bereit (Start in {s} s)"));
+            app.add_event(crate::sprache::t!("kon-bereit", sekunden = s));
             set_timeout(move || app.refresh_live(), Duration::from_millis(500));
         }
     }
@@ -160,7 +160,7 @@ pub fn listen_log() {
         }
         if ev.reset && !ev.initial {
             append(
-                vec!["––– neue Log-Datei (Server wurde neu gestartet) –––".into()],
+                vec![format!("––– {} –––", crate::sprache::t!("kon-neues-log"))],
                 Some("sys"),
             );
         }
@@ -189,7 +189,7 @@ pub async fn run_command(cmd: &str, quiet: bool) -> Result<String, String> {
         }
         Err(e) => {
             if !quiet {
-                append(vec![format!("Fehler: {e}")], Some("error"));
+                append(vec![crate::sprache::t!("kon-fehler", fehler = e.clone())], Some("error"));
             }
             Err(e)
         }
@@ -249,12 +249,12 @@ pub fn Console() -> impl IntoView {
         }
     };
     let quick = [
-        ("Tag", "time set day"),
-        ("Nacht", "time set night"),
-        ("Klares Wetter", "weather clear"),
-        ("Speichern", "save-all"),
-        ("TPS", "tick query"),
-        ("Wer ist online?", "list"),
+        (crate::sprache::t!("kon-tag"), "time set day"),
+        (crate::sprache::t!("kon-nacht"), "time set night"),
+        (crate::sprache::t!("kon-wetter"), "weather clear"),
+        (crate::sprache::t!("gem-speichern"), "save-all"),
+        ("TPS".to_string(), "tick query"),
+        (crate::sprache::t!("kon-wer-online"), "list"),
     ];
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Console id="tab-console">
@@ -263,15 +263,15 @@ pub fn Console() -> impl IntoView {
                     children=|l| view! { <div class=l.class>{l.text}</div> }/>
             </div>
             <div class="cmd-row">
-                <input placeholder="Befehl eingeben, z. B. say Hallo  ·  time set day  ·  weather clear"
+                <input placeholder=crate::sprache::t!("kon-platzhalter")
                     autocomplete="off" spellcheck="false" disabled=move || !can_send()
                     prop:value=input on:input=move |e| input.set(event_target_value(&e)) on:keydown=on_key/>
-                <button class="primary" disabled=move || !can_send() on:click=move |_| submit()>"Senden"</button>
+                <button class="primary" disabled=move || !can_send() on:click=move |_| submit()>{crate::sprache::t!("kon-senden")}</button>
             </div>
             <div class="quick">
                 {quick.into_iter().map(|(l, c)| view! { <button on:click=move |_| send(c.to_string())>{l}</button> }).collect_view()}
                 <span class="spacer"></span>
-                <button on:click=|_| crate::util::open_folder("logs")>"Log-Ordner öffnen"</button>
+                <button on:click=|_| crate::util::open_folder("logs")>{crate::sprache::t!("kon-log-ordner")}</button>
             </div>
         </section>
     }

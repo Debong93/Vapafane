@@ -47,14 +47,14 @@ pub fn Header() -> impl IntoView {
             .unwrap_or_default();
         leptos::task::spawn_local(async move {
             match tauri::invoke::<()>("select_server", serde_json::json!({ "path": path })).await {
-                Ok(()) => app.add_event(format!("Server gewechselt: {name}")),
-                Err(e) => crate::dialog::error("Umschalten nicht möglich", e).await,
+                Ok(()) => app.add_event(crate::sprache::t!("hdr-ev-gewechselt", name = name)),
+                Err(e) => crate::dialog::error(crate::sprache::t!("hdr-err-umschalten"), e).await,
             }
             app.refresh_status();
         });
     };
 
-    let menu_item = move |label: &'static str, action: fn()| {
+    let menu_item = move |label: String, action: fn()| {
         view! {
             <button on:click=move |_| {
                 menu_open.set(false);
@@ -69,49 +69,49 @@ pub fn Header() -> impl IntoView {
                 <img src="icon.png" alt=""/>
                 <span class="brand-text">
                     <span class="brand-name">"Vapafane"</span>
-                    <small>"Minecraft-Werkbank für Server & Client"</small>
+                    <small>{crate::sprache::t!("hdr-untertitel")}</small>
                 </span>
             </div>
-            <div class="mode-switch" role="tablist" aria-label="Bereich">
+            <div class="mode-switch" role="tablist" aria-label=crate::sprache::t!("hdr-bereich")>
                 <button id="mode-client" role="tab"
                     class:active=move || app.mode.get() == Mode::Client
-                    on:click=move |_| app.set_mode(Mode::Client)>"Client"</button>
+                    on:click=move |_| app.set_mode(Mode::Client)>{crate::sprache::t!("hdr-client")}</button>
                 <button id="mode-server" role="tab"
                     class:active=move || app.mode.get() == Mode::Server
-                    on:click=move |_| app.set_mode(Mode::Server)>"Server"</button>
+                    on:click=move |_| app.set_mode(Mode::Server)>{crate::sprache::t!("hdr-server")}</button>
             </div>
             <div class="picker">
-                <select id="server-select" title="Aktiver Server (es läuft immer nur einer)"
+                <select id="server-select" title=crate::sprache::t!("hdr-aktiver-server")
                     prop:value=active_path disabled=busy on:change=select_server>
                     <Show when=no_server>
-                        <option value="">"(kein Server)"</option>
+                        <option value="">{crate::sprache::t!("hdr-kein-server")}</option>
                     </Show>
                     <For each=servers key=|s: &ServerItem| s.path.clone()
                         children=move |s: ServerItem| view! { <option value=s.path.clone()>{s.name.clone()}</option> }/>
                 </select>
                 <button id="btn-add-server" class="icon-btn"
                     class:glow=no_server
-                    title=move || if no_server() { "Hier neuen Server erstellen" } else { "Server hinzufügen" }
+                    title=move || if no_server() { crate::sprache::t!("hdr-plus-erster") } else { crate::sprache::t!("hdr-plus") }
                     on:click=move |e| {
                         e.stop_propagation();
                         menu_open.update(|o| *o = !*o);
                     }>"＋"</button>
                 <div id="add-menu" class="menu" class:hidden=move || !menu_open.get()
                     on:click=|e| e.stop_propagation()>
-                    {menu_item("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …", server_dialogs::add_new)}
-                    {menu_item("Vorhandenen Ordner hinzufügen …", server_dialogs::add_folder)}
-                    {menu_item("Server aus ZIP/Backup importieren …", server_dialogs::add_archive)}
+                    {menu_item(crate::sprache::t!("hdr-menu-neu"), server_dialogs::add_new)}
+                    {menu_item(crate::sprache::t!("hdr-menu-ordner"), server_dialogs::add_folder)}
+                    {menu_item(crate::sprache::t!("hdr-menu-import"), server_dialogs::add_archive)}
                     <hr/>
-                    {menu_item("Ausgewählten Server aus der Liste entfernen", server_dialogs::remove_server)}
+                    {menu_item(crate::sprache::t!("hdr-menu-entfernen"), server_dialogs::remove_server)}
                 </div>
             </div>
             <Mobs/>
-            <button id="btn-gear" class="icon-btn" title="Einstellungen" aria-label="Einstellungen"
+            <button id="btn-gear" class="icon-btn" title=crate::sprache::t!("hdr-einstellungen") aria-label=crate::sprache::t!("hdr-einstellungen")
                 class:on=move || matches!(app.page.get(), Page::Settings | Page::ClientSettings)
                 on:click=move |_| app.toggle_settings()>
                 <span class="px-ico ico-settings"></span>
             </button>
-            <button id="btn-theme" class="icon-btn" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten"
+            <button id="btn-theme" class="icon-btn" title=crate::sprache::t!("hdr-hell-dunkel") aria-label=crate::sprache::t!("hdr-hell-dunkel")
                 on:click=move |_| toggle_light_dark(&app)>
                 <span class="px-ico"></span>
             </button>

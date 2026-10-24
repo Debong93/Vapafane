@@ -11,19 +11,21 @@ use crate::tauri;
 use crate::util::{J, animate, by_id, computed, css_var, fmt_bytes, fmt_duration, num};
 
 /// Text und Farbe je Zustand.
-pub fn label_of(state: &str) -> (&'static str, &'static str) {
-    match state {
-        "running" => ("Läuft", "--green"),
-        "starting" => ("Startet …", "--amber"),
-        "stopping" => ("Stoppt …", "--amber"),
-        "restarting" => ("Neustart nach Absturz …", "--amber"),
-        "stopped" => ("Gestoppt", "--gray"),
-        "failed" => ("Abgestürzt", "--red"),
-        "external" => ("Läuft außerhalb von Vapafane", "--amber"),
-        "other" => ("Ein anderer Server läuft", "--amber"),
-        "none" => ("Kein Server ausgewählt", "--gray"),
-        _ => ("…", "--gray"),
-    }
+pub fn label_of(state: &str) -> (String, &'static str) {
+    let (key, farbe) = match state {
+        "running" => ("ueb-laeuft", "--green"),
+        "starting" => ("ueb-startet", "--amber"),
+        "stopping" => ("ueb-stoppt", "--amber"),
+        "restarting" => ("ueb-neustart-absturz", "--amber"),
+        "stopped" => ("ueb-gestoppt", "--gray"),
+        "failed" => ("ueb-abgestuerzt", "--red"),
+        "external" => ("ueb-extern", "--amber"),
+        "other" => ("ueb-anderer", "--amber"),
+        "none" => ("rch-kein-server", "--gray"),
+        _ => ("", "--gray"),
+    };
+    let label = if key.is_empty() { "…".to_string() } else { crate::sprache::text(key, None) };
+    (label, farbe)
 }
 
 /// Wird bei jedem neuen Status aufgerufen (vor dem Speichern): Übergänge melden,
@@ -53,30 +55,27 @@ pub fn on_status(app: AppState, st: &Status) {
     if !first && state != last {
         if matches!(state, "failed" | "restarting") && !matches!(last, "failed" | "restarting") {
             let again = state == "restarting";
-            app.add_event(format!(
-                "Server ist abgestürzt{}",
-                if again {
-                    " – wird automatisch neu gestartet"
-                } else {
-                    ""
-                }
-            ));
+            app.add_event(if again {
+                crate::sprache::t!("ueb-ev-absturz-neustart")
+            } else {
+                crate::sprache::t!("ueb-ev-absturz")
+            });
             crate::util::notify(
-                "Minecraft-Server abgestürzt",
-                if again {
-                    "Er wird automatisch neu gestartet."
+                &crate::sprache::t!("ueb-notify-absturz"),
+                &if again {
+                    crate::sprache::t!("ueb-notify-absturz-neustart")
                 } else {
-                    ""
+                    String::new()
                 },
             );
         } else if state == "running" {
-            app.add_event("Server ist bereit");
+            app.add_event(crate::sprache::t!("ueb-ev-bereit"));
             app.refresh_live();
             if app.reach.get_untracked().is_some_and(|r| r.b("server_off")) {
                 crate::pages::reach::run_reach(app);
             }
         } else if state == "stopped" && last != "none" {
-            app.add_event("Server gestoppt");
+            app.add_event(crate::sprache::t!("ueb-ev-gestoppt"));
         }
         // Kleine Animation: Block setzen bzw. abbauen
         if state == "running" && matches!(last, "starting" | "restarting" | "stopped" | "failed") {
@@ -136,25 +135,25 @@ pub async fn ask_eula(name: &str) -> bool {
     let body: dialog::BodyFn = std::rc::Rc::new(move || {
         let name = name.clone();
         view! {
-            <p>"Ohne Zustimmung zur Minecraft-EULA startet kein Server."</p>
+            <p>{crate::sprache::t!("ueb-eula-text")}</p>
             <label class="check">
                 <input type="checkbox" on:change=move |e| ok.set(event_target_checked(&e))/>
-                " Ich akzeptiere die "
+                " "{crate::sprache::t!("ueb-eula-akzeptiere")}" "
                 <a href="#" on:click=move |e| {
                     e.prevent_default();
                     leptos::task::spawn_local(async { let _ = tauri::call::<()>("open_eula").await; });
                 }>"Minecraft-EULA"</a>
-                {format!(" für „{name}“.")}
+                {format!(" {}", crate::sprache::t!("ueb-eula-fuer", name = name))}
             </label>
         }
         .into_any()
     });
     let r = dialog::ask_view(
-        "EULA bestätigen",
+        crate::sprache::t!("ueb-eula-titel"),
         body,
         vec![
-            Btn::new("Abbrechen", ""),
-            Btn::primary("Weiter", "ok").when(ok.into()),
+            Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+            Btn::primary(crate::sprache::t!("gem-weiter"), "ok").when(ok.into()),
         ],
         false,
     )
@@ -167,7 +166,7 @@ pub fn start_server(app: AppState) {
         loop {
             match tauri::call::<()>("start_server").await {
                 Ok(()) => {
-                    app.add_event("Server wird gestartet");
+                    app.add_event(crate::sprache::t!("ueb-ev-startet"));
                     break;
                 }
                 Err(e) if e == "EULA" => {
@@ -181,10 +180,10 @@ pub fn start_server(app: AppState) {
                         return;
                     }
                     if let Err(e2) = tauri::call::<()>("accept_eula").await {
-                        return error("EULA", e2).await;
+                        return error(crate::sprache::t!("ueb-eula-titel"), e2).await;
                     }
                 }
-                Err(e) => return error("Start fehlgeschlagen", e).await,
+                Err(e) => return error(crate::sprache::t!("ueb-err-start"), e).await,
             }
         }
         set_timeout(move || app.refresh_status(), Duration::from_millis(400));
@@ -193,14 +192,14 @@ pub fn start_server(app: AppState) {
 
 pub fn ask_stop(app: AppState, restart: bool) {
     leptos::task::spawn_local(async move {
-        let verb = if restart { "neu starten" } else { "stoppen" };
+        let verb = if restart { crate::sprache::t!("ueb-verb-neustart") } else { crate::sprache::t!("ueb-verb-stoppen") };
         let secs = tauri::call::<Value>("get_config")
             .await
             .ok()
             .and_then(|c| c.f("stop_warning"))
             .unwrap_or(30.0) as u64;
         if app.status.get_untracked().state == "external" {
-            if confirm("Server stoppen?", "Der Server läuft außerhalb von Vapafane. Ich schicke ihm den Befehl „stop“ – er speichert die Welt und beendet sich.", "Stoppen").await {
+            if confirm(crate::sprache::t!("ueb-stop-frage", verb = crate::sprache::t!("ueb-verb-stoppen")), crate::sprache::t!("ueb-stop-extern-text"), crate::sprache::t!("ueb-stoppen")).await {
                 do_stop(app, false, 0);
             }
             return;
@@ -213,22 +212,21 @@ pub fn ask_stop(app: AppState, restart: bool) {
             .filter_map(|p| p.as_str().map(String::from))
             .collect();
         let choice = if players.is_empty() {
-            let mut cap = verb.to_string();
-            cap.replace_range(..1, &cap[..1].to_uppercase());
+            let cap = if restart { crate::sprache::t!("ueb-neustart-knopf") } else { crate::sprache::t!("ueb-stoppen") };
             ask(
-                format!("Server {verb}?"),
-                "Gerade ist niemand online.",
-                vec![Btn::new("Abbrechen", ""), Btn::primary(cap, "0")],
+                crate::sprache::t!("ueb-stop-frage", verb = verb),
+                crate::sprache::t!("ueb-stop-niemand"),
+                vec![Btn::new(crate::sprache::t!("gem-abbrechen"), ""), Btn::primary(cap, "0")],
             )
             .await
         } else {
             ask(
-                format!("Server {verb}?"),
-                format!("{} Spieler online: {}", players.len(), players.join(", ")),
+                crate::sprache::t!("ueb-stop-frage", verb = verb),
+                crate::sprache::t!("ueb-stop-spieler", anzahl = players.len() as u32, namen = players.join(", ")),
                 vec![
-                    Btn::new("Abbrechen", ""),
-                    Btn::new("Sofort", "0"),
-                    Btn::primary(format!("In {secs} Sek. mit Warnung"), "warn"),
+                    Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+                    Btn::new(crate::sprache::t!("ueb-sofort"), "0"),
+                    Btn::primary(crate::sprache::t!("ueb-mit-warnung", sekunden = secs), "warn"),
                 ],
             )
             .await
@@ -243,10 +241,10 @@ pub fn ask_stop(app: AppState, restart: bool) {
 
 pub fn do_stop(app: AppState, restart: bool, warn: u64) {
     app.add_event(format!(
-        "Server {}{}",
-        if restart { "startet neu" } else { "stoppt" },
+        "{}{}",
+        if restart { crate::sprache::t!("ueb-ev-neustart") } else { crate::sprache::t!("ueb-ev-stoppt") },
         if warn > 0 {
-            format!(" in {warn} Sek.")
+            format!(" {}", crate::sprache::t!("ueb-ev-in-sek", sekunden = warn))
         } else {
             String::new()
         }
@@ -255,22 +253,22 @@ pub fn do_stop(app: AppState, restart: bool, warn: u64) {
         if let Err(e) =
             tauri::invoke::<()>("stop_server", json!({ "warn": warn, "restart": restart })).await
         {
-            error("Stoppen fehlgeschlagen", e).await;
+            error(crate::sprache::t!("ueb-err-stop"), e).await;
         }
         set_timeout(move || app.refresh_status(), Duration::from_millis(400));
     });
 }
 
 pub fn backup_now(app: AppState) {
-    app.add_event("Backup gestartet");
+    app.add_event(crate::sprache::t!("ueb-ev-backup-start"));
     leptos::task::spawn_local(async move {
         match crate::tasks::task("backup_now", json!({})).await {
-            Ok(r) => app.add_event(format!(
-                "Backup fertig: {} ({})",
-                crate::util::file_name(&r.s("path")),
-                fmt_bytes(r.f("size"))
+            Ok(r) => app.add_event(crate::sprache::t!(
+                "ueb-ev-backup-fertig",
+                datei = crate::util::file_name(&r.s("path")),
+                groesse = fmt_bytes(r.f("size"))
             )),
-            Err(e) => error("Backup fehlgeschlagen", e).await,
+            Err(e) => error(crate::sprache::t!("ueb-err-backup"), e).await,
         }
     });
 }
@@ -481,7 +479,7 @@ pub fn Spark(
 
 #[component]
 fn Card(
-    title: &'static str,
+    #[prop(into)] title: String,
     #[prop(into)] value: Signal<String>,
     #[prop(into)] sub: Signal<String>,
     #[prop(optional)] children: Option<Children>,
@@ -517,10 +515,10 @@ pub fn Overview() -> impl IntoView {
                 "running" | "starting" | "stopping" | "external"
             )
         {
-            parts.push(format!("seit {}", fmt_duration(u as f64)));
+            parts.push(crate::sprache::t!("ueb-seit", dauer = fmt_duration(u as f64)));
         }
         if let Some(r) = s.restarts.filter(|r| *r > 0) {
-            parts.push(format!("{r}× automatisch neu gestartet"));
+            parts.push(crate::sprache::t!("ueb-neustarts", anzahl = r));
         }
         if let Some(c) = &s.countdown {
             parts.push(c.clone());
@@ -534,11 +532,11 @@ pub fn Overview() -> impl IntoView {
         let s = st.get();
         let last = s.last_exit.clone().unwrap_or_default();
         match s.state.as_str() {
-            "external" => Some(("Der Server wurde nicht über Vapafane gestartet (z. B. altes Bedienfenster oder Terminal). Konsole und Spieler gehen trotzdem; „Stoppen“ schickt ihm den stop-Befehl.".to_string(), false)),
-            "other" => Some(("Der Hintergrund-Dienst betreibt gerade einen anderen Server. Bitte den zuerst stoppen.".into(), false)),
-            "failed" => Some((format!("Der Server ist abgestürzt und wurde nicht mehr neu gestartet. Schau in der Konsole nach der letzten Fehlermeldung.{}",
+            "external" => Some((crate::sprache::t!("ueb-hinweis-extern"), false)),
+            "other" => Some((crate::sprache::t!("ueb-hinweis-anderer"), false)),
+            "failed" => Some((format!("{}{}", crate::sprache::t!("ueb-hinweis-absturz"),
                 if last.is_empty() { String::new() } else { format!("\n\n{last}") }), true)),
-            "none" => Some(("Füge oben über „＋“ einen Server hinzu.".into(), false)),
+            "none" => Some((crate::sprache::t!("ueb-hinweis-kein-server"), false)),
             "restarting" if !last.is_empty() => Some((last, true)),
             _ => None,
         }
@@ -561,16 +559,16 @@ pub fn Overview() -> impl IntoView {
         let l = live.get();
         if !running() {
             return if state() == "stopped" {
-                "Server aus".into()
+                crate::sprache::t!("ueb-server-aus")
             } else {
                 String::new()
             };
         }
         if l.b("error") {
             return if state() == "starting" {
-                "Server startet …".into()
+                crate::sprache::t!("ueb-startet")
             } else {
-                "keine Verbindung".into()
+                crate::sprache::t!("ueb-keine-verbindung")
             };
         }
         let names: Vec<String> = l
@@ -580,7 +578,7 @@ pub fn Overview() -> impl IntoView {
             .collect();
         if l.f("online").is_some() {
             if names.is_empty() {
-                "niemand".into()
+                crate::sprache::t!("ueb-niemand")
             } else {
                 names.join(", ")
             }
@@ -602,9 +600,9 @@ pub fn Overview() -> impl IntoView {
         let l = live.get();
         match (running(), l.f("tps")) {
             (true, Some(t)) => format!(
-                "{} ms pro Tick  ·  {}",
-                num(l.f("mspt").unwrap_or(0.0), 1),
-                if t < 18.0 { "ruckelt" } else { "flüssig" }
+                "{}  ·  {}",
+                crate::sprache::t!("ueb-ms-pro-tick", ms = num(l.f("mspt").unwrap_or(0.0), 1)),
+                if t < 18.0 { crate::sprache::t!("ueb-ruckelt") } else { crate::sprache::t!("ueb-fluessig") }
             ),
             _ => String::new(),
         }
@@ -619,7 +617,7 @@ pub fn Overview() -> impl IntoView {
     let cpu_sub = move || {
         let s = st.get();
         if s.pid.is_some() && s.cpu.is_some() {
-            format!("von {} Kernen", s.ncpu.unwrap_or(0))
+            crate::sprache::t!("ueb-von-kernen", anzahl = s.ncpu.unwrap_or(0))
         } else {
             String::new()
         }
@@ -635,9 +633,9 @@ pub fn Overview() -> impl IntoView {
         let s = st.get();
         let lim = s.ram_limit_gb.map(|g| format!("{g}"));
         match (s.pid.is_some() && s.ram.is_some(), lim) {
-            (true, Some(l)) => format!("belegt (Limit {l} GB)"),
-            (true, None) => "belegt".into(),
-            (false, Some(l)) => format!("Limit {l} GB"),
+            (true, Some(l)) => crate::sprache::t!("ueb-ram-belegt-limit", limit = l),
+            (true, None) => crate::sprache::t!("ueb-ram-belegt"),
+            (false, Some(l)) => crate::sprache::t!("ueb-ram-limit", limit = l),
             (false, None) => String::new(),
         }
     };
@@ -652,7 +650,7 @@ pub fn Overview() -> impl IntoView {
     };
     let size_sub = move || {
         if has() {
-            format!("{} frei", fmt_bytes(d.get().f("free")))
+            crate::sprache::t!("ueb-frei", groesse = fmt_bytes(d.get().f("free")))
         } else {
             String::new()
         }
@@ -670,8 +668,8 @@ pub fn Overview() -> impl IntoView {
             return "–".into();
         }
         match d.get().f("last_backup/age") {
-            Some(a) => format!("vor {}", fmt_duration(a)),
-            None => "noch keins".into(),
+            Some(a) => crate::sprache::t!("ueb-vor", dauer = fmt_duration(a)),
+            None => crate::sprache::t!("ueb-noch-keins"),
         }
     };
     let backup_sub = move || {
@@ -680,13 +678,9 @@ pub fn Overview() -> impl IntoView {
         }
         let v = d.get();
         if v.o("last_backup").is_null() {
-            "Knopf „Backup“ drücken".into()
+            crate::sprache::t!("ueb-backup-knopf")
         } else {
-            format!(
-                "{} · {} gespeichert",
-                fmt_bytes(v.f("last_backup/size")),
-                v.s("backups")
-            )
+            crate::sprache::t!("ueb-backup-sub", groesse = fmt_bytes(v.f("last_backup/size")), anzahl = v.s("backups"))
         }
     };
     let version = move || {
@@ -717,12 +711,11 @@ pub fn Overview() -> impl IntoView {
     let reach = app.reach;
     let reach_val = move || match reach.get() {
         Some(r) => match r.s("light").as_str() {
-            "green" => "Erreichbar",
-            "yellow" => "Nur IPv6",
-            "red" => "Nicht erreichbar",
-            _ => "–",
-        }
-        .to_string(),
+            "green" => crate::sprache::t!("ueb-erreichbar"),
+            "yellow" => crate::sprache::t!("ueb-nur-ipv6"),
+            "red" => crate::sprache::t!("ueb-nicht-erreichbar"),
+            _ => "–".into(),
+        },
         None => "–".into(),
     };
     let reach_color = move || {
@@ -741,12 +734,12 @@ pub fn Overview() -> impl IntoView {
             _ if r.b("ds_lite") => "DS-Lite".into(),
             "green" => {
                 if r.s("v6_state") == "ok" {
-                    "IPv4 und IPv6".into()
+                    crate::sprache::t!("ueb-ipv4-und-6")
                 } else {
-                    "über IPv4".into()
+                    crate::sprache::t!("ueb-ueber-ipv4")
                 }
             }
-            "red" => "Portfreigabe prüfen".into(),
+            "red" => crate::sprache::t!("ueb-portfreigabe"),
             _ => String::new(),
         },
     };
@@ -765,51 +758,51 @@ pub fn Overview() -> impl IntoView {
                 </div>
                 <div class="buttons">
                     <button class="primary" disabled=move || !(matches!(state().as_str(), "stopped" | "failed") && free())
-                        on:click=move |_| start_server(app)>"▶ Starten"</button>
+                        on:click=move |_| start_server(app)>{format!("▶ {}", crate::sprache::t!("ueb-starten"))}</button>
                     <button class="danger" disabled=move || {
                         let s = st.get();
                         let up = s.up();
                         !((up && s.state != "stopping" && s.countdown.is_none()) || s.state == "external") || !free()
-                    } on:click=move |_| ask_stop(app, false)>"■ Stoppen"</button>
+                    } on:click=move |_| ask_stop(app, false)>{format!("■ {}", crate::sprache::t!("ueb-stoppen"))}</button>
                     <button disabled=move || !(state() == "running" && st.get().countdown.is_none() && free())
-                        on:click=move |_| ask_stop(app, true)>"⟳ Neustart"</button>
+                        on:click=move |_| ask_stop(app, true)>{format!("⟳ {}", crate::sprache::t!("ueb-neustart-knopf"))}</button>
                     <button disabled=move || st.get().server.is_none() || !free() on:click=move |_| backup_now(app)>"Backup"</button>
-                    <button class="primary" on:click=move |_| crate::pages::invite::open_invite()>"Freunde einladen"</button>
+                    <button class="primary" on:click=move |_| crate::pages::invite::open_invite()>{crate::sprache::t!("inv-titel")}</button>
                 </div>
             </div>
             {move || hint().map(|(h, err)| view! { <div class="hint" class:error=err>{h}</div> })}
             <crate::pages::players::WhitelistNote page=Page::Overview/>
             <div class="cards">
-                <Card title="Spieler online" value=Signal::derive(players) sub=Signal::derive(players_sub)/>
-                <Card title="TPS (Ticks pro Sekunde)" value=Signal::derive(tps) sub=Signal::derive(tps_sub)>
+                <Card title=crate::sprache::t!("ueb-karte-spieler") value=Signal::derive(players) sub=Signal::derive(players_sub)/>
+                <Card title=crate::sprache::t!("ueb-karte-tps") value=Signal::derive(tps) sub=Signal::derive(tps_sub)>
                     <Spark values=app.spark_tps color="--green" max=Some(20.0)/>
                 </Card>
                 <Card title="CPU" value=Signal::derive(cpu) sub=Signal::derive(cpu_sub)>
                     <Spark values=app.spark_cpu color="--blue" max=Some(100.0)/>
                 </Card>
-                <Card title="Arbeitsspeicher" value=Signal::derive(ram) sub=Signal::derive(ram_sub)>
+                <Card title=crate::sprache::t!("ueb-karte-ram") value=Signal::derive(ram) sub=Signal::derive(ram_sub)>
                     <Spark values=app.spark_ram color="--amber" max=ram_max/>
                 </Card>
-                <Card title="Server-Ordner" value=Signal::derive(size) sub=Signal::derive(size_sub)/>
-                <Card title="Von außen" value=Signal::derive(reach_val) sub=Signal::derive(reach_sub) color=Signal::derive(reach_color)/>
-                <Card title="Adresse (Heimnetz)" value=Signal::derive(addr) sub=Signal::derive(addr_sub)/>
-                <Card title="Letztes Backup" value=Signal::derive(backup) sub=Signal::derive(backup_sub)/>
-                <Card title="Version" value=Signal::derive(version) sub=Signal::derive(version_sub)/>
+                <Card title=crate::sprache::t!("ueb-karte-ordner") value=Signal::derive(size) sub=Signal::derive(size_sub)/>
+                <Card title=crate::sprache::t!("ueb-karte-aussen") value=Signal::derive(reach_val) sub=Signal::derive(reach_sub) color=Signal::derive(reach_color)/>
+                <Card title=crate::sprache::t!("ueb-karte-adresse") value=Signal::derive(addr) sub=Signal::derive(addr_sub)/>
+                <Card title=crate::sprache::t!("ueb-karte-backup") value=Signal::derive(backup) sub=Signal::derive(backup_sub)/>
+                <Card title=crate::sprache::t!("ueb-karte-version") value=Signal::derive(version) sub=Signal::derive(version_sub)/>
             </div>
-            <h3>"Letzte Ereignisse"</h3>
+            <h3>{crate::sprache::t!("ueb-ereignisse")}</h3>
             <ul class="events">
                 {move || {
                     let ev = app.events.get();
                     if ev.is_empty() {
-                        view! { <li class="dim">"Noch nichts passiert."</li> }.into_any()
+                        view! { <li class="dim">{crate::sprache::t!("ueb-nichts-passiert")}</li> }.into_any()
                     } else {
                         ev.into_iter().map(|e| view! { <li><span class="t">{e.time}</span>{e.text}</li> }).collect_view().into_any()
                     }
                 }}
             </ul>
-            <p class="dim small">"Fenster schließen stoppt den Server nicht – er läuft im Hintergrund weiter."</p>
-            <p class="notice small">"Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen. "
-                <a href="#" on:click=|e| { e.prevent_default(); crate::util::open_link("issues"); }>"Kontakt & Fehler melden (GitHub)"</a></p>
+            <p class="dim small">{crate::sprache::t!("ueb-fenster-zu")}</p>
+            <p class="notice small">{crate::sprache::t!("about-nicht-offiziell")}" "
+                <a href="#" on:click=|e| { e.prevent_default(); crate::util::open_link("issues"); }>{crate::sprache::t!("ueb-kontakt")}</a></p>
         </section>
     }
 }

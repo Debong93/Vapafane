@@ -113,26 +113,26 @@ pub async fn ask_view(
 }
 
 pub async fn info(title: impl Into<String>, text: impl Into<String>) {
-    ask(title, text, vec![Btn::primary("OK", "ok")]).await;
+    ask(title, text, vec![Btn::primary(crate::sprache::t!("gem-ok"), "ok")]).await;
 }
 
 pub async fn error(title: impl Into<String>, text: impl Into<String>) {
-    ask(title, text, vec![Btn::primary("Schließen", "ok")]).await;
+    ask(title, text, vec![Btn::primary(crate::sprache::t!("gem-schliessen"), "ok")]).await;
 }
 
-pub async fn confirm(title: impl Into<String>, text: impl Into<String>, yes: &str) -> bool {
+pub async fn confirm(title: impl Into<String>, text: impl Into<String>, yes: impl Into<String>) -> bool {
     ask(
         title,
         text,
-        vec![Btn::new("Abbrechen", ""), Btn::primary(yes, "yes")],
+        vec![Btn::new(crate::sprache::t!("gem-abbrechen"), ""), Btn::primary(yes, "yes")],
     )
     .await
         == "yes"
 }
 
 /// Fehler zeigen, ohne darauf zu warten (für Klick-Handler).
-pub fn show_error(title: &'static str, text: impl Into<String>) {
-    let text = text.into();
+pub fn show_error(title: impl Into<String>, text: impl Into<String>) {
+    let (title, text) = (title.into(), text.into());
     leptos::task::spawn_local(async move { error(title, text).await });
 }
 

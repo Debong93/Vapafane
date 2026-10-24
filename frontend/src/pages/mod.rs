@@ -57,16 +57,16 @@ pub fn SkinChoice() -> impl IntoView {
         crate::state::is_obsidian()
     };
     view! {
-        <h3>"Aussehen"</h3>
-        <div class="skins" role="radiogroup" aria-label="Aussehen">
+        <h3>{crate::sprache::t!("skin-titel")}</h3>
+        <div class="skins" role="radiogroup" aria-label=crate::sprache::t!("skin-titel")>
             <label class="skin-choice"><span class="swatch grass"></span>
                 <span><input type="radio" name="skin" value="grass" prop:checked=move || !obsidian()
                     on:change=move |_| set_skin(&app, "grass")/>" Grasblock"</span>
-                <span class="dim small">"Hell oder dunkel (Knopf oben rechts)"</span></label>
+                <span class="dim small">{crate::sprache::t!("skin-grass-sub")}</span></label>
             <label class="skin-choice"><span class="swatch obsidian"></span>
                 <span><input type="radio" name="skin" value="obsidian" prop:checked=obsidian
                     on:change=move |_| set_skin(&app, "obsidian")/>" Crying Obsidian"</span>
-                <span class="dim small">"Immer dunkel"</span></label>
+                <span class="dim small">{crate::sprache::t!("skin-obsidian-sub")}</span></label>
         </div>
     }
 }
@@ -78,25 +78,25 @@ pub fn About() -> impl IntoView {
     leptos::task::spawn_local(async move {
         if let Ok(c) = tauri::call::<Value>("get_config").await {
             about.set(format!(
-                "Version {}{}",
-                c.s("version"),
+                "{}{}",
+                crate::sprache::t!("about-version", version = c.s("version")),
                 if c.b("test_mode") {
-                    " · TESTMODUS"
+                    format!(" · {}", crate::sprache::t!("about-testmodus"))
                 } else {
-                    ""
+                    String::new()
                 }
             ));
         }
     });
     view! {
-        <h3>"Über Vapafane"</h3>
+        <h3>{crate::sprache::t!("about-titel")}</h3>
         <div class="cf-box about">
-            <p><b>"Vapafane – Minecraft-Werkbank für Server & Client"</b>" "<span class="dim">{about}</span></p>
-            <p class="notice">"Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen."</p>
-            <p>"Minecraft ist eine Marke von Mojang/Microsoft. Mods und Plugins stammen von ihren jeweiligen Autoren (über Modrinth bzw. CurseForge)."</p>
+            <p><b>"Vapafane – "{crate::sprache::t!("hdr-untertitel")}</b>" "<span class="dim">{about}</span></p>
+            <p class="notice">{crate::sprache::t!("about-nicht-offiziell")}</p>
+            <p>{crate::sprache::t!("about-marken")}</p>
             <div class="row">
-                <button on:click=|_| open_link("issues")>"Kontakt & Fehler melden (GitHub) ↗"</button>
-                <button on:click=|_| open_link("repo")>"Projektseite ↗"</button>
+                <button on:click=|_| open_link("issues")>{crate::sprache::t!("about-kontakt")}</button>
+                <button on:click=|_| open_link("repo")>{crate::sprache::t!("about-projektseite")}</button>
             </div>
         </div>
     }
@@ -121,14 +121,14 @@ fn ClientSettings() -> impl IntoView {
         leptos::task::spawn_local(async move {
             if let Err(er) = tauri::invoke::<()>("set_client_target", json!({ "target": t })).await
             {
-                show_error("Einstellung", er);
+                show_error(crate::sprache::t!("cset-einstellung"), er);
             }
         });
     };
     let open_base = move |_| {
         leptos::task::spawn_local(async move {
             if let Err(e) = tauri::call::<()>("client_open_base").await {
-                show_error("Ordner", e);
+                show_error(crate::sprache::t!("gem-ordner"), e);
             }
         })
     };
@@ -136,14 +136,14 @@ fn ClientSettings() -> impl IntoView {
         <section class="tab" class:active=move || app.page.get() == Page::ClientSettings>
             <LanguageChoice/>
             <SkinChoice/>
-            <h3>"Einrichten"</h3>
+            <h3>{crate::sprache::t!("cset-einrichten")}</h3>
             <div class="switches">
-                <div class="sw-row"><div><div>"Standard-Ziel"</div><div class="dim small">"Wo neue Server eingerichtet werden"</div></div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("cset-ziel")}</div><div class="dim small">{crate::sprache::t!("cset-ziel-sub")}</div></div>
                     <select prop:value=move || { let t = s.get().s("target"); if t.is_empty() { "launcher".into() } else { t } } on:change=set_target>
-                        <option value="launcher">"Offizieller Minecraft-Launcher"</option><option value="modrinth">"Modrinth-App"</option>
+                        <option value="launcher">{crate::sprache::t!("gem-launcher")}</option><option value="modrinth">{crate::sprache::t!("gem-modrinth-app")}</option>
                     </select></div>
-                <div class="sw-row"><div><div>"Spielordner aller Clients"</div><div class="dim small">"Hier liegen je Server Mods, Optionen und Welten"</div></div>
-                    <button on:click=open_base>"Ordner öffnen"</button></div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("cset-spielordner")}</div><div class="dim small">{crate::sprache::t!("cset-spielordner-sub")}</div></div>
+                    <button on:click=open_base>{crate::sprache::t!("gem-ordner-oeffnen")}</button></div>
             </div>
             <About/>
         </section>

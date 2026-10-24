@@ -149,13 +149,13 @@ pub fn Players() -> impl IntoView {
 
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Players>
-            <h3>"Gerade online"</h3>
+            <h3>{crate::sprache::t!("spi-online-titel")}</h3>
             <div class="list">{move || online_rows(app)}</div>
-            <h3>"Whitelist (wer darf rein)"</h3>
+            <h3>{crate::sprache::t!("spi-wl-titel")}</h3>
             <p class="dim small">"Ist die Whitelist an (Einstellungen → „Nur Whitelist darf rein“), kommen nur die Spieler hier auf den Server. Das schützt vor Fremden – trag dich selbst auch ein."</p>
             <WhitelistNote page=Page::Players tips=true/>
             <div class="row">
-                <input placeholder="Minecraft-Name" autocomplete="off" spellcheck="false" prop:value=input
+                <input placeholder=crate::sprache::t!("spi-name-platzhalter") autocomplete="off" spellcheck="false" prop:value=input
                     on:input=move |e| input.set(event_target_value(&e))
                     on:keydown=move |e| if e.key() == "Enter" { add() }/>
                 <button class="primary" on:click=move |_| add()>"Hinzufügen"</button>
@@ -183,7 +183,7 @@ fn online_rows(app: AppState) -> AnyView {
     let live = app.live.get();
     let players = names(&live, "players");
     if players.is_empty() {
-        return view! { <div class="empty">"Niemand online"</div> }.into_any();
+        return view! { <div class="empty">{crate::sprache::t!("spi-niemand")}</div> }.into_any();
     }
     let ops: Vec<String> = names(&live, "ops")
         .into_iter()
@@ -192,29 +192,29 @@ fn online_rows(app: AppState) -> AnyView {
     players.into_iter().map(|name| {
         let op = ops.contains(&name.to_lowercase());
         let actions = [
-            ("Kreativ", format!("gamemode creative {name}")),
-            ("Überleben", format!("gamemode survival {name}")),
-            (if op { "OP entziehen" } else { "OP geben" }, format!("{} {name}", if op { "deop" } else { "op" })),
-            ("Rauswerfen", format!("kick {name}")),
+            (crate::sprache::t!("spi-kreativ"), format!("gamemode creative {name}"), false),
+            (crate::sprache::t!("spi-ueberleben"), format!("gamemode survival {name}"), false),
+            (if op { crate::sprache::t!("spi-op-weg") } else { crate::sprache::t!("spi-op") }, format!("{} {name}", if op { "deop" } else { "op" }), false),
+            (crate::sprache::t!("spi-kick"), format!("kick {name}"), true),
         ];
         let n = name.clone();
         view! {
             <div class="item">
                 <div class="grow">{name.clone()}{op.then(|| view! { <span class="badge">"OP"</span> })}</div>
-                {actions.into_iter().map(|(label, cmd)| {
+                {actions.into_iter().map(|(label, cmd, is_kick)| {
                     let n = n.clone();
                     view! { <button on:click=move |_| {
                         let (n, cmd) = (n.clone(), cmd.clone());
                         leptos::task::spawn_local(async move {
-                            if label == "Rauswerfen" && !confirm(format!("{n} rauswerfen?"), "Ein erneuter Beitritt ist sofort möglich.", "Rauswerfen").await {
+                            if is_kick && !confirm(crate::sprache::t!("spi-kick-frage", name = n), crate::sprache::t!("spi-kick-text"), crate::sprache::t!("spi-kick")).await {
                                 return;
                             }
                             if let Err(e) = run_command(&cmd, false).await {
-                                error("Befehl fehlgeschlagen", e).await;
+                                error(crate::sprache::t!("spi-err-befehl"), e).await;
                             }
                             set_timeout(move || app.refresh_live(), Duration::from_millis(500));
                         });
-                    }>{label}</button> }
+                    }>{label.clone()}</button> }
                 }).collect_view()}
             </div>
         }

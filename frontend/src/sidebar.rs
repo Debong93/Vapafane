@@ -8,7 +8,7 @@ use crate::state::{Page, use_app};
 #[component]
 pub fn Sidebar() -> impl IntoView {
     let app = use_app();
-    let item = move |page: Page, icon: &'static str, label: &'static str| {
+    let item = move |page: Page, icon: &'static str, label: String| {
         view! {
             <button class:active=move || app.page.get() == page on:click=move |_| app.show(page)
                 class:alarm=move || page == Page::Reach && reach::alarm(app)
@@ -20,17 +20,17 @@ pub fn Sidebar() -> impl IntoView {
         }
     };
     view! {
-        <aside class="side" aria-label="Bereiche">
-            <div class="side-h">"Betrieb"</div>
-            {item(Page::Overview, "overview", "Übersicht")}
-            {item(Page::Console, "console", "Konsole")}
-            {item(Page::Players, "players", "Spieler")}
-            <div class="side-h">"Inhalte"</div>
-            {item(Page::Mods, "mods", "Mods/Plugins")}
-            {item(Page::Updates, "updates", "Version & Updates")}
-            {item(Page::Backups, "backups", "Backups")}
-            <div class="side-h">"Netzwerk"</div>
-            {item(Page::Reach, "reach", "Erreichbarkeit")}
+        <aside class="side" aria-label=crate::sprache::t!("side-bereiche")>
+            <div class="side-h">{crate::sprache::t!("side-betrieb")}</div>
+            {item(Page::Overview, "overview", crate::sprache::t!("side-uebersicht"))}
+            {item(Page::Console, "console", crate::sprache::t!("side-konsole"))}
+            {item(Page::Players, "players", crate::sprache::t!("side-spieler"))}
+            <div class="side-h">{crate::sprache::t!("side-inhalte")}</div>
+            {item(Page::Mods, "mods", crate::sprache::t!("side-mods"))}
+            {item(Page::Updates, "updates", crate::sprache::t!("side-updates"))}
+            {item(Page::Backups, "backups", crate::sprache::t!("side-backups"))}
+            <div class="side-h">{crate::sprache::t!("side-netzwerk")}</div>
+            {item(Page::Reach, "reach", crate::sprache::t!("side-erreichbarkeit"))}
         </aside>
     }
 }
