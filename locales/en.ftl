@@ -803,3 +803,42 @@ svc-abgestuerzt = Crashed ({ $grund }).
 svc-taegliches-backup = Daily backup
 say-update-neustart = Server is restarting for an update!
 svc-err-java-start = Java could not be started ({ $java }): { $fehler }
+
+## Command line
+ctl-hilfe = Usage: vapafane --ctl <command>
+    
+      status            show the state of the active server
+      start             start the server (starts the background service if needed)
+      stop [SECONDS]    stop the server cleanly, optionally with a countdown warning
+      restart [SEC.]    restart the server
+      wait-ready [SEC.] wait until the server is ready
+      wait-stopped [S.] wait until the server is off
+      backup            back up the whole server folder as a ZIP
+      cmd <COMMAND …>   send a command via RCON
+      aktiv NAME        make another server from the list active (only while stopped)
+      neu TYPE NAME VER [FOLDER]  create a new server (fabric, paper, neoforge, vanilla) and make it active
+      update-check VER  check mods/datapacks for Minecraft VER via Modrinth
+      trial VER         trial run: update a copy, test on another port, delete it
+      update VER        update: stop, backup, swap, start (only if the check is ok)
+      mods              show mods and datapacks with their on/off state
+      mod-an PATH       enable a mod (PATH as in “mods”, e.g. mods/x.jar)
+      mod-aus PATH      disable a mod (becomes .jar.disabled)
+      aufraeumen [--ja] shows old leftovers; with --ja they are deleted (server must be off)
+      mod-suche [TERM] [--datapack]     search Modrinth for matching mods/plugins (or datapacks)
+      mod-install PROJECT [--datapack]  install a mod/plugin/datapack with required dependencies
+      curseforge-schluessel [--loeschen]  read the CurseForge key from input and store it
+      curseforge-test   try the stored CurseForge key
+      einladung [ADDRESS]               print an invite code for friends (address = host:port)
+      einladung-datei FILE [ADDRESS]    write an invite file (.vapafane)
+      einloesen CODE|FILE [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
+                [--einstellungen-von FOLDER] [--neue-instanz]
+                                        set up a client for an invite (launcher profile or Modrinth pack);
+                                        take settings (without worlds) from FOLDER; with --neue-instanz an
+                                        existing instance in the Modrinth App is not updated
+      clients                           show the set-up clients
+      client-entfernen FOLDER           remove a client and its launcher profile
+      ping ADDRESS                      query the server status (like the in-game server list)
+      erreichbarkeit    check whether the server is reachable from outside (IPv4/IPv6, DS-Lite)
+      mrpack FILE       export mods as a Modrinth modpack (.mrpack) for friends
+      quit-service      stop the background service (stops the server first)
+ctl-fehler = Error: { $fehler }

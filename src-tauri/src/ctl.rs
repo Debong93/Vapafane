@@ -7,48 +7,15 @@ use crate::config::Config;
 use crate::util::{Result, err};
 use crate::{ipc, launcher, ops, server};
 
-const HELP: &str = "Benutzung: vapafane --ctl <befehl>
-
-  status            Zustand des aktiven Servers anzeigen
-  start             Server starten (startet bei Bedarf den Hintergrund-Dienst)
-  stop [SEKUNDEN]   Server sauber stoppen, optional mit Countdown-Warnung
-  restart [SEK.]    Server neu starten
-  wait-ready [SEK.] warten, bis der Server bereit ist
-  wait-stopped [S.] warten, bis der Server aus ist
-  backup            ganzen Server-Ordner als ZIP sichern
-  cmd <BEFEHL …>    Befehl per RCON schicken
-  aktiv NAME        anderen Server aus der Liste aktiv machen (nur wenn gestoppt)
-  neu TYP NAME VER [ORDNER]  neuen Server anlegen (fabric, paper, neoforge, vanilla) und aktiv machen
-  update-check VER  Mods/Datapacks für Minecraft VER über Modrinth prüfen
-  trial VER         Probelauf: Kopie aktualisieren, auf anderem Port testen, löschen
-  update VER        Update: stoppen, Backup, tauschen, starten (nur wenn Prüfung ok)
-  mods              Mods und Datapacks mit An/Aus-Zustand anzeigen
-  mod-an PFAD       Mod einschalten (PFAD wie in „mods“, z. B. mods/x.jar)
-  mod-aus PFAD      Mod ausschalten (wird zu .jar.disabled)
-  aufraeumen [--ja] zeigt alte Reste; mit --ja werden sie gelöscht (Server muss aus sein)
-  mod-suche [BEGRIFF] [--datapack]   Modrinth nach passenden Mods/Plugins (bzw. Datapacks) durchsuchen
-  mod-install PROJEKT [--datapack]  Mod/Plugin/Datapack samt Pflicht-Abhängigkeiten installieren
-  curseforge-schluessel [--loeschen]  CurseForge-Schlüssel von der Eingabe lesen und speichern
-  curseforge-test   gespeicherten CurseForge-Schlüssel ausprobieren
-  einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
-  einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
-  einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
-            [--einstellungen-von ORDNER] [--neue-instanz]
-                                    Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket);
-                                    Einstellungen (ohne Welten) aus ORDNER übernehmen; mit --neue-instanz wird
-                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert
-  clients                           eingerichtete Clients anzeigen
-  client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
-  ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
-  erreichbarkeit    prüfen, ob der Server von außen erreichbar ist (IPv4/IPv6, DS-Lite)
-  mrpack DATEI      Mods als Modrinth-Modpack (.mrpack) für Freunde exportieren
-  quit-service      Hintergrund-Dienst beenden (stoppt vorher den Server)";
+fn help() -> String {
+    crate::sprache::t!("ctl-hilfe")
+}
 
 pub fn run(args: &[String]) -> i32 {
     match run_inner(args) {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("Fehler: {e}");
+            eprintln!("{}", crate::sprache::t!("ctl-fehler", fehler = e.0.clone()));
             1
         }
     }
@@ -490,7 +457,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             ipc::call("quit", Value::Null)?;
             println!("Dienst wird beendet.");
         }
-        _ => println!("{HELP}"),
+        _ => println!("{}", help()),
     }
     Ok(())
 }
