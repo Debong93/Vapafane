@@ -23,7 +23,7 @@ fn mod_row(
         if m.s("version").is_empty() {
             String::new()
         } else {
-            format!("Version {}", m.s("version"))
+            crate::sprache::t!("about-version", version = m.s("version"))
         },
         m.s("file"),
     ]
@@ -39,17 +39,18 @@ fn mod_row(
         leptos::task::spawn_local(async move {
             match tauri::invoke::<Value>("mod_set_enabled", json!({ "rel": rel, "on": on })).await {
                 Ok(r) => {
-                    app.add_event(format!(
-                        "{title} {}",
-                        if on { "eingeschaltet" } else { "ausgeschaltet" }
-                    ));
+                    app.add_event(if on {
+                        crate::sprache::t!("mods-ev-an", name = title)
+                    } else {
+                        crate::sprache::t!("mods-ev-aus", name = title)
+                    });
                     hint.set(if r.b("restart_needed") {
-                        "Der Server läuft – die Änderung wirkt nach dem nächsten Neustart.".into()
+                        crate::sprache::t!("mods-neustart-noetig")
                     } else {
                         String::new()
                     });
                 }
-                Err(e) => error("Umschalten nicht möglich", e).await,
+                Err(e) => error(crate::sprache::t!("hdr-err-umschalten"), e).await,
             }
             reload();
         });
@@ -58,16 +59,16 @@ fn mod_row(
         <div class="item" class:off=!enabled>
             <div class="grow">
                 <div>{m.s("title")}
-                    {m.b("client_only").then(|| view! { <span class="badge">"nur Client"</span> })}
-                    {m.b("folder").then(|| view! { <span class="badge">"Ordner"</span> })}
+                    {m.b("client_only").then(|| view! { <span class="badge">{crate::sprache::t!("mods-nur-client")}</span> })}
+                    {m.b("folder").then(|| view! { <span class="badge">{crate::sprache::t!("gem-ordner")}</span> })}
                     {(src == "curseforge").then(|| view! { <span class="badge src-cf">"CurseForge"</span> })}
                     {(src == "modrinth").then(|| view! { <span class="badge src-mr">"Modrinth"</span> })}
                 </div>
                 <div class="sub">{sub}</div>
-                {(!enabled && !reason.is_empty()).then(|| view! { <div class="reason">{format!("Aus: {reason}")}</div> })}
+                {(!enabled && !reason.is_empty()).then(|| view! { <div class="reason">{crate::sprache::t!("mods-aus-grund", grund = reason.clone())}</div> })}
             </div>
             {(!m.b("folder")).then(|| view! {
-                <label class="switch" title=if enabled { "Eingeschaltet – klicken zum Ausschalten" } else { "Ausgeschaltet – klicken zum Einschalten" }>
+                <label class="switch" title=if enabled { crate::sprache::t!("mods-an-tipp") } else { crate::sprache::t!("mods-aus-tipp") }>
                     <input type="checkbox" prop:checked=enabled on:change=toggle/><span></span>
                 </label>
             })}
@@ -109,11 +110,10 @@ pub fn Mods() -> impl IntoView {
         let on = mods.iter().filter(|m| m.b("enabled")).count();
         let packs = l.a("datapacks").len();
         format!(
-            "{on} von {} {} eingeschaltet{}",
-            mods.len(),
-            word(),
+            "{}{}",
+            crate::sprache::t!("mods-anzahl", an = on as u32, gesamt = mods.len() as u32, wort = word()),
             if packs > 0 {
-                format!(" · {packs} Datapacks")
+                format!(" · {}", crate::sprache::t!("mods-datapacks-anzahl", anzahl = packs as u32))
             } else {
                 String::new()
             }
@@ -124,9 +124,9 @@ pub fn Mods() -> impl IntoView {
         let items = l.a(key);
         if items.is_empty() {
             let empty = if key == "mods" {
-                format!("Keine {} im Ordner „{}“.", word(), l.s("mod_dir"))
+                crate::sprache::t!("mods-leer", wort = word(), ordner = l.s("mod_dir"))
             } else {
-                "Keine Datapacks in der Welt.".into()
+                crate::sprache::t!("mods-datapacks-leer")
             };
             return view! { <div class="empty">{empty}</div> }.into_any();
         }
@@ -138,19 +138,19 @@ pub fn Mods() -> impl IntoView {
     };
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Mods id="tab-mods">
-            <p class="dim small">"Ausgeschaltete Mods bleiben im Ordner, werden aber nicht geladen. Änderungen wirken beim nächsten Serverstart."</p>
+            <p class="dim small">{crate::sprache::t!("mods-erklaerung")}</p>
             <div class="row">
                 <span class="dim">{count}</span>
                 <span class="spacer"></span>
                 <button class="primary" on:click=move |_| open_catalog(app, list.get_untracked(), reload)>
-                    {move || format!("{} hinzufügen …", if vanilla() { "Datapacks" } else { word() })}</button>
-                <button on:click=|_| open_folder("mods")>"Mods-Ordner öffnen"</button>
-                <button title="Reste alter Versionen löschen (Server muss gestoppt sein)" on:click=move |_| cleanup(app, reload)>"Aufräumen …"</button>
+                    {move || crate::sprache::t!("mods-hinzufuegen", wort = if vanilla() { "Datapacks" } else { word() })}</button>
+                <button on:click=|_| open_folder("mods")>{crate::sprache::t!("mods-ordner-oeffnen")}</button>
+                <button title=crate::sprache::t!("mods-aufraeumen-tipp") on:click=move |_| cleanup(app, reload)>{crate::sprache::t!("mods-aufraeumen")}</button>
             </div>
             {move || (!hint.get().is_empty()).then(|| view! { <p class="hint">{hint.get()}</p> })}
             <h3>{word}</h3>
             <div class="list">{move || rows("mods")}</div>
-            <h3>"Datapacks in der Welt"</h3>
+            <h3>{crate::sprache::t!("mods-datapacks-titel")}</h3>
             <div class="list">{move || rows("datapacks")}</div>
         </section>
     }
@@ -162,13 +162,13 @@ fn cleanup(app: AppState, reload: impl Fn() + Copy + 'static) {
     leptos::task::spawn_local(async move {
         let p = match tauri::call::<Value>("cleanup_preview").await {
             Ok(p) => p,
-            Err(e) => return error("Aufräumen", e).await,
+            Err(e) => return error(crate::sprache::t!("mods-aufraeumen-titel"), e).await,
         };
         let items = p.a("items");
         if items.is_empty() {
             return info(
-                "Aufräumen",
-                "Alles sauber – es gibt keine Reste alter Versionen.",
+                crate::sprache::t!("mods-aufraeumen-titel"),
+                crate::sprache::t!("mods-alles-sauber"),
             )
             .await;
         }
@@ -181,52 +181,51 @@ fn cleanup(app: AppState, reload: impl Fn() + Copy + 'static) {
         let body: dialog::BodyFn = Rc::new(move || {
             let items = items.clone();
             view! {
-                <p>"Diese Reste alter Versionen würden gelöscht (zusammen " <b>{t2.clone()}</b>
-                    "). Welt, Einstellungen und ausgeschaltete Mods bleiben. Was der Server doch noch braucht, lädt er beim nächsten Start selbst nach."</p>
+                <p>{crate::sprache::t!("mods-aufraeumen-text-1")}" " <b>{t2.clone()}</b>
+                    {format!("). {}", crate::sprache::t!("mods-aufraeumen-text-2"))}</p>
                 <div class="cleanup-list">
                     {items.into_iter().map(|c| view! {
                         <div><span class="sz">{fmt_bytes(c.f("size"))}</span>
                             <span><code>{c.s("rel")}</code><br/><span class="dim small">{c.s("what")}</span></span></div>
                     }).collect_view()}
                 </div>
-                {(!stopped).then(|| view! { <p class="hint">"Zum Löschen bitte zuerst den Server stoppen."</p> })}
+                {(!stopped).then(|| view! { <p class="hint">{crate::sprache::t!("mods-erst-stoppen")}</p> })}
             }.into_any()
         });
         let buttons = if stopped {
             vec![
-                Btn::new("Abbrechen", ""),
-                Btn::primary(format!("{total} löschen"), "ok"),
+                Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+                Btn::primary(crate::sprache::t!("mods-loeschen-knopf", groesse = total.clone()), "ok"),
             ]
         } else {
-            vec![Btn::primary("Schließen", "")]
+            vec![Btn::primary(crate::sprache::t!("gem-schliessen"), "")]
         };
-        if ask_view("Aufräumen", body, buttons, false).await != "ok" {
+        if ask_view(crate::sprache::t!("mods-aufraeumen-titel"), body, buttons, false).await != "ok" {
             return;
         }
         match task("cleanup_run", json!({})).await {
             Ok(r) => {
-                app.add_event(format!("Aufgeräumt: {} frei", fmt_bytes(r.f("freed"))));
+                app.add_event(crate::sprache::t!("mods-ev-aufgeraeumt", groesse = fmt_bytes(r.f("freed"))));
                 let failed: Vec<String> = r
                     .a("failed")
                     .iter()
                     .filter_map(|f| f.as_str().map(String::from))
                     .collect();
                 info(
-                    "Aufgeräumt",
+                    crate::sprache::t!("mods-aufgeraeumt-titel"),
                     format!(
-                        "{} Einträge gelöscht, {} frei.{}",
-                        r.s("count"),
-                        fmt_bytes(r.f("freed")),
+                        "{}{}",
+                        crate::sprache::t!("mods-aufgeraeumt", anzahl = r.s("count"), groesse = fmt_bytes(r.f("freed"))),
                         if failed.is_empty() {
                             String::new()
                         } else {
-                            format!("\n\nNicht löschbar:\n{}", failed.join("\n"))
+                            format!("\n\n{}\n{}", crate::sprache::t!("mods-nicht-loeschbar"), failed.join("\n"))
                         }
                     ),
                 )
                 .await;
             }
-            Err(e) => error("Aufräumen fehlgeschlagen", e).await,
+            Err(e) => error(crate::sprache::t!("mods-err-aufraeumen"), e).await,
         }
         reload();
     });
@@ -273,7 +272,7 @@ fn load(c: Catalog, word: &'static str, reset: bool) {
         c.loading.set(false);
         let r = match r {
             Ok(r) => r,
-            Err(e) => return c.info.set(format!("Fehler: {e}")),
+            Err(e) => return c.info.set(crate::sprache::t!("kon-fehler", fehler = e)),
         };
         if r.b("curseforge") {
             let cf = r.a("cf_hits");
@@ -291,23 +290,19 @@ fn load(c: Catalog, word: &'static str, reset: bool) {
             });
         } else {
             c.cf_offset.set(None);
-            c.cf_note.set("Tipp: Mit einem CurseForge-Schlüssel (Einstellungen) findest du zusätzlich Mods, die es nur dort gibt.".into());
+            c.cf_note.set(crate::sprache::t!("kat-cf-tipp"));
         }
         let total = r.f("total").unwrap_or(0.0) as u64;
         c.total.set(total);
         c.info.set(format!(
-            "{} passende {} für Minecraft {}{}",
-            thousands(total),
-            if c.datapacks.get_untracked() {
-                "Datapacks"
-            } else {
-                word
-            },
-            r.s("mc"),
+            "{}{}",
+            crate::sprache::t!("kat-treffer", anzahl = thousands(total),
+                wort = if c.datapacks.get_untracked() { "Datapacks".to_string() } else { word.to_string() },
+                mc = r.s("mc")),
             if c.query.get_untracked().trim().is_empty() {
-                " – sortiert nach Beliebtheit"
+                format!(" – {}", crate::sprache::t!("kat-beliebtheit"))
             } else {
-                ""
+                String::new()
             }
         ));
         let hits = r.a("hits");
@@ -323,9 +318,9 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
     let side = if h.s("source") == "curseforge" {
         view! { <span class="badge src-cf">"CurseForge"</span> }.into_any()
     } else if h.b("client_required") {
-        view! { <span class="badge both" title="Die Spieler brauchen das auch selbst – z. B. über „Mods für Freunde exportieren (.mrpack)“">"Server + Client"</span> }.into_any()
+        view! { <span class="badge both" title=crate::sprache::t!("kat-beides-tipp")>{crate::sprache::t!("kat-beides")}</span> }.into_any()
     } else {
-        view! { <span class="badge">"Nur Server"</span> }.into_any()
+        view! { <span class="badge">{crate::sprache::t!("kat-nur-server")}</span> }.into_any()
     };
     let icon = h.s("icon");
     let hh = h.clone();
@@ -341,7 +336,7 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
             let _ = busy.try_set(false);
             match r {
                 Ok(mut r) => {
-                    app.add_event(format!("Installiert: {}", r.s("title")));
+                    app.add_event(crate::sprache::t!("kat-ev-installiert", name = r.s("title")));
                     r["client_required"] = json!(h.b("client_required"));
                     c.msg.set(Some(r));
                 }
@@ -355,10 +350,10 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
             <div class="txt">
                 <div class="t">{h.s("title")} " " {side}</div>
                 <div class="d">{h.s("description")}</div>
-                <div class="meta">{format!("{} Downloads · von {}", fmt_count(h.f("downloads").unwrap_or(0.0)), if h.s("author").is_empty() { "?".into() } else { h.s("author") })}</div>
+                <div class="meta">{crate::sprache::t!("kat-meta", downloads = fmt_count(h.f("downloads").unwrap_or(0.0)), autor = if h.s("author").is_empty() { "?".into() } else { h.s("author") })}</div>
             </div>
             <button class=move || if is_in.get() { "badge ok" } else { "primary" } disabled=move || is_in.get() || busy.get() on:click=install>
-                {move || if busy.get() { "Lädt …" } else if is_in.get() { "Installiert" } else { "Installieren" }}
+                {move || if busy.get() { crate::sprache::t!("kat-laedt") } else if is_in.get() { crate::sprache::t!("kat-installiert") } else { crate::sprache::t!("kat-installieren") }}
             </button>
         </div>
     }.into_any()
@@ -367,7 +362,7 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
 /// Meldung nach dem Installieren.
 fn install_msg(app: AppState, r: Value) -> AnyView {
     if !r.s("error").is_empty() {
-        return view! { <p class="hint">{format!("Installieren hat nicht geklappt: {}", r.s("error"))}</p> }.into_any();
+        return view! { <p class="hint">{crate::sprache::t!("kat-err-install", fehler = r.s("error"))}</p> }.into_any();
     }
     let folder = r.s("folder");
     let installed = r.a("installed");
@@ -387,22 +382,22 @@ fn install_msg(app: AppState, r: Value) -> AnyView {
     view! {
         <div class="hint">
             {(!installed.is_empty()).then(|| view! {
-                <p><b>{r.s("title")}</b>{format!(" ist installiert (in „{folder}“){}.", if extra.is_empty() { String::new() } else { format!(", dazu als Abhängigkeit: {}", extra.join(", ")) })}
-                    {(!skipped.is_empty()).then(|| format!(" Schon vorhanden: {}.", skipped.join(", ")))}</p>
+                <p><b>{r.s("title")}</b>{format!(" {}{}.", crate::sprache::t!("kat-ist-installiert", ordner = folder.clone()), if extra.is_empty() { String::new() } else { format!(" {}", crate::sprache::t!("kat-abhaengigkeiten", namen = extra.join(", "))) })}
+                    {(!skipped.is_empty()).then(|| format!(" {}", crate::sprache::t!("kat-schon-da", namen = skipped.join(", "))))}</p>
             })}
-            {(!missing.is_empty()).then(|| view! { <p>{format!("Achtung: Diese Abhängigkeit gibt es nicht für diese Version: {} – der Server startet so evtl. nicht.", missing.join(", "))}</p> })}
-            {(r.b("client_required") && !installed.is_empty()).then(|| view! { <p>"Die Spieler brauchen diese Mod auch – am einfachsten über „Mods für Freunde exportieren (.mrpack)“ unter „Version & Updates“."</p> })}
+            {(!missing.is_empty()).then(|| view! { <p>{crate::sprache::t!("kat-fehlende", namen = missing.join(", "))}</p> })}
+            {(r.b("client_required") && !installed.is_empty()).then(|| view! { <p>{crate::sprache::t!("kat-client-noetig")}</p> })}
             {(!manual.is_empty()).then(|| view! {
-                {manual.iter().map(|m| view! { <p><b>{m.s("title")}</b>": Der Autor erlaubt keinen Download über andere Programme. Lade die Datei "
-                    <code>{m.s("file")}</code>{format!(" im Browser herunter und lege sie in den Ordner „{}“.", r.s("folder"))}</p> }).collect_view()}
+                {manual.iter().map(|m| view! { <p><b>{m.s("title")}</b>": "{crate::sprache::t!("kat-manuell-1")}" "
+                    <code>{m.s("file")}</code>{format!(" {}", crate::sprache::t!("kat-manuell-2", ordner = r.s("folder")))}</p> }).collect_view()}
                 <div class="row">
-                    {manual.iter().map(|m| { let page = m.s("page"); view! { <button on:click=move |_| open_link(page.clone())>"Im Browser herunterladen ↗"</button> } }).collect_view()}
-                    <button on:click=move |_| open_folder(if dp { "datapacks" } else { "mods" })>{if dp { "Datapack-Ordner öffnen" } else { "Mods-Ordner öffnen" }}</button>
+                    {manual.iter().map(|m| { let page = m.s("page"); view! { <button on:click=move |_| open_link(page.clone())>{crate::sprache::t!("kat-browser")}</button> } }).collect_view()}
+                    <button on:click=move |_| open_folder(if dp { "datapacks" } else { "mods" })>{if dp { crate::sprache::t!("kat-dp-ordner") } else { crate::sprache::t!("mods-ordner-oeffnen") }}</button>
                 </div>
             })}
             {(r.b("restart_needed") && !installed.is_empty()).then(|| view! {
-                <p>"Der Server läuft – das wirkt erst nach einem Neustart. "
-                    <button on:click=move |_| { dialog::close(""); crate::pages::overview::ask_stop(app, true); }>"Jetzt neu starten"</button></p>
+                <p>{crate::sprache::t!("kat-neustart")}" "
+                    <button on:click=move |_| { dialog::close(""); crate::pages::overview::ask_stop(app, true); }>{crate::sprache::t!("kat-jetzt-neustarten")}</button></p>
             })}
         </div>
     }.into_any()
@@ -449,11 +444,11 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
         };
         view! {
             <div class="catalog-bar">
-                <input type="search" placeholder="Suchen auf Modrinth … (leer = die beliebtesten)" autocomplete="off" spellcheck="false"
+                <input type="search" placeholder=crate::sprache::t!("kat-suche") autocomplete="off" spellcheck="false"
                     prop:value=c.query on:input=on_input on:keydown=move |e| if e.key() == "Enter" { timer.update(|t| *t += 1); load(c, word, true) }/>
                 {(!vanilla).then(|| view! {
                     <select on:change=move |e| { c.datapacks.set(event_target_value(&e) == "datapacks"); load(c, word, true); }>
-                        <option value="mods">{word}</option><option value="datapacks">"Datapacks (für die Welt)"</option>
+                        <option value="mods">{word}</option><option value="datapacks">{crate::sprache::t!("kat-dp-option")}</option>
                     </select>
                 })}
             </div>
@@ -463,7 +458,7 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
                 {move || {
                     let hits = c.hits.get();
                     if hits.is_empty() {
-                        let t = if c.loading.get() { "Suche …" } else { "Nichts gefunden." };
+                        let t = if c.loading.get() { crate::sprache::t!("kat-sucht") } else { crate::sprache::t!("kat-nichts") };
                         view! { <div class="empty">{t}</div> }.into_any()
                     } else {
                         hits.into_iter().map(|h| hit_row(app, c, h)).collect_view().into_any()
@@ -472,15 +467,15 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
             </div>
             <Show when=move || !c.cf_hits.get().is_empty()>
                 <div>
-                    <h3>"Nur auf CurseForge " <span class="badge exp">"Experimentell"</span></h3>
-                    <p class="dim small">"Diese gibt es nicht auf Modrinth. Manche Autoren erlauben keinen Download über andere Programme – dann lädst du die Datei im Browser und legst sie selbst in den Ordner."</p>
+                    <h3>{crate::sprache::t!("kat-nur-cf")}" " <span class="badge exp">{crate::sprache::t!("cf-experimentell")}</span></h3>
+                    <p class="dim small">{crate::sprache::t!("kat-cf-erklaerung")}</p>
                     <div class="catalog-list">{move || c.cf_hits.get().into_iter().map(|h| hit_row(app, c, h)).collect_view()}</div>
                 </div>
             </Show>
             <p class="dim small">{move || c.cf_note.get()}</p>
             <div class="row">
                 <Show when=move || (c.offset.get() as u64) < c.total.get() || c.cf_offset.get().is_some_and(|o| o > 0)>
-                    <button on:click=move |_| load(c, word, false)>"Mehr laden"</button>
+                    <button on:click=move |_| load(c, word, false)>{crate::sprache::t!("kat-mehr")}</button>
                 </Show>
             </div>
         }.into_any()
@@ -493,9 +488,9 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
         );
         load(c, word, true);
         ask_view(
-            format!("{word} hinzufügen"),
+            crate::sprache::t!("mods-hinzufuegen-titel", wort = word),
             body,
-            vec![Btn::primary("Schließen", "")],
+            vec![Btn::primary(crate::sprache::t!("gem-schliessen"), "")],
             true,
         )
         .await;

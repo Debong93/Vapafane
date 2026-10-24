@@ -11,11 +11,12 @@ use crate::tasks::task;
 use crate::tauri;
 use crate::util::{J, file_name};
 
+/// Server-Typen: (Wert, Beschriftung als Sprach-Schlüssel)
 const KINDS: [(&str, &str); 4] = [
-    ("fabric", "Fabric (Mods)"),
-    ("paper", "Paper (Plugins)"),
-    ("neoforge", "NeoForge (Mods)"),
-    ("vanilla", "Vanilla (ohne Mods)"),
+    ("fabric", "srv-typ-fabric"),
+    ("paper", "srv-typ-paper"),
+    ("neoforge", "srv-typ-neoforge"),
+    ("vanilla", "srv-typ-vanilla"),
 ];
 
 #[derive(Clone, Copy)]
@@ -107,7 +108,7 @@ async fn ask_details(
         leptos::task::spawn_local(async move {
             let Ok(Some(picked)) = tauri::invoke::<Option<String>>(
                 "pick_folder",
-                json!({ "title": "Ordner für den Server wählen" }),
+                json!({ "title": crate::sprache::t!("srv-ordner-waehlen") }),
             )
             .await
             else {
@@ -118,11 +119,10 @@ async fn ask_details(
             match c.s("state").as_str() {
                 "nonempty" => {
                     f.dir.set(c.s("suggestion"));
-                    f.dir_hint.set("Der gewählte Ordner ist nicht leer – der Server kommt in einen neuen Unterordner.".into());
+                    f.dir_hint.set(crate::sprache::t!("srv-ordner-nicht-leer"));
                 }
                 "invalid" => {
-                    f.dir_hint
-                        .set("Dieser Ordner lässt sich nicht verwenden.".into());
+                    f.dir_hint.set(crate::sprache::t!("srv-ordner-ungueltig"));
                     return;
                 }
                 _ => {
@@ -135,34 +135,34 @@ async fn ask_details(
     };
     let body: dialog::BodyFn = Rc::new(move || {
         view! {
-        <label>"Name in der Server-Liste"</label>
+        <label>{crate::sprache::t!("srv-name-label")}</label>
         <input prop:value=f.name on:input=move |e| { f.name.set(event_target_value(&e)); suggest(f); }
             on:keydown=move |e| if e.key() == "Enter" && ok.get_untracked() { dialog::close("ok") }/>
         {kinds.then(|| view! {
-            <label>"Server-Typ"</label>
+            <label>{crate::sprache::t!("srv-typ-label")}</label>
             <select prop:value=f.kind on:change=move |e| { f.kind.set(event_target_value(&e)); load_versions(f); }>
-                {KINDS.iter().map(|(k, l)| view! { <option value=*k>{*l}</option> }).collect_view()}
+                {KINDS.iter().map(|(k, l)| view! { <option value=*k>{crate::sprache::text(l, None)}</option> }).collect_view()}
             </select>
-            <label>"Minecraft-Version"</label>
+            <label>{crate::sprache::t!("srv-version-label")}</label>
             <select prop:value=f.version on:change=move |e| f.version.set(event_target_value(&e))>
                 {move || match f.versions.get() {
-                    Ok(v) if v.is_empty() => view! { <option value="">"lädt …"</option> }.into_any(),
+                    Ok(v) if v.is_empty() => view! { <option value="">{crate::sprache::t!("srv-laedt")}</option> }.into_any(),
                     Ok(v) => v.into_iter().map(|x| view! { <option value=x.clone()>{x.clone()}</option> }).collect_view().into_any(),
-                    Err(e) => view! { <option value="">{format!("Keine Verbindung: {e}")}</option> }.into_any(),
+                    Err(e) => view! { <option value="">{crate::sprache::t!("srv-keine-verbindung", fehler = e)}</option> }.into_any(),
                 }}
             </select>
         })}
         {folder.then(|| view! {
-            <label>"Ordner"</label>
+            <label>{crate::sprache::t!("gem-ordner")}</label>
             <div class="row" style="margin:0"><code class="grow" style="word-break:break-all">{move || f.dir.get()}</code>
-                <button type="button" on:click=pick_dir>"Anderer Ordner …"</button></div>
+                <button type="button" on:click=pick_dir>{crate::sprache::t!("gem-anderer-ordner")}</button></div>
             <div class="dim small">{move || f.dir_hint.get()}</div>
         })}
         {need_eula.then(|| view! {
             <label class="check"><input type="checkbox" on:change=move |e| f.eula.set(event_target_checked(&e))/>
-                " Ich akzeptiere die "
+                " "{crate::sprache::t!("ueb-eula-akzeptiere")}" "
                 <a href="#" on:click=|e| { e.prevent_default(); leptos::task::spawn_local(async { let _ = tauri::call::<()>("open_eula").await; }); }>"Minecraft-EULA"</a>
-                " (ohne startet kein Server)"</label>
+                " "{crate::sprache::t!("srv-eula-zusatz")}</label>
         })}
     }.into_any()
     });
@@ -170,8 +170,8 @@ async fn ask_details(
         title,
         body,
         vec![
-            Btn::new("Abbrechen", ""),
-            Btn::primary("Weiter", "ok").when(ok),
+            Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+            Btn::primary(crate::sprache::t!("gem-weiter"), "ok").when(ok),
         ],
         false,
     )
@@ -196,14 +196,14 @@ async fn after_added(app: AppState, r: Value, name: &str) {
         .filter_map(|n| n.as_str().map(String::from))
         .collect();
     if !notes.is_empty() {
-        info("Hinweis", notes.join("\n")).await;
+        info(crate::sprache::t!("srv-hinweis"), notes.join("\n")).await;
     }
-    app.add_event(format!("Server hinzugefügt: {name}"));
+    app.add_event(crate::sprache::t!("srv-ev-hinzu", name = name));
     app.refresh_status();
     if !r.b("activated") {
         info(
-            "Server hinzugefügt",
-            format!("„{name}“ ist in der Liste. Stoppe den laufenden Server, um umzuschalten."),
+            crate::sprache::t!("srv-hinzu-titel"),
+            crate::sprache::t!("srv-hinzu-text", name = name),
         )
         .await;
     }
@@ -217,7 +217,7 @@ async fn add(app: AppState, path: String, d_name: String, eula: bool) {
     .await
     {
         Ok(r) => after_added(app, r, &d_name).await,
-        Err(e) => error("Hinzufügen fehlgeschlagen", e).await,
+        Err(e) => error(crate::sprache::t!("srv-err-hinzu"), e).await,
     }
 }
 
@@ -226,7 +226,7 @@ pub fn add_folder() {
     leptos::task::spawn_local(async move {
         let Ok(Some(path)) = tauri::invoke::<Option<String>>(
             "pick_folder",
-            json!({ "title": "Server-Ordner wählen" }),
+            json!({ "title": crate::sprache::t!("srv-server-ordner-waehlen") }),
         )
         .await
         else {
@@ -234,10 +234,10 @@ pub fn add_folder() {
         };
         let insp = match tauri::invoke::<Value>("inspect_folder", json!({ "path": path })).await {
             Ok(i) => i,
-            Err(e) => return error("Kein Server gefunden", e).await,
+            Err(e) => return error(crate::sprache::t!("srv-kein-server"), e).await,
         };
         let Some(d) = ask_details(
-            "Server hinzufügen",
+            &crate::sprache::t!("srv-hinzu-titel"),
             &insp.s("name"),
             !insp.b("eula"),
             false,
@@ -287,14 +287,14 @@ pub fn add_archive() {
     leptos::task::spawn_local(async move {
         let Ok(Some(archive)) = tauri::invoke::<Option<String>>(
             "pick_archive",
-            json!({ "title": "Server-Backup (ZIP oder tar) wählen", "start": null }),
+            json!({ "title": crate::sprache::t!("srv-backup-waehlen"), "start": null }),
         )
         .await
         else {
             return;
         };
         let Some(d) = ask_details(
-            "Server importieren",
+            &crate::sprache::t!("srv-import-titel"),
             &base_name(&archive),
             false,
             false,
@@ -311,7 +311,7 @@ pub fn add_archive() {
         .await
         {
             Ok(r) => r,
-            Err(e) => return error("Import fehlgeschlagen", e).await,
+            Err(e) => return error(crate::sprache::t!("srv-err-import"), e).await,
         };
         let eula = r.b("eula") || ask_eula(&d.name).await;
         add(app, r.s("path"), d.name, eula).await;
@@ -321,7 +321,7 @@ pub fn add_archive() {
 pub fn add_new() {
     let app = use_app();
     leptos::task::spawn_local(async move {
-        let Some(d) = ask_details("Neuen Server erstellen", "Mein Server", true, true, true).await
+        let Some(d) = ask_details(&crate::sprache::t!("srv-neu-titel"), &crate::sprache::t!("srv-neu-name"), true, true, true).await
         else {
             return;
         };
@@ -332,7 +332,7 @@ pub fn add_new() {
         .await
         {
             Ok(r) => r,
-            Err(e) => return error("Erstellen fehlgeschlagen", e).await,
+            Err(e) => return error(crate::sprache::t!("srv-err-erstellen"), e).await,
         };
         add(app, r.s("path"), d.name, true).await;
     });
@@ -351,19 +351,16 @@ pub fn remove_server() {
     };
     leptos::task::spawn_local(async move {
         if !confirm(
-            format!("„{}“ aus der Liste entfernen?", s.name),
-            format!(
-                "Die Dateien in {} bleiben erhalten, nur der Eintrag verschwindet.",
-                s.path
-            ),
-            "Entfernen",
+            crate::sprache::t!("srv-entfernen-frage", name = s.name.clone()),
+            crate::sprache::t!("srv-entfernen-text", ordner = s.path.clone()),
+            crate::sprache::t!("gem-entfernen"),
         )
         .await
         {
             return;
         }
         if let Err(e) = tauri::invoke::<()>("remove_server", json!({ "path": s.path })).await {
-            return error("Entfernen fehlgeschlagen", e).await;
+            return error(crate::sprache::t!("srv-err-entfernen"), e).await;
         }
         app.refresh_status();
     });
