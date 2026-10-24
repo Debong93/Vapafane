@@ -831,7 +831,7 @@ ctl-hilfe = Benutzung: vapafane --ctl <befehl>
       einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
       einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
       einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
-                [--einstellungen-von ORDNER] [--neue-instanz]
+                … [--einstellungen-von ORDNER] [--neue-instanz]
                                         Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket);
                                         Einstellungen (ohne Welten) aus ORDNER übernehmen; mit --neue-instanz wird
                                         eine vorhandene Instanz in der Modrinth-App nicht aktualisiert

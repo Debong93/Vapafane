@@ -278,6 +278,25 @@ async fn rundgang() -> Res<()> {
         e.wait("//div[@class='status-big' and normalize-space()='Läuft']", 10).await?;
         Ok(())
     });
+    schritt!(e, "Sprache auf Englisch und zurück", async {
+        // Umschalten in den Client-Einstellungen; die Oberfläche lädt neu
+        e.click_button("Client").await?;
+        e.wait("//button[@id='btn-gear']", 5).await?.click().await?;
+        e.select("//select[@id='sprache-select']", "en").await?;
+        e.wait("//h2[normalize-space()='Redeem invite']", 20).await?;
+        e.click_button("Server").await?;
+        e.wait("//div[@class='status-big' and normalize-space()='Running']", 20).await?;
+        e.sees("Players online", 10).await?;
+        // Bild für die englische README
+        e.shot("readme-en-uebersicht").await;
+        // und zurück auf Deutsch
+        e.wait("//button[@id='btn-gear']", 5).await?.click().await?;
+        e.select("//select[@id='sprache-select']", "de").await?;
+        e.wait("//h2[normalize-space()='Einladung einlösen']", 20).await?;
+        e.click_button("Server").await?;
+        e.wait("//div[@class='status-big' and normalize-space()='Läuft']", 20).await?;
+        Ok(())
+    });
     schritt!(e, "Server stoppen", async {
         e.click_button("■ Stoppen").await?;
         e.wait("//h2[normalize-space()='Server stoppen?']", 10).await?;
