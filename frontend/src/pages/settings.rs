@@ -9,29 +9,18 @@ use crate::state::{AppState, Page, use_app};
 use crate::tauri;
 use crate::util::{J, open_folder, open_link};
 
-/// Felder aus server.properties: (Schlüssel, Beschriftung, Art)
+/// Felder aus server.properties: (Schlüssel, Beschriftung als Sprach-Schlüssel, Art).
+/// Auswahllisten: Werte als Sprach-Schlüssel set-wert-<wert>.
 const PROPS: [(&str, &str, &str); 9] = [
-    ("motd", "Servername (MOTD)", "text"),
-    ("max-players", "Max. Spieler", "num:1:200"),
-    (
-        "difficulty",
-        "Schwierigkeit",
-        "sel:peaceful=Friedlich,easy=Einfach,normal=Normal,hard=Schwer",
-    ),
-    (
-        "gamemode",
-        "Spielmodus für neue Spieler",
-        "sel:survival=Überleben,creative=Kreativ,adventure=Abenteuer,spectator=Zuschauer",
-    ),
-    ("view-distance", "Sichtweite (Chunks)", "num:3:32"),
-    (
-        "simulation-distance",
-        "Simulationsweite (Chunks)",
-        "num:3:32",
-    ),
-    ("spawn-protection", "Spawn-Schutz (Blöcke)", "num:0:64"),
-    ("server-port", "Server-Port", "num:1024:65535"),
-    ("white-list", "Nur Whitelist darf rein", "bool"),
+    ("motd", "set-motd", "text"),
+    ("max-players", "set-max-spieler", "num:1:200"),
+    ("difficulty", "set-schwierigkeit", "sel:peaceful,easy,normal,hard"),
+    ("gamemode", "set-spielmodus", "sel:survival,creative,adventure,spectator"),
+    ("view-distance", "set-sichtweite", "num:3:32"),
+    ("simulation-distance", "set-simulationsweite", "num:3:32"),
+    ("spawn-protection", "set-spawn-schutz", "num:0:64"),
+    ("server-port", "set-port", "num:1024:65535"),
+    ("white-list", "set-whitelist", "bool"),
 ];
 
 fn load(s: RwSignal<Value>, props: RwSignal<Map<String, Value>>, ram: RwSignal<String>) {
@@ -53,12 +42,12 @@ async fn ask_linger(
     props: RwSignal<Map<String, Value>>,
     ram: RwSignal<String>,
 ) {
-    if !confirm("Start ohne Anmeldung erlauben?",
-        "Dafür muss systemd deine Benutzer-Dienste schon beim Hochfahren starten dürfen („loginctl enable-linger“). Danach läuft der Server auch, wenn sich niemand anmeldet.", "Erlauben").await {
+    if !confirm(crate::sprache::t!("set-linger-frage"),
+        crate::sprache::t!("set-linger-text"), crate::sprache::t!("set-linger-erlauben")).await {
         return;
     }
     if let Err(e) = tauri::call::<()>("enable_linger").await {
-        error("Nicht erlaubt", e).await;
+        error(crate::sprache::t!("set-linger-abgelehnt"), e).await;
     }
     load(s, props, ram);
 }
@@ -96,7 +85,7 @@ pub fn Settings() -> impl IntoView {
                 on:change=move |e| set(event_target_checked(&e).to_string())/><span></span></label> }.into_any()
         } else if let Some(opts) = kind.strip_prefix("sel:") {
             view! { <select disabled=move || !has_props() prop:value=val on:change=move |e| set(event_target_value(&e))>
-                {opts.split(',').map(|o| { let (v, l) = o.split_once('=').unwrap_or((o, o)); view! { <option value=v>{l}</option> } }).collect_view()}
+                {opts.split(',').map(|v| view! { <option value=v>{crate::sprache::text(&format!("set-wert-{v}"), None)}</option> }).collect_view()}
             </select> }.into_any()
         } else if let Some(r) = kind.strip_prefix("num:") {
             let (min, max) = r.split_once(':').unwrap_or(("0", "100"));
@@ -105,9 +94,9 @@ pub fn Settings() -> impl IntoView {
             view! { <input disabled=move || !has_props() prop:value=val on:input=move |e| set(event_target_value(&e))/> }.into_any()
         };
         let help = (key == "white-list").then(|| view! {
-            <span></span><span class="dim small">"Empfohlen für die Sicherheit: Nur Spieler auf der Whitelist (Seite „Spieler“) kommen rein. Ohne Whitelist kann jeder beitreten, der deine Adresse kennt."</span>
+            <span></span><span class="dim small">{crate::sprache::t!("set-whitelist-hilfe")}</span>
         });
-        view! { <label>{label}</label>{field}{help} }
+        view! { <label>{crate::sprache::text(label, None)}</label>{field}{help} }
     };
 
     let save = move |_| {
@@ -129,12 +118,12 @@ pub fn Settings() -> impl IntoView {
                         app.status.get_untracked().state.as_str(),
                         "running" | "starting"
                     ) {
-                        "Gespeichert. Wird beim nächsten Neustart aktiv.".into()
+                        crate::sprache::t!("set-gespeichert-neustart")
                     } else {
-                        "Gespeichert.".into()
+                        crate::sprache::t!("set-gespeichert")
                     },
                 ),
-                Err(e) => error("Speichern fehlgeschlagen", e).await,
+                Err(e) => error(crate::sprache::t!("set-err-speichern"), e).await,
             }
             app.refresh_details();
         });
@@ -152,7 +141,7 @@ pub fn Settings() -> impl IntoView {
                     leptos::task::spawn_local(async move {
                         match tauri::invoke::<()>(cmd, json!({ "on": on })).await {
                             Ok(()) => if cmd == "set_autostart" && on && s.get_untracked().b("systemd") && !s.get_untracked().b("linger") { ask_linger(s, props, ram).await },
-                            Err(er) => error("Einstellung", er).await,
+                            Err(er) => error(crate::sprache::t!("cset-einstellung"), er).await,
                         }
                         busy.set(false);
                         load(s, props, ram);
@@ -164,16 +153,16 @@ pub fn Settings() -> impl IntoView {
         let v = s.get();
         if !auto_ok(s) {
             if v.b("test_mode") {
-                "Im Testmodus abgeschaltet."
+                crate::sprache::t!("set-auto-testmodus")
             } else {
-                "Auf diesem System nicht verfügbar (kein systemd)."
+                crate::sprache::t!("set-auto-kein-systemd")
             }
         } else if v.b("windows") {
-            "Startet beim PC-Start, auch ohne Anmeldung (Windows fragt beim Einschalten nach Administratorrechten)."
+            crate::sprache::t!("set-auto-windows")
         } else if v.b("autostart") && !v.b("linger") {
-            "Achtung: startet erst, wenn du dich anmeldest. Klick hier, um den Start ohne Anmeldung zu erlauben."
+            crate::sprache::t!("set-auto-linger-fehlt")
         } else {
-            "Startet auch ohne Anmeldung und nach einem Absturz von selbst neu."
+            crate::sprache::t!("set-auto-aktiv")
         }
     };
     let linger_click = move |_| {
@@ -186,7 +175,7 @@ pub fn Settings() -> impl IntoView {
         let t = event_target_value(&e);
         leptos::task::spawn_local(async move {
             if let Err(er) = tauri::invoke::<String>("set_daily_time", json!({ "time": t })).await {
-                error("Uhrzeit", er).await;
+                error(crate::sprache::t!("set-uhrzeit"), er).await;
             }
             load(s, props, ram);
         });
@@ -195,34 +184,34 @@ pub fn Settings() -> impl IntoView {
     view! {
         <section class="tab" class:active=move || app.page.get() == Page::Settings>
             <LanguageChoice/>
-            <h3>"Spiel (dieser Server)"</h3>
+            <h3>{crate::sprache::t!("set-spiel")}</h3>
             <div class="form">{PROPS.into_iter().map(prop_field).collect_view()}</div>
-            <h3>"Leistung (dieser Server)"</h3>
+            <h3>{crate::sprache::t!("set-leistung")}</h3>
             <div class="form">
-                <label>"Max. Arbeitsspeicher für den Server (GB)"</label>
+                <label>{crate::sprache::t!("set-ram")}</label>
                 <input type="number" min="1" max=move || total_gb().max(2.0).to_string() class="num" prop:value=ram on:input=move |e| ram.set(event_target_value(&e))/>
-                <span></span><span class="dim small">{move || format!("Der PC hat {} GB. Lass etwa 3–4 GB für das System übrig.", total_gb())}</span>
+                <span></span><span class="dim small">{move || crate::sprache::t!("set-ram-hinweis", gb = total_gb())}</span>
             </div>
-            <div class="row"><button class="primary" on:click=save>"Einstellungen speichern"</button><span class="dim">{saved}</span></div>
+            <div class="row"><button class="primary" on:click=save>{crate::sprache::t!("set-speichern")}</button><span class="dim">{saved}</span></div>
 
-            <h3>"Automatik"</h3>
+            <h3>{crate::sprache::t!("set-automatik")}</h3>
             <div class="switches">
-                <div class="sw-row"><div><div>"Aktiven Server beim PC-Start automatisch starten"</div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("set-autostart")}</div>
                     <div class="dim small" style:cursor=move || if s.get().b("autostart") && !s.get().b("linger") && s.get().b("systemd") { "pointer" } else { "" }
                         on:click=linger_click>{autostart_sub}</div></div>{switch("autostart", "set_autostart")}</div>
-                <div class="sw-row"><div><div>"Dieses Fenster beim Anmelden öffnen"</div></div>{switch("window", "set_window_autostart")}</div>
-                <div class="sw-row"><div><div>"Tägliches Backup um "
-                    <input type="time" class="time" aria-label="Uhrzeit für das tägliche Backup" prop:value=move || { let t = s.get().s("daily_time"); if t.is_empty() { "05:00".into() } else { t } } on:change=set_time/>
-                    " Uhr (ganzer Server als ZIP)"</div><div class="dim small">"Macht der Hintergrund-Dienst. Holt es nach, falls der PC zu der Zeit aus war."</div></div>{switch("daily", "set_daily_backup")}</div>
-                <div class="sw-row"><div><div>"Erreichbarkeit von außen prüfen"</div><div class="dim small">"Beim Wechsel in den Server-Bereich. Fragt dafür einen Prüfdienst im Internet."</div></div>{switch("reach_check", "set_reach_check")}</div>
-                <div class="sw-row"><div><div>"Benachrichtigungen"</div><div class="dim small">"Wenn jemand beitritt oder geht und wenn der Server abstürzt (solange das Fenster offen ist). Ohne Ton."</div></div>{switch("notify", "set_notify")}</div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("set-fenster-autostart")}</div></div>{switch("window", "set_window_autostart")}</div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("set-backup-um")}
+                    <input type="time" class="time" aria-label=crate::sprache::t!("set-uhrzeit") prop:value=move || { let t = s.get().s("daily_time"); if t.is_empty() { "05:00".into() } else { t } } on:change=set_time/>
+                    {crate::sprache::t!("set-backup-uhr")}</div><div class="dim small">{crate::sprache::t!("set-backup-sub")}</div></div>{switch("daily", "set_daily_backup")}</div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("set-reach")}</div><div class="dim small">{crate::sprache::t!("set-reach-sub")}</div></div>{switch("reach_check", "set_reach_check")}</div>
+                <div class="sw-row"><div><div>{crate::sprache::t!("set-notify")}</div><div class="dim small">{crate::sprache::t!("set-notify-sub")}</div></div>{switch("notify", "set_notify")}</div>
             </div>
             {move || old_panel(app, s, props, ram)}
             <CurseForge/>
             <SkinChoice/>
-            <h3>"Ordner"</h3>
+            <h3>{crate::sprache::t!("set-ordner")}</h3>
             <div class="row">
-                <button on:click=|_| open_folder("server")>"Server-Ordner"</button>
+                <button on:click=|_| open_folder("server")>{crate::sprache::t!("set-ordner-server")}</button>
                 <button on:click=|_| open_folder("mods")>"Mods"</button>
                 <button on:click=|_| open_folder("backups")>"Backups"</button>
                 <button on:click=|_| open_folder("logs")>"Logs"</button>
@@ -249,26 +238,26 @@ fn old_panel(
     }
     let off = move |_| {
         leptos::task::spawn_local(async move {
-            if !confirm("Altes Panel abschalten?",
-                "Ich stoppe den Dienst „minecraft.service“ (der Server speichert dabei sauber und beendet sich) und schalte ihn und sein tägliches Backup beim PC-Start aus.\n\nDas alte Panel selbst und seine Dateien bleiben erhalten – man kann es jederzeit wieder einschalten. Danach startest du den Server hier mit „Starten“.",
-                "Abschalten").await {
+            if !confirm(crate::sprache::t!("set-panel-frage"),
+                crate::sprache::t!("set-panel-text"),
+                crate::sprache::t!("set-panel-abschalten")).await {
                 return;
             }
             match tauri::call::<()>("disable_old_panel").await {
-                Ok(()) => app.add_event("Altes Panel abgeschaltet"),
-                Err(e) => error("Abschalten fehlgeschlagen", e).await,
+                Ok(()) => app.add_event(crate::sprache::t!("set-panel-aus")),
+                Err(e) => error(crate::sprache::t!("set-panel-err"), e).await,
             }
             load(s, props, ram);
             app.refresh_status();
         });
     };
-    let a = |b: bool, y: &'static str, n: &'static str| if b { y } else { n };
+    let a = |b: bool| if b { crate::sprache::t!("set-an") } else { crate::sprache::t!("set-aus") };
     Some(view! {
         <div class="hint">
-            <b>"Altes Bedienfenster noch eingerichtet."</b>
-            {format!(" Dienst „minecraft.service“: {}, beim Start {}; tägliches Backup-Zeitprogramm {}. Solange es läuft, kann Vapafane den Server nicht selbst starten (gleicher Port), und Backups würden doppelt gemacht. ",
-                a(o.b("active"), "läuft", "aus"), a(o.b("enabled"), "an", "aus"), a(o.b("timer"), "an", "aus"))}
-            <div class="row"><button on:click=off>"Altes Panel abschalten …"</button></div>
+            <b>{crate::sprache::t!("set-panel-titel")}</b>
+            {format!(" {} ", crate::sprache::t!("set-panel-status",
+                dienst = a(o.b("active")), start = a(o.b("enabled")), backup = a(o.b("timer"))))}
+            <div class="row"><button on:click=off>{crate::sprache::t!("set-panel-knopf")}</button></div>
         </div>
     }.into_any())
 }
@@ -285,19 +274,16 @@ fn CurseForge() -> impl IntoView {
                 .await
                 .unwrap_or(json!({"set": false}));
             msg.set(if c.b("set") {
-                format!(
-                    "Gespeicherter Schlüssel: {} – CurseForge wird bei der Suche mit gefragt.",
-                    c.s("masked")
-                )
+                crate::sprache::t!("cf-schluessel-da", maskiert = c.s("masked"))
             } else {
-                "Kein Schlüssel gespeichert – gesucht wird nur auf Modrinth.".into()
+                crate::sprache::t!("cf-kein-schluessel")
             });
             state.set(c);
         });
     };
     reload();
     let test = move |_| {
-        msg.set("Teste …".into());
+        msg.set(crate::sprache::t!("cf-teste"));
         let k = key.get_untracked();
         leptos::task::spawn_local(async move {
             let arg = if k.is_empty() {
@@ -307,7 +293,7 @@ fn CurseForge() -> impl IntoView {
             };
             msg.set(
                 match tauri::invoke::<()>("cf_key_test", json!({ "key": arg })).await {
-                    Ok(()) => "✓ Der Schlüssel funktioniert.".into(),
+                    Ok(()) => format!("✓ {}", crate::sprache::t!("cf-funktioniert")),
                     Err(e) => format!("✗ {e}"),
                 },
             );
@@ -319,9 +305,9 @@ fn CurseForge() -> impl IntoView {
             match tauri::invoke::<()>("cf_key_save", json!({ "key": k })).await {
                 Ok(()) => {
                     key.set(String::new());
-                    app.add_event("CurseForge-Schlüssel gespeichert");
+                    app.add_event(crate::sprache::t!("cf-gespeichert"));
                 }
-                Err(e) => return error("Speichern", e).await,
+                Err(e) => return error(crate::sprache::t!("gem-speichern"), e).await,
             }
             reload();
         });
@@ -329,45 +315,45 @@ fn CurseForge() -> impl IntoView {
     let delete = move |_| {
         leptos::task::spawn_local(async move {
             if !confirm(
-                "CurseForge-Schlüssel entfernen?",
-                "Danach sucht Vapafane wieder nur auf Modrinth.",
-                "Entfernen",
+                crate::sprache::t!("cf-entfernen-frage"),
+                crate::sprache::t!("cf-entfernen-text"),
+                crate::sprache::t!("gem-entfernen"),
             )
             .await
             {
                 return;
             }
             if let Err(e) = tauri::call::<()>("cf_key_delete").await {
-                show_error("Entfernen", e);
+                show_error(crate::sprache::t!("gem-entfernen"), e);
             }
             reload();
         });
     };
     view! {
-        <h3>"CurseForge (optional) " <span class="badge exp">"Experimentell"</span></h3>
+        <h3>{crate::sprache::t!("cf-titel")}" " <span class="badge exp">{crate::sprache::t!("cf-experimentell")}</span></h3>
         <div class="cf-box">
-            <p><b>"Brauche ich das?"</b>" Nein – die meisten Mods gibt es auf "<b>"Modrinth"</b>", das geht ohne Einrichtung. CurseForge findet "<i>"zusätzlich"</i>" Mods, die es nur dort gibt, und braucht dafür einen persönlichen API-Schlüssel (eine Art Zugangscode)."</p>
+            <p><b>{crate::sprache::t!("cf-brauche")}</b>" "{crate::sprache::t!("cf-erklaerung")}</p>
             <details>
-                <summary><b>"So bekommst du einen Schlüssel (kostenlos)"</b></summary>
+                <summary><b>{crate::sprache::t!("cf-anleitung-titel")}</b></summary>
                 <ol>
-                    <li>"Auf "<b>"„Schlüssel beantragen“"</b>" klicken und das Formular ausfüllen (z. B. Zweck: „Mods für meinen eigenen Server“)."</li>
-                    <li>"Auf die Antwort per E-Mail warten – CurseForge prüft von Hand, das kann ein paar Tage dauern."</li>
-                    <li>"Den Schlüssel unten einfügen, "<b>"„Schlüssel testen“"</b>" und "<b>"„Speichern“"</b>"."</li>
+                    <li>{crate::sprache::t!("cf-schritt-1")}</li>
+                    <li>{crate::sprache::t!("cf-schritt-2")}</li>
+                    <li>{crate::sprache::t!("cf-schritt-3")}</li>
                 </ol>
-                <p><b>"Der Schlüssel ist persönlich"</b>" – nicht weitergeben oder veröffentlichen. Er bleibt nur auf diesem PC. Es gelten die "
-                    <a href="#" on:click=|e| { e.prevent_default(); open_link("cf-terms"); }>"CurseForge-Bedingungen für Drittprogramme"</a>
-                    ". Experimentell: Ob CurseForge Schlüssel für private Tools vergibt, entscheidet CurseForge."</p>
+                <p><b>{crate::sprache::t!("cf-persoenlich")}</b>" "{crate::sprache::t!("cf-persoenlich-text")}" "
+                    <a href="#" on:click=|e| { e.prevent_default(); open_link("cf-terms"); }>{crate::sprache::t!("cf-bedingungen")}</a>
+                    ". "{crate::sprache::t!("cf-experimentell-text")}</p>
             </details>
             <div class="row">
-                <button on:click=|_| open_link("cf-apply")>"Schlüssel beantragen ↗"</button>
-                <button on:click=|_| open_link("cf-console")>"CurseForge-Konsole ↗"</button>
-                <button on:click=|_| open_link("cf-docs")>"Mehr zur CurseForge-API ↗"</button>
+                <button on:click=|_| open_link("cf-apply")>{crate::sprache::t!("cf-beantragen")}</button>
+                <button on:click=|_| open_link("cf-console")>{crate::sprache::t!("cf-konsole")}</button>
+                <button on:click=|_| open_link("cf-docs")>{crate::sprache::t!("cf-mehr")}</button>
             </div>
             <div class="row">
-                <input type="password" placeholder="API-Schlüssel hier einfügen" autocomplete="off" spellcheck="false" prop:value=key on:input=move |e| key.set(event_target_value(&e))/>
-                <button on:click=test>"Schlüssel testen"</button>
-                <button class="primary" on:click=save>"Speichern"</button>
-                <button class="danger" disabled=move || !state.get().b("set") on:click=delete>"Entfernen"</button>
+                <input type="password" placeholder=crate::sprache::t!("cf-platzhalter") autocomplete="off" spellcheck="false" prop:value=key on:input=move |e| key.set(event_target_value(&e))/>
+                <button on:click=test>{crate::sprache::t!("cf-testen")}</button>
+                <button class="primary" on:click=save>{crate::sprache::t!("gem-speichern")}</button>
+                <button class="danger" disabled=move || !state.get().b("set") on:click=delete>{crate::sprache::t!("gem-entfernen")}</button>
             </div>
             <p class="small">{msg}</p>
         </div>
