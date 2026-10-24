@@ -778,6 +778,7 @@ pub fn Overview() -> impl IntoView {
                 </div>
             </div>
             {move || hint().map(|(h, err)| view! { <div class="hint" class:error=err>{h}</div> })}
+            <crate::pages::players::WhitelistNote page=Page::Overview/>
             <div class="cards">
                 <Card title="Spieler online" value=Signal::derive(players) sub=Signal::derive(players_sub)/>
                 <Card title="TPS (Ticks pro Sekunde)" value=Signal::derive(tps) sub=Signal::derive(tps_sub)>

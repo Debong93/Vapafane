@@ -33,10 +33,11 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
   einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
   einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
-            [--einstellungen-von ORDNER] [--neue-instanz]
+            [--einstellungen-von ORDNER] [--neue-instanz] [--shader]
                                     Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket);
                                     Einstellungen (ohne Welten) aus ORDNER übernehmen; mit --neue-instanz wird
-                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert
+                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert; --shader
+                                    richtet Shader-Unterstützung (Iris) mit ein
   clients                           eingerichtete Clients anzeigen
   client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
   ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
@@ -92,6 +93,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             if !server::eula_accepted(&dir) {
                 return err("EULA nicht akzeptiert (im Fenster bestätigen)");
             }
+            ops::check_port(&dir)?;
             launcher::ensure_service()?;
             ipc::call("start", Value::Null)?;
             println!("Server wird gestartet.");
@@ -441,10 +443,12 @@ fn run_inner(args: &[String]) -> Result<()> {
                         .collect(),
                 });
             let update = !args.iter().any(|a| a == "--neue-instanz");
+            let shaders = args.iter().any(|a| a == "--shader");
+            let choices = crate::client::Choices { selected, take: take.as_ref(), shaders };
             let r = if modrinth {
-                crate::client::install_mrpack(&inv, zip, &selected, take.as_ref(), update, true, &print)?
+                crate::client::install_mrpack(&inv, zip, &choices, update, true, &print)?
             } else {
-                crate::client::install(&inv, zip, folder.as_deref(), &selected, take.as_ref(), &print)?
+                crate::client::install(&inv, zip, folder.as_deref(), &choices, &print)?
             };
             println!("{}", serde_json::to_string_pretty(&r)?);
         }

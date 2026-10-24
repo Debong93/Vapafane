@@ -146,6 +146,13 @@ async fn rundgang() -> Res<()> {
         e.click_button("Weiter").await?;
         e.until("Array.from(document.querySelectorAll('#server-select option')).some(o => o.textContent === 'E2E')", 600).await?;
         e.shot("02-server-angelegt").await;
+        // Neue Server haben die Whitelist an – solange sie leer ist, warnt die Übersicht
+        e.sees("aber noch leer", 30).await?;
+        // Ist Port 25565 schon belegt (z. B. ein anderer Server), bekommt der neue einen freien
+        if std::net::TcpStream::connect("127.0.0.1:25565").is_ok() {
+            e.sees("Port 2556", 30).await?;
+            e.until("!document.querySelector('section.tab.active').innerText.includes('Port 25565')", 5).await?;
+        }
         Ok(())
     });
     schritt!(e, "Einstellungen: Port ändern und speichern", async {
@@ -177,9 +184,23 @@ async fn rundgang() -> Res<()> {
     schritt!(e, "Spieler und Whitelist", async {
         page(e, "Spieler").await?;
         e.wait("//div[@class='empty' and normalize-space()='Niemand online']", 15).await?;
-        e.type_into("//input[@placeholder='Minecraft-Name']", "Notch").await?;
-        e.click_button("Hinzufügen").await?;
-        e.wait("//div[@class='item']/div[normalize-space()='Notch']", 30).await?;
+        // Der Server fragt Mojang nach dem Namen – bei zu vielen Anfragen (HTTP 429) später nochmal
+        let notch = "//div[@class='item']/div[normalize-space()='Notch']";
+        let mut found = false;
+        for _ in 0..4 {
+            e.type_into("//input[@placeholder='Minecraft-Name']", "Notch").await?;
+            e.click_button("Hinzufügen").await?;
+            if e.wait(notch, 20).await.is_ok() {
+                found = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        }
+        if !found {
+            return fail("Notch ließ sich nicht auf die Whitelist setzen (Mojang antwortet nicht)");
+        }
+        page(e, "Übersicht").await?;
+        e.until("!document.querySelector('section.tab.active').innerText.includes('aber noch leer')", 30).await?;
         Ok(())
     });
     schritt!(e, "Backup erstellen", async {
@@ -207,6 +228,8 @@ async fn rundgang() -> Res<()> {
         page(e, "Mods/Plugins").await?;
         e.click_button("Datapacks hinzufügen …").await?;
         e.wait("//div[contains(@class,'catalog-list')]//div[@class='hit']", 60).await?;
+        // Bilder der Einträge laden (vom Modrinth-Server)
+        e.until("Array.from(document.querySelectorAll('.catalog-list .hit img')).slice(0, 3).every(i => i.complete && i.naturalWidth > 0)", 30).await?;
         e.shot("07-katalog").await;
         e.click_button("Schließen").await
     });
@@ -257,6 +280,8 @@ async fn rundgang() -> Res<()> {
         e.wait("//select[@id='cl-take']/option[contains(.,'Modrinth-App: Meine Instanz')]", 20).await?;
         e.select("//select[@id='cl-take']", &inst.to_string_lossy()).await?;
         // alles außer Welten ist vorausgewählt
+        // Vanilla-Server: keine Mods, also auch keine Shader-Unterstützung
+        e.until("document.querySelector('#cl-shaders') === null", 5).await?;
         e.until("(() => { const l = Array.from(document.querySelectorAll('.take-parts label')); \
             const on = (t) => l.find(x => x.innerText.includes(t)).querySelector('input').checked; \
             return l.length === 5 && on('Optionen') && on('Shader') && on('Server-Liste') && !on('Welten'); })()", 10).await?;
@@ -285,6 +310,15 @@ async fn rundgang() -> Res<()> {
         if std::fs::read(inst.join("options.txt"))? != b"version:4189\nguiScale:3\nlang:de_de\n" {
             return fail("Quelle wurde verändert");
         }
+        if !clients.join("shaderpacks").is_dir() || !clients.join("resourcepacks").is_dir() {
+            return fail("Ordner shaderpacks/resourcepacks fehlen");
+        }
+        // Anleitung „Shader & Extras“ für den Launcher
+        e.click_button("Shader & Extras – so geht's").await?;
+        e.wait("//h2[normalize-space()='Shader & Extras hinzufügen']", 10).await?;
+        e.sees("shaderpacks", 5).await?;
+        e.shot("08c-extras-launcher").await;
+        e.wait("//div[@class='modal-buttons']/button[normalize-space()='Schließen']", 5).await?.click().await?;
         Ok(())
     });
     schritt!(e, "Client: Modrinth-App, neue Instanz mit Einstellungen", async {
@@ -338,6 +372,14 @@ async fn rundgang() -> Res<()> {
         if std::fs::read(imported.join("options.txt"))? != b"eigene Optionen" {
             return fail("Die vorhandene Instanz wurde verändert");
         }
+        // Anleitung „Shader & Extras“ für die Modrinth-App (aus „Meine Server“)
+        e.wait("//div[@class='item'][.//b[normalize-space()='E2E']]//button[normalize-space()='Shader & Extras']", 10).await?.click().await?;
+        e.wait("//h2[normalize-space()='Shader & Extras hinzufügen']", 10).await?;
+        e.sees("Inhalte durchsuchen", 5).await?;
+        e.until("document.querySelectorAll('.modal svg.sketch').length === 2", 5).await?;
+        e.js("document.querySelector('.modal').scrollTop = 0; return 1;").await?;
+        e.shot("08d-extras-modrinth").await;
+        e.wait("//div[@class='modal-buttons']/button[normalize-space()='Schließen']", 5).await?.click().await?;
         Ok(())
     });
     schritt!(e, "Client entfernen", async {
@@ -345,6 +387,22 @@ async fn rundgang() -> Res<()> {
         e.wait(rm, 10).await?.click().await?;
         e.wait("//div[@class='modal-buttons']/button[normalize-space()='Entfernen']", 10).await?.click().await?;
         e.wait("//div[@class='empty' and contains(.,'Noch kein Server eingerichtet')]", 30).await?;
+        Ok(())
+    });
+    schritt!(e, "Einstellungen beim Bereichswechsel", async {
+        e.wait("//button[@id='btn-gear']", 5).await?.click().await?;
+        e.sees("Spielordner aller Clients", 10).await?;
+        e.sees("Kontakt & Fehler melden (GitHub)", 5).await?;
+        e.shot("10-client-einstellungen").await;
+        // In den Einstellungen bleiben – in beide Richtungen
+        e.click_button("Server").await?;
+        e.sees("Einstellungen speichern", 10).await?;
+        e.sees("Kontakt & Fehler melden (GitHub)", 5).await?;
+        e.click_button("Client").await?;
+        e.sees("Spielordner aller Clients", 10).await?;
+        // Zahnrad schließt die Einstellungen wieder
+        e.wait("//button[@id='btn-gear']", 5).await?.click().await?;
+        e.wait("//h2[normalize-space()='Einladung einlösen']", 10).await?;
         Ok(())
     });
     schritt!(e, "Themen umschalten", async {

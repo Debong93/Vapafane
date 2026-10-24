@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use serde_json::{Map, Value, json};
 
 use crate::dialog::{confirm, error, show_error};
-use crate::pages::SkinChoice;
+use crate::pages::{About, SkinChoice};
 use crate::state::{AppState, Page, use_app};
 use crate::tauri;
 use crate::util::{J, open_folder, open_link};
@@ -104,7 +104,10 @@ pub fn Settings() -> impl IntoView {
         } else {
             view! { <input disabled=move || !has_props() prop:value=val on:input=move |e| set(event_target_value(&e))/> }.into_any()
         };
-        view! { <label>{label}</label>{field} }
+        let help = (key == "white-list").then(|| view! {
+            <span></span><span class="dim small">"Empfohlen für die Sicherheit: Nur Spieler auf der Whitelist (Seite „Spieler“) kommen rein. Ohne Whitelist kann jeder beitreten, der deine Adresse kennt."</span>
+        });
+        view! { <label>{label}</label>{field}{help} }
     };
 
     let save = move |_| {
@@ -370,32 +373,3 @@ fn CurseForge() -> impl IntoView {
     }
 }
 
-#[component]
-fn About() -> impl IntoView {
-    let about = RwSignal::new(String::new());
-    leptos::task::spawn_local(async move {
-        if let Ok(c) = tauri::call::<Value>("get_config").await {
-            about.set(format!(
-                "Version {}{}",
-                c.s("version"),
-                if c.b("test_mode") {
-                    " · TESTMODUS"
-                } else {
-                    ""
-                }
-            ));
-        }
-    });
-    view! {
-        <h3>"Über Vapafane"</h3>
-        <div class="cf-box about">
-            <p><b>"Vapafane – Minecraft-Werkbank für Server & Client"</b>" "<span class="dim">{about}</span></p>
-            <p class="notice">"Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen."</p>
-            <p>"Minecraft ist eine Marke von Mojang/Microsoft. Mods und Plugins stammen von ihren jeweiligen Autoren (über Modrinth bzw. CurseForge)."</p>
-            <div class="row">
-                <button on:click=|_| open_link("issues")>"Kontakt & Fehler melden (GitHub) ↗"</button>
-                <button on:click=|_| open_link("repo")>"Projektseite ↗"</button>
-            </div>
-        </div>
-    }
-}

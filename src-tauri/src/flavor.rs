@@ -432,13 +432,27 @@ pub fn create_server(kind: Kind, name: &str, game: &str, target: &Path, progress
         if let Some(d) = kind.mod_dir() {
             fs::create_dir_all(target.join(d))?;
         }
+        // Freie Ports – auch wenn schon ein anderer Server (mit oder ohne Vapafane) läuft
+        let taken: Vec<u16> = crate::config::Config::load()
+            .servers
+            .iter()
+            .flat_map(|s| {
+                let p = server::read_properties(Path::new(&s.path));
+                ["server-port", "rcon.port"]
+                    .iter()
+                    .filter_map(|k| p.get(*k).and_then(|v| v.parse::<u16>().ok()))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let game_port = crate::procs::free_port(25565, &taken).to_string();
+        let rcon_port = crate::procs::free_port(25575, &taken).to_string();
         let props: std::collections::BTreeMap<String, String> = [
             ("motd", name),
             ("enable-rcon", "true"),
-            ("rcon.port", "25575"),
+            ("rcon.port", rcon_port.as_str()),
             ("rcon.password", &util::random_hex(12)),
             ("white-list", "true"),
-            ("server-port", "25565"),
+            ("server-port", game_port.as_str()),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

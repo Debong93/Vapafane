@@ -853,3 +853,24 @@ body.client-mode .side { display: none; }
 select { -webkit-appearance: none; appearance: none; padding-right: 30px;
   background-image: var(--ico-select); background-repeat: no-repeat; background-position: right 8px center; background-size: 12px 8px; }
 .switches, .sw-row, .form { color: var(--text); }
+
+/* Skizzen in der Anleitung „Shader & Extras“ (vereinfachte Modrinth-App) */
+.sketch { width: 100%; height: auto; margin: 8px 0 2px; display: block; }
+.sketch .frame { fill: #16181c; stroke: var(--border); }
+.sketch .side { fill: #1d2025; }
+.sketch .icon { fill: #2b2f36; }
+.sketch .icon.hot, .sketch .pill.hot, .sketch .btn.green { fill: #1bd96a; }
+.sketch .btn { fill: #262a31; stroke: #3a3f48; }
+.sketch .row { fill: #1d2025; }
+.sketch text { font-family: inherit; }
+.sketch .title { fill: #e8e9eb; font-size: 14px; font-weight: 700; }
+.sketch .sub { fill: #9aa0a8; font-size: 11px; }
+.sketch .tab-t { fill: #c9ccd1; font-size: 12px; font-weight: 600; }
+.sketch .btn-t { fill: #e8e9eb; font-size: 12px; font-weight: 600; }
+.sketch .btn-t.dark { fill: #0b0d0f; }
+.sketch .mark circle { fill: #f2b84b; stroke: #0b0d0f; stroke-width: 2; }
+.sketch .mark text { fill: #0b0d0f; font-size: 13px; font-weight: 800; }
+
+/* Hinweis, der handeln soll (z. B. Whitelist aus, Server von außen erreichbar) */
+.hint.warn-box { border-color: var(--amber); }
+.hint.warn-box .row { margin: 8px 0 0; }

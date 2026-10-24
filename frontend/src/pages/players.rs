@@ -21,6 +21,65 @@ fn valid(name: &str) -> bool {
     (3..=16).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Hinweise zur Whitelist für Einsteiger. `page`: auf welcher Seite der Hinweis steht (dann wird
+/// neu geladen); `tips`: auch den sanften Tipp zeigen, wenn nichts dringend ist.
+#[component]
+pub fn WhitelistNote(page: Page, #[prop(optional)] tips: bool) -> impl IntoView {
+    let app = use_app();
+    let st = RwSignal::new(Value::Null);
+    let load = move || {
+        leptos::task::spawn_local(async move {
+            st.set(tauri::call::<Value>("whitelist_state").await.unwrap_or(Value::Null));
+        })
+    };
+    Effect::new(move |_| {
+        app.server_path.track();
+        app.status.track();
+        if app.page.get() == page {
+            load();
+        }
+    });
+    let enable = move |_| {
+        leptos::task::spawn_local(async move {
+            if let Err(e) = tauri::invoke::<()>("set_whitelist", json!({ "on": true })).await {
+                error("Whitelist", e).await;
+                return;
+            }
+            if matches!(app.status.get_untracked().state.as_str(), "running" | "external") {
+                let _ = run_command("whitelist on", true).await;
+            }
+            load();
+            if st.get_untracked().f("count").unwrap_or(0.0) < 1.0 {
+                app.show(Page::Players);
+            }
+        })
+    };
+    move || {
+        let s = st.get();
+        if s.is_null() {
+            return None;
+        }
+        let on = s.b("enabled");
+        let empty = s.f("count").unwrap_or(0.0) < 1.0;
+        let outside = matches!(crate::pages::reach::light(app).as_str(), "green" | "yellow");
+        Some(if !on && outside {
+            view! { <div class="hint warn-box">"Achtung: Dein Server ist aus dem Internet erreichbar und die "<b>"Whitelist ist aus"</b>
+                " – jeder, der die Adresse kennt oder zufällig findet, kann beitreten. Mit Whitelist kommen nur Spieler rein, die du einträgst."
+                <div class="row"><button class="primary" on:click=enable>"Whitelist einschalten"</button></div></div> }.into_any()
+        } else if on && empty {
+            view! { <div class="hint warn-box">"Die Whitelist ist an, aber noch leer – gerade kommt "<b>"niemand"</b>" auf den Server, auch du nicht. "
+                "Trag unter „Spieler“ deinen Minecraft-Namen und die deiner Freunde ein."
+                {(page != Page::Players).then(|| view! { <div class="row"><button class="primary" on:click=move |_| app.show(Page::Players)>"Zu den Spielern"</button></div> })}</div> }.into_any()
+        } else if !on && tips {
+            view! { <div class="hint">"Tipp: Die Whitelist ist aus – jeder mit der Adresse kann beitreten. Empfohlen ist sie, sobald Freunde von außen spielen: "
+                "Dann kommen nur Spieler rein, die hier eingetragen sind."
+                <div class="row"><button on:click=enable>"Whitelist einschalten"</button></div></div> }.into_any()
+        } else {
+            return None;
+        })
+    }
+}
+
 #[component]
 pub fn Players() -> impl IntoView {
     let app = use_app();
@@ -93,6 +152,8 @@ pub fn Players() -> impl IntoView {
             <h3>"Gerade online"</h3>
             <div class="list">{move || online_rows(app)}</div>
             <h3>"Whitelist (wer darf rein)"</h3>
+            <p class="dim small">"Ist die Whitelist an (Einstellungen → „Nur Whitelist darf rein“), kommen nur die Spieler hier auf den Server. Das schützt vor Fremden – trag dich selbst auch ein."</p>
+            <WhitelistNote page=Page::Players tips=true/>
             <div class="row">
                 <input placeholder="Minecraft-Name" autocomplete="off" spellcheck="false" prop:value=input
                     on:input=move |e| input.set(event_target_value(&e))

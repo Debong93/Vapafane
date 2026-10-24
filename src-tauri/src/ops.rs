@@ -142,3 +142,18 @@ pub fn stop_server(warn: u64, restart: bool) -> Result<()> {
     ipc::call(if restart { "restart" } else { "stop" }, json!({"warn": warn}))?;
     Ok(())
 }
+
+/// Vor dem Start: Benutzt ein anderes Programm (z. B. ein zweiter Server) schon den Port?
+/// Dann würde Minecraft nur mit einem Fehler abbrechen.
+pub fn check_port(dir: &Path) -> Result<()> {
+    let port = crate::reach::server_port(dir);
+    crate::reach::release_port(port);
+    if !procs::port_free(port) && procs::java_in_dir(dir, None).is_none() {
+        let free = procs::free_port(port.saturating_add(1), &[]);
+        return err(format!(
+            "Port {port} ist schon belegt – wahrscheinlich läuft dort ein anderer Minecraft-Server. \
+             Stell unter Einstellungen → „Server-Port“ einen freien Port ein, z. B. {free}."
+        ));
+    }
+    Ok(())
+}

@@ -344,12 +344,6 @@ fn copy_server(src: &Path, dest: &Path, progress: Progress) -> Result<()> {
     Ok(())
 }
 
-fn free_port(start: u16, avoid: &[u16]) -> u16 {
-    (start..start + 200)
-        .find(|p| !avoid.contains(p) && procs::port_free(*p))
-        .unwrap_or(start)
-}
-
 /// Aktualisiert eine Kopie im Temp-Ordner, startet sie auf einem anderen Port,
 /// prüft, ob sie fertig startet, stoppt sie und löscht die Kopie wieder.
 #[tauri::command]
@@ -406,9 +400,9 @@ fn trial_inner(
         .iter()
         .filter_map(|k| props.get(*k).and_then(|p| p.parse().ok()))
         .collect();
-    let game_port = free_port(25566, &used);
-    let rcon_port = free_port(25576, &[game_port]);
-    let query_port = free_port(25567, &[game_port, rcon_port]);
+    let game_port = procs::free_port(25566, &used);
+    let rcon_port = procs::free_port(25576, &[game_port]);
+    let query_port = procs::free_port(25567, &[game_port, rcon_port]);
     let mut upd = std::collections::BTreeMap::new();
     upd.insert("server-port".to_string(), game_port.to_string());
     upd.insert("rcon.port".to_string(), rcon_port.to_string());
@@ -419,7 +413,7 @@ fn trial_inner(
         .map(|p| p != "0" && !p.is_empty())
         .unwrap_or(false)
     {
-        let mport = free_port(25568, &[game_port, rcon_port, query_port]);
+        let mport = procs::free_port(25568, &[game_port, rcon_port, query_port]);
         upd.insert("management-server-port".to_string(), mport.to_string());
     }
     if props.get("rcon.password").map(|p| p.is_empty()).unwrap_or(true) {

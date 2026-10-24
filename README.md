@@ -47,9 +47,11 @@ und dunkel.
    *Fabric* oder *NeoForge* (mit Mods), *Paper* (mit Plugins) –, Minecraft-Version und
    Namen angeben und die Minecraft-EULA bestätigen. Einen vorhandenen Server-Ordner oder
    ein Backup fügst du über dasselbe Menü hinzu.
-3. In der **Übersicht** auf **„▶ Starten“** klicken. Das Fenster darf danach zu – der
+3. Unter **„Spieler“** deinen Minecraft-Namen und die deiner Freunde eintragen: Neue Server
+   haben die **Whitelist** an – nur wer dort steht, kommt rein. Das schützt vor Fremden.
+4. In der **Übersicht** auf **„▶ Starten“** klicken. Das Fenster darf danach zu – der
    Server läuft im Hintergrund weiter.
-4. Links findest du alles Weitere: **Konsole**, **Spieler** (Whitelist, OP),
+5. Links findest du alles Weitere: **Konsole**, **Spieler** (Whitelist, OP),
    **Mods/Plugins** („Mods hinzufügen …“ sucht auf Modrinth), **Version & Updates**,
    **Backups** und **Erreichbarkeit**.
 
@@ -73,9 +75,12 @@ grün über IPv4 und IPv6, gelb nur über IPv6 (z. B. bei DS-Lite), rot gar nich
 4. Wer schon Minecraft eingerichtet hat, wählt unter **„Einstellungen übernehmen von“** seine
    bisherige Instanz: Optionen, Tastenbelegung, Mod-Einstellungen, Shader, Ressourcenpakete,
    Server-Liste und auf Wunsch Welten kommen mit. Die bisherige Instanz bleibt unverändert.
-5. **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
-6. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
-   online ist, siehst du direkt daneben.
+5. Für Shader **„Shader-Unterstützung mit einrichten“** anhaken (bei Servern mit Fabric oder
+   NeoForge): Vapafane bringt die Mod Iris passend zur Server-Version mit, auch bei Updates.
+6. **„Einrichten“** klicken. Vapafane lädt die passenden Mods und legt ein Profil an.
+7. Unter **„Meine Server“** mit **„Spielen“** den Launcher öffnen. Ob der Server gerade
+   online ist, siehst du direkt daneben. **„Shader & Extras“** zeigt Schritt für Schritt, wie
+   du eigene Shader, Ressourcenpakete oder Mods hinzufügst.
 
 **Nach einem Server-Update** den neuen Einladungs-Code einlösen. Beim Minecraft-Launcher
 aktualisiert Vapafane das Profil direkt. Bei der Modrinth-App baut Vapafane ein neues Paket

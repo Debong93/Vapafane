@@ -182,6 +182,26 @@ fn server_off_report(port: u16) -> Report {
     }
 }
 
+fn port_taken_report(port: u16) -> Report {
+    Report {
+        light: "red".into(),
+        title: format!("Port {port} ist schon belegt"),
+        text: format!(
+            "Ein anderes Programm – wahrscheinlich ein anderer Minecraft-Server – benutzt diesen Port. \
+             Dieser Server kann so nicht starten. Stell unter Einstellungen → „Server-Port“ einen freien Port ein (z. B. {})",
+            crate::procs::free_port(port.saturating_add(1), &[])
+        ),
+        v4: "nicht geprüft".into(),
+        v4_state: "none".into(),
+        v6: "nicht geprüft".into(),
+        v6_state: "none".into(),
+        port,
+        server_off: true,
+        checked: chrono::Local::now().timestamp(),
+        ..Default::default()
+    }
+}
+
 // ---------------------------------------------------------------- Prüfen
 
 pub fn server_port(dir: &Path) -> u16 {
@@ -205,7 +225,7 @@ pub fn check(dir: &Path) -> Result<Report> {
     let port = server_port(dir);
     let report = match test_override(port) {
         Some(r) => r,
-        None => check_now(port),
+        None => check_now(dir, port),
     };
     let _ = fs::create_dir_all(config::state_dir());
     crate::util::write_atomic(&state_file(), serde_json::to_string_pretty(&report)?.as_bytes())?;
@@ -234,11 +254,15 @@ fn test_override(port: u16) -> Option<Report> {
     Some(classify(&f))
 }
 
-fn check_now(port: u16) -> Report {
+fn check_now(dir: &Path, port: u16) -> Report {
     // Antwortet schon jemand auf dem Port (der Minecraft-Server)? Sonst kurz selbst antworten.
     let listening = TcpStream::connect_timeout(&SocketAddr::from((Ipv4Addr::LOCALHOST, port)), Duration::from_secs(1))
         .is_ok()
         || TcpStream::connect_timeout(&SocketAddr::from((Ipv6Addr::LOCALHOST, port)), Duration::from_secs(1)).is_ok();
+    // Antwortet ein anderes Programm (z. B. ein zweiter Server)? Dann würde nur das geprüft.
+    if listening && crate::procs::java_in_dir(dir, None).is_none() {
+        return port_taken_report(port);
+    }
     let _responder = if listening {
         None
     } else if cfg!(windows) {
@@ -271,6 +295,26 @@ struct Responder {
     stop: Arc<AtomicBool>,
 }
 
+/// Port und Stopp-Schalter der gerade laufenden Antwortstelle (höchstens eine).
+static RESPONDING: std::sync::Mutex<Option<(u16, Arc<AtomicBool>)>> = std::sync::Mutex::new(None);
+
+/// Vor dem Serverstart: Hält die eigene Antwortstelle einer laufenden Prüfung gerade den Port,
+/// sofort freigeben (die Prüfung läuft dann ohne sie zu Ende).
+pub fn release_port(port: u16) {
+    let stop = match &*crate::util::lock(&RESPONDING) {
+        Some((p, stop)) if *p == port => stop.clone(),
+        _ => return,
+    };
+    stop.store(true, Ordering::Relaxed);
+    // die Lausch-Schleifen schauen alle 100 ms nach
+    for _ in 0..30 {
+        if crate::procs::port_free(port) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 impl Responder {
     fn start(port: u16) -> Option<Responder> {
         // [::] nimmt unter Linux auch IPv4 an; falls nicht, zusätzlich 0.0.0.0
@@ -285,6 +329,7 @@ impl Responder {
             return None;
         }
         let stop = Arc::new(AtomicBool::new(false));
+        *crate::util::lock(&RESPONDING) = Some((port, stop.clone()));
         for l in listeners {
             let stop = stop.clone();
             let _ = l.set_nonblocking(true);
@@ -308,6 +353,10 @@ impl Responder {
 impl Drop for Responder {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
+        let mut r = crate::util::lock(&RESPONDING);
+        if r.as_ref().is_some_and(|(_, s)| Arc::ptr_eq(s, &self.stop)) {
+            *r = None;
+        }
     }
 }
 

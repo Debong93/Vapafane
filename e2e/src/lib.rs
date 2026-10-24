@@ -29,6 +29,28 @@ impl Drop for Procs {
     }
 }
 
+/// Prozesse dieses Testlaufs beenden: Minecraft-Server (laufen im Testordner) und den
+/// Hintergrund-Dienst (hat VAPAFANE_HOME = Testordner). Echte Server liegen woanders.
+fn kill_under(home: &Path) {
+    let Ok(rd) = std::fs::read_dir("/proc") else {
+        return;
+    };
+    let marker = format!("VAPAFANE_HOME={}", home.display());
+    for e in rd.filter_map(|e| e.ok()) {
+        let pid = e.file_name().to_string_lossy().into_owned();
+        if !pid.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+        let cwd = std::fs::read_link(e.path().join("cwd")).ok();
+        let env = std::fs::read(e.path().join("environ")).unwrap_or_default();
+        let ours = cwd.is_some_and(|c| c.starts_with(home))
+            || env.split(|b| *b == 0).any(|v| v == marker.as_bytes());
+        if ours {
+            let _ = Command::new("kill").arg(&pid).status();
+        }
+    }
+}
+
 /// Reste eines abgebrochenen Laufs beenden (nur Testprogramme, nie das installierte Vapafane).
 fn cleanup(display: &str) {
     for args in [vec!["-x", "tauri-driver"], vec!["-x", "WebKitWebDriver"]] {
@@ -36,6 +58,12 @@ fn cleanup(display: &str) {
     }
     let _ = Command::new("pkill").args(["-f", &format!("Xvfb {display} ")]).status();
     std::thread::sleep(Duration::from_millis(300));
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        kill_under(&self.home);
+    }
 }
 
 /// Startet Xvfb + tauri-driver und räumt beim Beenden wieder auf.

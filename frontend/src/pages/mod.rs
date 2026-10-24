@@ -3,6 +3,7 @@
 pub mod backups;
 pub mod client;
 pub mod console;
+pub mod extras;
 pub mod invite;
 pub mod mods;
 pub mod overview;
@@ -39,6 +40,37 @@ pub fn SkinChoice() -> impl IntoView {
                 <span><input type="radio" name="skin" value="obsidian" prop:checked=obsidian
                     on:change=move |_| set_skin(&app, "obsidian")/>" Crying Obsidian"</span>
                 <span class="dim small">"Immer dunkel"</span></label>
+        </div>
+    }
+}
+
+/// „Über Vapafane“ – im Client- und im Server-Bereich gleich.
+#[component]
+pub fn About() -> impl IntoView {
+    let about = RwSignal::new(String::new());
+    leptos::task::spawn_local(async move {
+        if let Ok(c) = tauri::call::<Value>("get_config").await {
+            about.set(format!(
+                "Version {}{}",
+                c.s("version"),
+                if c.b("test_mode") {
+                    " · TESTMODUS"
+                } else {
+                    ""
+                }
+            ));
+        }
+    });
+    view! {
+        <h3>"Über Vapafane"</h3>
+        <div class="cf-box about">
+            <p><b>"Vapafane – Minecraft-Werkbank für Server & Client"</b>" "<span class="dim">{about}</span></p>
+            <p class="notice">"Vapafane ist kein offizielles Minecraft-Produkt. Es ist nicht von Mojang oder Microsoft genehmigt und steht in keiner Verbindung zu ihnen."</p>
+            <p>"Minecraft ist eine Marke von Mojang/Microsoft. Mods und Plugins stammen von ihren jeweiligen Autoren (über Modrinth bzw. CurseForge)."</p>
+            <div class="row">
+                <button on:click=|_| open_link("issues")>"Kontakt & Fehler melden (GitHub) ↗"</button>
+                <button on:click=|_| open_link("repo")>"Projektseite ↗"</button>
+            </div>
         </div>
     }
 }
@@ -82,15 +114,10 @@ fn ClientSettings() -> impl IntoView {
                     <select prop:value=move || { let t = s.get().s("target"); if t.is_empty() { "launcher".into() } else { t } } on:change=set_target>
                         <option value="launcher">"Offizieller Minecraft-Launcher"</option><option value="modrinth">"Modrinth-App"</option>
                     </select></div>
-                <div class="sw-row"><div><div>"Ordner der eingerichteten Server"</div><div class="dim small">"Mods und Einstellungen je Server"</div></div>
+                <div class="sw-row"><div><div>"Spielordner aller Clients"</div><div class="dim small">"Hier liegen je Server Mods, Optionen und Welten"</div></div>
                     <button on:click=open_base>"Ordner öffnen"</button></div>
             </div>
-            <h3>"Über Vapafane"</h3>
-            <div class="switches">
-                <div class="sw-row"><div><div>{move || format!("Version {}", s.get().s("version"))}</div>
-                    <div class="dim small">"Kein offizielles Minecraft-Produkt; nicht von Mojang oder Microsoft genehmigt oder mit ihnen verbunden."</div></div>
-                    <button on:click=|_| open_link("issues")>"Kontakt (GitHub) ↗"</button></div>
-            </div>
+            <About/>
         </section>
     }
 }

@@ -100,6 +100,8 @@ struct Client {
     take_parts: RwSignal<Vec<String>>,
     /// Modrinth-App: vorhandene Instanz aktualisieren statt neu anlegen
     update: RwSignal<bool>,
+    /// Shader-Unterstützung (Iris) mit einrichten
+    shaders: RwSignal<bool>,
 }
 
 /// Was übernommen werden kann (wie im Backend, transfer::PARTS).
@@ -173,6 +175,7 @@ fn check(c: Client, source: String) {
         });
         let exclude = r.as_ref().map(|p| p.s("default_dir")).unwrap_or_default();
         c.update.set(r.as_ref().is_ok_and(|p| !p.a("modrinth_existing").is_empty()));
+        c.shaders.set(r.as_ref().is_ok_and(|p| p.b("shaders_last")));
         c.preview.set(Some(r));
         c.checking.set(false);
         let sources = tauri::invoke::<Vec<Value>>("client_sources", json!({ "exclude": exclude }))
@@ -280,7 +283,8 @@ fn install(app: AppState, c: Client) {
         let take = (!take_dir.is_empty() && !untrack(move || updating(c)))
             .then(|| json!({ "dir": take_dir, "parts": c.take_parts.get_untracked() }));
         let args = json!({ "source": p.s("source"), "target": c.dir.get_untracked(), "selected": c.selected.get_untracked(),
-            "destination": c.dest.get_untracked(), "take": take, "update": c.update.get_untracked() });
+            "destination": c.dest.get_untracked(), "take": take, "update": c.update.get_untracked(),
+            "shaders": c.shaders.get_untracked() && p.b("shaders_possible") });
         let r = task("client_install", args).await;
         c.installing.set(false);
         if r.is_ok() {
@@ -323,6 +327,12 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             }
         })
     };
+    let guide = {
+        let (t, d) = (target.clone(), dir.clone());
+        let shaders = c.shaders.get_untracked();
+        let name = name.clone();
+        move |_| crate::pages::extras::show_guide(t.clone(), name.clone(), d.clone(), shaders)
+    };
     if modrinth && !update.is_null() {
         let inst = format!("„{}“", update.s("name"));
         let inst2 = inst.clone();
@@ -337,8 +347,9 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             <div class="row">
                 <button class="primary" on:click=move |_| play("modrinth".into())>"Modrinth-App öffnen"</button>
                 <button on:click=move |_| open_dir(d3.clone())>"Ordner mit dem Paket öffnen"</button>
+                <button on:click=guide>"Shader & Extras – so geht's"</button>
             </div>
-            <p class="dim small">"Die Modrinth-App sichert die Instanz vorher selbst. Mods, die du dort selbst zusätzlich hinzugefügt hast, entfernt sie dabei womöglich."</p>
+            <p class="dim small">"Die Modrinth-App sichert die Instanz vorher selbst und tauscht nur die Mods des Servers aus – was du selbst hinzugefügt hast (Shader, Ressourcenpakete, eigene Mods), bleibt."</p>
         }.into_any();
     }
     let taken_note = (!taken.is_null()).then(|| {
@@ -392,7 +403,8 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
             <button on:click=move |_| open_dir(d2.clone())>"Ordner öffnen"</button>
         })}
         <div class="row"><button class="primary" on:click=move |_| play(target.clone())>
-            {if modrinth { "Spielen (Modrinth-App öffnen)" } else { "Spielen (Launcher öffnen)" }}</button></div>
+            {if modrinth { "Spielen (Modrinth-App öffnen)" } else { "Spielen (Launcher öffnen)" }}</button>
+            <button on:click=guide>"Shader & Extras – so geht's"</button></div>
     }.into_any()
 }
 
@@ -426,7 +438,8 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
             let key = m.s("key");
             view! {
                 <tr>
-                    <td>{if m.b("optional") { view! { <input type="checkbox" on:change=move |e| {
+                    <td>{if m.b("optional") { let k0 = key.clone(); view! { <input type="checkbox" class="opt-mod"
+                        prop:checked=move || c.selected.get().contains(&k0) on:change=move |e| {
                         let on = event_target_checked(&e);
                         let k = key.clone();
                         c.selected.update(|s| { s.retain(|x| *x != k); if on { s.push(k); } });
@@ -463,6 +476,22 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
             }
         })
     };
+    // „Alle auswählen“ für die optionalen Mods
+    let optional: Vec<String> = mods.iter().filter(|m| m.b("optional")).map(|m| m.s("key")).collect();
+    let all_box = (!optional.is_empty()).then(|| {
+        let (o1, o2) = (optional.clone(), optional.clone());
+        let n = optional.len();
+        view! { <label class="check"><input type="checkbox" id="cl-all"
+            prop:checked=move || { let sel = c.selected.get(); o1.iter().all(|k| sel.contains(k)) }
+            on:change=move |e| c.selected.set(if event_target_checked(&e) { o2.clone() } else { vec![] })/>
+            {format!(" Alle optionalen Mods auswählen ({n})")}</label> }
+    });
+    let shader_box = p.b("shaders_possible").then(|| view! {
+        <label class="check"><input type="checkbox" id="cl-shaders" prop:checked=move || c.shaders.get()
+            on:change=move |e| c.shaders.set(event_target_checked(&e))/>
+            <span>" Shader-Unterstützung mit einrichten (Iris & Sodium)"<br/>
+            <span class="dim small">"Damit kannst du Shader benutzen. Vapafane bringt die passende Version mit – auch bei jedem Server-Update."</span></span></label>
+    });
     let ping_version = ping.s("version");
     let existing: Vec<String> = p
         .a("modrinth_existing")
@@ -478,7 +507,9 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
         {(!hint.is_empty()).then(|| view! { <p class="hint">{hint}</p> })}
         {(ping.b("online") && !version_ok).then(|| view! { <p class="hint">{format!("Der Server meldet eine andere Version ({ping_version}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.")}</p> })}
         {warn}
+        {all_box}
         <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>"Mod"</th><th>"Version"</th><th>"Größe"</th></tr></thead><tbody>{rows}</tbody></table></div>
+        {shader_box}
         <div class="dest">
             <b>"Einrichten für:"</b>
             <label class="check"><input type="radio" name="cl-dest" prop:checked=move || c.dest.get() == "launcher" on:change=move |_| c.dest.set("launcher".into())/>
@@ -535,6 +566,7 @@ pub fn ClientPage() -> impl IntoView {
         take_dir: RwSignal::new(String::new()),
         take_parts: RwSignal::new(vec![]),
         update: RwSignal::new(false),
+        shaders: RwSignal::new(false),
     };
     Effect::new(move |_| {
         if app.page.get() == Page::Client {
@@ -580,6 +612,10 @@ pub fn ClientPage() -> impl IntoView {
         let dir = e.s("dir");
         let target = e.s("target");
         let (d_open, d_rm, d_st, t_rm, t_up) = (dir.clone(), dir.clone(), dir.clone(), target.clone(), target.clone());
+        let extras = {
+            let (t, n, d, sh) = (target.clone(), e.s("name"), dir.clone(), e.b("shaders"));
+            move |_| crate::pages::extras::show_guide(t.clone(), n.clone(), d.clone(), sh)
+        };
         let name = e.s("name");
         let remove = move |_| {
             let (dir, name, modrinth) = (d_rm.clone(), name.clone(), t_rm == "modrinth");
@@ -604,8 +640,12 @@ pub fn ClientPage() -> impl IntoView {
                     <div><b>{e.s("name")}</b>" "<code>{e.s("address")}</code>" "
                         <span class="st">{move || c.status.get().into_iter().find(|s| s.s("dir") == d_st).map(|s| client_pill(&s))
                             .unwrap_or_else(|| view! { <span class="pill">"prüfe …"</span> }.into_any())}</span></div>
-                    <div class="sub">{format!("Minecraft {} · {} · {} Mods · {} · eingerichtet {}", e.s("mc"), loader_name(&e.s("loader")), e.s("mods"),
-                        if target == "modrinth" { "Modrinth-App" } else { "Minecraft-Launcher" }, e.s("updated"))}</div>
+                    <div class="sub">{if e.b("incomplete") {
+                        "Einrichten wurde nicht fertig – bitte die Einladung oben nochmal einlösen (oder entfernen).".to_string()
+                    } else {
+                        format!("Minecraft {} · {} · {} Mods · {} · eingerichtet {}", e.s("mc"), loader_name(&e.s("loader")), e.s("mods"),
+                            if target == "modrinth" { "Modrinth-App" } else { "Minecraft-Launcher" }, e.s("updated"))
+                    }}</div>
                 </div>
                 <button class="primary" on:click=move |_| play(target.clone())>"Spielen"</button>
                 <button on:click=move |_| { let modrinth = t_up == "modrinth"; leptos::task::spawn_local(async move {
@@ -615,6 +655,7 @@ pub fn ClientPage() -> impl IntoView {
                         "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt, deine Einstellungen und Welten bleiben."
                     }).await;
                 }); }>"Aktualisieren"</button>
+                <button on:click=extras>"Shader & Extras"</button>
                 <button on:click=move |_| { let d = d_open.clone(); leptos::task::spawn_local(async move {
                     if let Err(er) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await { error("Ordner", er).await; }
                 }); }>"Ordner öffnen"</button>

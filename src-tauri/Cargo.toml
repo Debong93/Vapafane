@@ -1,6 +1,6 @@
 [package]
 name = "vapafane"
-version = "0.9.2"
+version = "0.9.3"
 description = "Vapafane-Programm: Tauri-Fenster, Hintergrund-Dienst für den Minecraft-Server und Befehlszeile"
 authors = ["Debong93"]
 license = "MIT"

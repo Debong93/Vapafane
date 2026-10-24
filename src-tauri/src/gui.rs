@@ -197,6 +197,7 @@ pub async fn start_server() -> Cmd<()> {
         if !server::eula_accepted(&dir) {
             return err("EULA");
         }
+        ops::check_port(&dir)?;
         launcher::ensure_service()?;
         ipc::call("start", Value::Null)?;
         Ok(())
@@ -234,6 +235,29 @@ pub fn get_whitelist() -> Cmd<Vec<String>> {
     let cfg = Config::load();
     let dir = active_dir(&cfg).map_err(|e| e.0)?;
     Ok(server::read_json_names(&dir.join("whitelist.json")))
+}
+
+/// Whitelist an? Und wie viele stehen drauf? (für die Hinweise an Einsteiger)
+#[tauri::command]
+pub fn whitelist_state() -> Cmd<serde_json::Value> {
+    let cfg = Config::load();
+    let dir = active_dir(&cfg).map_err(|e| e.0)?;
+    let on = server::read_properties(&dir).get("white-list").map(String::as_str) == Some("true");
+    Ok(serde_json::json!({
+        "enabled": on,
+        "count": server::read_json_names(&dir.join("whitelist.json")).len(),
+    }))
+}
+
+/// Whitelist ein- oder ausschalten (in server.properties; ein laufender Server bekommt
+/// zusätzlich den Befehl von der Oberfläche).
+#[tauri::command]
+pub fn set_whitelist(on: bool) -> Cmd<()> {
+    let cfg = Config::load();
+    let dir = active_dir(&cfg).map_err(|e| e.0)?;
+    let mut p = std::collections::BTreeMap::new();
+    p.insert("white-list".to_string(), on.to_string());
+    server::write_properties(&dir, &p).map_err(|e| e.0)
 }
 
 /// Eintrag aus whitelist.json löschen, solange der Server aus ist.
@@ -680,6 +704,8 @@ pub fn run() -> i32 {
             accept_eula,
             open_eula,
             get_whitelist,
+            whitelist_state,
+            set_whitelist,
             whitelist_remove_offline,
             send_command,
             log_reset,

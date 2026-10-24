@@ -472,6 +472,13 @@ pub fn preview(inv: &Invite, zip: Option<&Path>) -> Result<Value> {
         "launcher": !launcher_dirs().is_empty(),
         "profiles": !profile_files().is_empty(),
         "default_dir": default_dir(&inv.name),
+        "shaders_possible": shaders_possible(inv),
+        // zuletzt gewählt (beim erneuten Einlösen derselben Einladung vorausgewählt)
+        "shaders_last": fs::read_to_string(default_dir(&inv.name).join(META))
+            .ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .and_then(|m| m.get("shaders").and_then(|x| x.as_bool()))
+            .unwrap_or(false),
         "modrinth_existing": modrinth_existing(inv)
             .iter()
             .filter_map(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -509,46 +516,112 @@ fn write_index(list: &[PathBuf]) -> Result<()> {
     util::write_atomic(&index_file(), serde_json::to_string_pretty(list)?.as_bytes())
 }
 
+/// Neuen Ordner gleich als Vapafane-Client kennzeichnen. Bricht das Einrichten ab (z. B. ohne
+/// Internet), blockiert der halb gefüllte Ordner so keinen zweiten Versuch und lässt sich entfernen.
+fn mark_incomplete(inv: &Invite, dir: &Path, target: &str) -> Result<()> {
+    let meta = json!({ "invite": inv, "target": target, "mods": [], "incomplete": true });
+    util::write_atomic(&dir.join(META), serde_json::to_string_pretty(&meta)?.as_bytes())?;
+    let mut idx = read_index();
+    if !idx.iter().any(|p| util::canonical(p) == util::canonical(dir)) {
+        idx.push(dir.to_path_buf());
+        write_index(&idx)?;
+    }
+    Ok(())
+}
+
 /// Client einrichten bzw. aktualisieren. `selected` = gewählte optionale Mods (Schlüssel).
 /// Mods, die geladen werden: Einladung (ohne abgewählte optionale) plus fehlende Pflicht-Abhängigkeiten.
-fn plan_mods(inv: &Invite, zip: Option<&Path>, selected: &HashSet<String>) -> Result<Vec<Resolved>> {
+/// Was beim Einrichten gewählt wurde.
+#[derive(Default)]
+pub struct Choices<'a> {
+    /// gewählte optionale Mods (Schlüssel)
+    pub selected: HashSet<String>,
+    /// Einstellungen aus dieser Quelle übernehmen
+    pub take: Option<&'a Take>,
+    /// Shader-Unterstützung (Iris) mit einrichten
+    pub shaders: bool,
+}
+
+/// Iris (Shader für Fabric/NeoForge) auf Modrinth; bringt Sodium als Pflicht-Abhängigkeit mit.
+const IRIS: &str = "YL57xq9U";
+
+/// Kann für diese Einladung Shader-Unterstützung (Iris) eingerichtet werden?
+pub fn shaders_possible(inv: &Invite) -> bool {
+    matches!(kind_of(inv), Kind::Fabric | Kind::NeoForge)
+}
+
+/// Neueste passende Version eines Modrinth-Projekts als zusätzliche Mod.
+fn extra_mod(project: &str, title: &str, kind: Kind, mc: &str) -> Result<Option<(Resolved, Value)>> {
+    let Some(v) = updater::newest_for_project(project, kind.loaders(), mc)? else {
+        return Ok(None);
+    };
+    let Some(f) = updater::primary_file(&v) else {
+        return Ok(None);
+    };
+    let r = Resolved {
+        title: title.to_string(),
+        version: v.get("version_number").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+        file: f.filename,
+        size: f.size,
+        url: Some(f.url),
+        sha512: f.sha512,
+        sha1: f.sha1,
+        optional: false,
+        source: "modrinth".into(),
+        page: None,
+        key: project.to_string(),
+        deps: vec![],
+        project: Some(project.to_string()),
+    };
+    Ok(Some((r, v)))
+}
+
+fn required_deps(v: &Value) -> Vec<String> {
+    v.get("dependencies")
+        .and_then(|d| d.as_array())
+        .into_iter()
+        .flatten()
+        .filter(|d| d.get("dependency_type").and_then(|t| t.as_str()) == Some("required"))
+        .filter_map(|d| d.get("project_id").and_then(|p| p.as_str()).map(str::to_string))
+        .collect()
+}
+
+/// Client einrichten bzw. aktualisieren. `selected` = gewählte optionale Mods (Schlüssel).
+/// Mods, die geladen werden: Einladung (ohne abgewählte optionale) plus fehlende Pflicht-Abhängigkeiten,
+/// mit `shaders` zusätzlich Iris samt Abhängigkeiten (passend zur Server-Version).
+fn plan_mods(inv: &Invite, zip: Option<&Path>, selected: &HashSet<String>, shaders: bool) -> Result<Vec<Resolved>> {
     let kind = kind_of(inv);
     let mods: Vec<Resolved> = resolve(inv, zip)?
         .into_iter()
         .filter(|m| !m.optional || selected.contains(&m.key))
         .collect();
 
-    // Pflicht-Abhängigkeiten, die nicht in der Einladung stehen
     let mut extra: Vec<Resolved> = vec![];
     if matches!(kind, Kind::Fabric | Kind::NeoForge) {
-        let have: HashSet<String> = mods.iter().filter_map(|m| m.project.clone()).collect();
-        let mut seen = have.clone();
-        for dep in mods.iter().flat_map(|m| m.deps.clone()) {
+        let mut seen: HashSet<String> = mods.iter().filter_map(|m| m.project.clone()).collect();
+        // Shader-Unterstützung: Iris, falls der Server sie nicht schon mitbringt
+        let mut deps: Vec<String> = mods.iter().flat_map(|m| m.deps.clone()).collect();
+        if shaders && seen.insert(IRIS.to_string()) {
+            match extra_mod(IRIS, "Iris Shaders", kind, &inv.mc)? {
+                Some((r, v)) => {
+                    deps.extend(required_deps(&v));
+                    extra.push(r);
+                }
+                None => {
+                    return err(format!(
+                        "Für Minecraft {} gibt es Iris (Shader) noch nicht. Bitte ohne Shader-Unterstützung einrichten und später nochmal versuchen.",
+                        inv.mc
+                    ));
+                }
+            }
+        }
+        // Pflicht-Abhängigkeiten, die nicht in der Einladung stehen
+        for dep in deps {
             if !seen.insert(dep.clone()) {
                 continue;
             }
-            if let Some(v) = updater::newest_for_project(&dep, kind.loaders(), &inv.mc)?
-                && let Some(f) = updater::primary_file(&v)
-            {
-                extra.push(Resolved {
-                    title: dep.clone(),
-                    version: v
-                        .get("version_number")
-                        .and_then(|n| n.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    file: f.filename,
-                    size: f.size,
-                    url: Some(f.url),
-                    sha512: f.sha512,
-                    sha1: f.sha1,
-                    optional: false,
-                    source: "modrinth".into(),
-                    page: None,
-                    key: dep,
-                    deps: vec![],
-                    project: None,
-                });
+            if let Some((r, _)) = extra_mod(&dep, &dep, kind, &inv.mc)? {
+                extra.push(r);
             }
         }
     }
@@ -562,10 +635,11 @@ pub fn install(
     inv: &Invite,
     zip: Option<&Path>,
     target: Option<&Path>,
-    selected: &HashSet<String>,
-    take: Option<&Take>,
+    choices: &Choices,
     progress: Progress,
 ) -> Result<Value> {
+    let Choices { selected, take, shaders } = choices;
+    let (take, shaders) = (*take, *shaders);
     let kind = kind_of(inv);
     let game_dir = target.map(Path::to_path_buf).unwrap_or_else(|| default_dir(&inv.name));
     let meta_path = game_dir.join(META);
@@ -579,13 +653,19 @@ pub fn install(
         ));
     }
     fs::create_dir_all(game_dir.join("mods"))?;
+    if old_meta.is_none() {
+        mark_incomplete(inv, &game_dir, "launcher")?;
+    }
+    // Ordner für eigene Shader und Ressourcenpakete gleich anlegen (Anleitung „Shader & Extras“)
+    fs::create_dir_all(game_dir.join("shaderpacks"))?;
+    fs::create_dir_all(game_dir.join("resourcepacks"))?;
     // Vorher ein Modrinth-Paket? Das wird nicht mehr gebraucht.
     if let Some(p) = old_meta.as_ref().and_then(|m| m.get("mrpack")).and_then(|p| p.as_str()) {
         let _ = fs::remove_file(p);
     }
 
     progress(0.05, "Prüfe die Mods …");
-    let all = plan_mods(inv, zip, selected)?;
+    let all = plan_mods(inv, zip, selected, shaders)?;
 
     // Alte Mods aus einer früheren Einladung entfernen
     if let Some(m) = &old_meta {
@@ -794,6 +874,7 @@ pub fn install(
         "profile_files": files,
         "mods": installed,
         "manual": manual,
+        "shaders": shaders,
         "updated": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
     });
     util::write_atomic(&meta_path, serde_json::to_string_pretty(&meta)?.as_bytes())?;
@@ -836,6 +917,8 @@ pub fn list() -> Vec<Value> {
                 "manual": m.get("manual"),
                 "updated": m.get("updated"),
                 "target": m.get("target").and_then(|t| t.as_str()).unwrap_or("launcher"),
+                "shaders": m.get("shaders").and_then(|x| x.as_bool()).unwrap_or(false),
+                "incomplete": m.get("incomplete").and_then(|x| x.as_bool()).unwrap_or(false),
             }))
         })
         .collect()
@@ -1010,12 +1093,13 @@ pub fn open_modrinth_app() -> Result<()> {
 pub fn install_mrpack(
     inv: &Invite,
     zip: Option<&Path>,
-    selected: &HashSet<String>,
-    take: Option<&Take>,
+    choices: &Choices,
     update: bool,
     open: bool,
     progress: Progress,
 ) -> Result<Value> {
+    let Choices { selected, take, shaders } = choices;
+    let (take, shaders) = (*take, *shaders);
     let kind = kind_of(inv);
     let instance = if update { modrinth_existing(inv).into_iter().next() } else { None };
     let dir = default_dir(&inv.name);
@@ -1027,6 +1111,9 @@ pub fn install_mrpack(
         ));
     }
     fs::create_dir_all(&dir)?;
+    if !meta_path.exists() {
+        mark_incomplete(inv, &dir, "modrinth")?;
+    }
     // War dieser Client vorher für den Minecraft-Launcher eingerichtet? Dessen Profil und Mods entfernen
     // (Spielstände, Einstellungen usw. im Ordner bleiben).
     if let Some(old) = fs::read_to_string(&meta_path)
@@ -1048,7 +1135,7 @@ pub fn install_mrpack(
         }
     }
     progress(0.05, "Prüfe die Mods …");
-    let all = plan_mods(inv, zip, selected)?;
+    let all = plan_mods(inv, zip, selected, shaders)?;
 
     let mut files = vec![];
     let mut overrides: Vec<(String, Vec<u8>)> = vec![];
@@ -1163,6 +1250,7 @@ pub fn install_mrpack(
         "invite": inv,
         "target": "modrinth",
         "mrpack": pack,
+        "shaders": shaders,
         "mods": all.iter().filter(|m| m.source == "modrinth" || overrides.iter().any(|(p, _)| p.ends_with(&m.file))).map(|m| m.file.clone()).collect::<Vec<_>>(),
         "manual": manual,
         "updated": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
@@ -1219,6 +1307,46 @@ mod tests {
         let mine = nbt::servers_with(&[], "Mein Server", "mein.de");
         let again = servers_dat(&[mine], "Welt", "a.b:1");
         assert_eq!(nbt::addresses(&again), vec!["a.b:1", "mein.de"]);
+    }
+
+    fn fabric_invite(mc: &str) -> Invite {
+        Invite {
+            format: 1,
+            name: "Test".into(),
+            address: "127.0.0.1:25565".into(),
+            mc: mc.into(),
+            loader: "fabric".into(),
+            loader_version: String::new(),
+            mods: vec![],
+            address6: String::new(),
+            only_v6: false,
+        }
+    }
+
+    #[test]
+    fn shader_nur_mit_mod_loader() {
+        assert!(shaders_possible(&fabric_invite("26.3")));
+        let mut v = fabric_invite("26.3");
+        v.loader = "vanilla".into();
+        assert!(!shaders_possible(&v));
+        v.loader = "paper".into();
+        assert!(!shaders_possible(&v));
+    }
+
+    /// Fragt Modrinth – läuft nur auf Wunsch: cargo test shader_iris -- --ignored
+    #[test]
+    #[ignore = "braucht Internet"]
+    fn shader_iris_mit_sodium() {
+        let inv = fabric_invite("26.3");
+        let mods = plan_mods(&inv, None, &HashSet::new(), true).unwrap();
+        let projects: Vec<String> = mods.iter().filter_map(|m| m.project.clone()).collect();
+        assert!(projects.contains(&IRIS.to_string()), "{projects:?}");
+        assert!(projects.contains(&"AANobbMI".to_string()), "Sodium fehlt: {projects:?}");
+        // ohne Shader nichts davon
+        assert!(plan_mods(&inv, None, &HashSet::new(), false).unwrap().is_empty());
+        // Für eine Version ohne Iris: verständlicher Fehler
+        let e = plan_mods(&fabric_invite("1.0"), None, &HashSet::new(), true).err().map(|e| e.0).unwrap_or_default();
+        assert!(e.contains("gibt es Iris"), "{e}");
     }
 
     #[test]

@@ -99,12 +99,24 @@ impl AppState {
         }
     }
 
+    /// Bereich wechseln. Wer gerade in den Einstellungen ist, landet in den Einstellungen des
+    /// anderen Bereichs – sonst auf dessen normaler Seite.
     pub fn set_mode(&self, m: Mode) {
+        let in_settings = matches!(self.page.get_untracked(), Page::Settings | Page::ClientSettings);
         self.mode.set(m);
-        self.page.set(match m {
-            Mode::Client => Page::Client,
-            Mode::Server => self.server_page.get_untracked(),
-        });
+        let page = match (m, in_settings) {
+            (Mode::Client, true) => Page::ClientSettings,
+            (Mode::Client, false) => Page::Client,
+            (Mode::Server, true) => Page::Settings,
+            (Mode::Server, false) => match self.server_page.get_untracked() {
+                Page::Settings => Page::Overview,
+                p => p,
+            },
+        };
+        if m == Mode::Server {
+            self.server_page.set(page);
+        }
+        self.page.set(page);
         if m == Mode::Server {
             crate::pages::reach::reach_init(*self);
         }

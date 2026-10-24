@@ -118,6 +118,7 @@ pub fn Reach() -> impl IntoView {
                     <div class="dim">{text}</div>
                 </div>
             </div>
+            <crate::pages::players::WhitelistNote page=Page::Reach/>
             <div class="reach-rows">
                 <div class="reach-row"><span>"IPv4"</span>{row("v4")}</div>
                 <div class="reach-row"><span>"IPv6"</span>{row("v6")}</div>

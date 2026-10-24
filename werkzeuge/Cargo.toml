@@ -1,6 +1,6 @@
 [package]
 name = "vapafane-werkzeuge"
-version = "0.9.2"
+version = "0.9.3"
 description = "Entwicklungswerkzeuge für Vapafane: erzeugt die Pixel-Texturen (textures.css)"
 license = "MIT"
 edition = "2024"

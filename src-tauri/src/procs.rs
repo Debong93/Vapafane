@@ -114,6 +114,13 @@ pub fn port_free(port: u16) -> bool {
     std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
 }
 
+/// Ersten freien Port ab `start`, der nicht in `avoid` steht.
+pub fn free_port(start: u16, avoid: &[u16]) -> u16 {
+    (start..start.saturating_add(200))
+        .find(|p| !avoid.contains(p) && port_free(*p))
+        .unwrap_or(start)
+}
+
 /// Gerade freier Arbeitsspeicher in Bytes.
 pub fn available_memory() -> u64 {
     let mut sys = System::new();
