@@ -14,6 +14,9 @@ pub const SPRACHEN: &[(&str, &str, bool)] = &[
     ("es", "Español", true),
     ("fr", "Français", true),
     ("it", "Italiano", true),
+    ("nl", "Nederlands", true),
+    ("pl", "Polski", true),
+    ("pt", "Português", true),
 ];
 
 /// Quelltexte der Sprachdateien (beim Bauen eingebettet, Reihenfolge wie `SPRACHEN`).
@@ -23,6 +26,9 @@ const QUELLEN: &[(&str, &str)] = &[
     ("es", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/es.ftl"))),
     ("fr", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/fr.ftl"))),
     ("it", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/it.ftl"))),
+    ("nl", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/nl.ftl"))),
+    ("pl", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/pl.ftl"))),
+    ("pt", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../locales/pt.ftl"))),
 ];
 
 /// Gibt es diese Sprache? Liefert den Code aus der Liste (mit fester Lebensdauer).
