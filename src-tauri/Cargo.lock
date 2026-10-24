@@ -4539,7 +4539,7 @@ dependencies = [
 
 [[package]]
 name = "vapafane"
-version = "0.9.5"
+version = "0.10.0"
 dependencies = [
  "base64 0.22.1",
  "bs58",
@@ -4575,7 +4575,7 @@ dependencies = [
 
 [[package]]
 name = "vapafane-shared"
-version = "0.9.5"
+version = "0.10.0"
 dependencies = [
  "fluent-bundle",
  "serde",

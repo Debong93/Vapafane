@@ -28,7 +28,7 @@ pub async fn invoke<T: DeserializeOwned>(cmd: &str, args: impl Serialize) -> Res
         .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
         .map_err(|e| e.to_string())?;
     let value = tauri_invoke(cmd, args).await.map_err(text_of)?;
-    serde_wasm_bindgen::from_value(value).map_err(|e| format!("{}", crate::sprache::t!("err-antwort-unlesbar", befehl = cmd, fehler = e.to_string())))
+    serde_wasm_bindgen::from_value(value).map_err(|e| crate::sprache::t!("err-antwort-unlesbar", befehl = cmd, fehler = e.to_string()))
 }
 
 /// Befehl ohne Argumente.
