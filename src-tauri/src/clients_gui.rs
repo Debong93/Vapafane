@@ -139,9 +139,7 @@ pub fn client_install(
     destination: Option<String>,
     take: Option<Take>,
     update: Option<bool>,
-    shaders: Option<bool>,
 ) -> Cmd<()> {
-    let shaders = shaders.unwrap_or(false);
     let dest = destination.unwrap_or_else(|| "launcher".into());
     let take = take.filter(|t| !t.parts.is_empty() && !t.dir.as_os_str().is_empty());
     run_task(&app, "Client einrichten", move |progress| {
@@ -151,7 +149,7 @@ pub fn client_install(
         let mut cfg = Config::load();
         cfg.client_target = Some(dest.clone());
         cfg.save()?;
-        let choices = client::Choices { selected, take: take.as_ref(), shaders };
+        let choices = client::Choices { selected, take: take.as_ref() };
         if dest == "modrinth" {
             return client::install_mrpack(&inv, zip.as_deref(), &choices, update.unwrap_or(true), true, progress);
         }
@@ -159,6 +157,12 @@ pub fn client_install(
         client::install(&inv, zip.as_deref(), target.as_deref(), &choices, progress)
     })
     .map_err(|e| e.0)
+}
+
+/// Gespeicherte Einladung eines eingerichteten Clients als Code (für „Aktualisieren“).
+#[tauri::command]
+pub async fn client_saved_code(dir: String) -> Cmd<String> {
+    blocking(move || invite::encode(&client::invite_of(Path::new(&dir))?)).await
 }
 
 /// Selbst gewählter Ordner als Quelle für „Einstellungen übernehmen“.

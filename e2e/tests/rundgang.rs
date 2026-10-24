@@ -111,6 +111,16 @@ async fn rundgang() -> Res<()> {
     println!("Daten in {}", e.home.display());
     e.watch_errors().await?;
     let mut code = String::new();
+    // Eine Instanz, die der Spieler in der Modrinth-App schon hat (nur im Test-HOME)
+    {
+        let inst = modrinth_instance(&e.home, "Meine Instanz");
+        put(&inst, "options.txt", b"version:4189\nguiScale:3\nlang:de_de\n")?;
+        put(&inst, "config/sodium-options.json", b"{\"e2e\":true}")?;
+        put(&inst, "shaderpacks/E2E-Shader.zip", b"zip")?;
+        put(&inst, "saves/Welt/level.dat", b"level")?;
+        put(&inst, "mods/fremd.jar", b"jar")?;
+        put(&inst, "servers.dat", &servers_dat(&[("Freund", "freund.example:25565")]))?;
+    }
 
     schritt!(e, "Willkommen", async {
         e.wait("//h2[contains(.,'Willkommen bei Vapafane')]", 20).await?;
@@ -134,6 +144,9 @@ async fn rundgang() -> Res<()> {
         e.wait("//div[normalize-space()='Kein Server ausgewählt']", 10).await?;
         page(e, "Übersicht").await
     });
+    // Vor dem Anlegen: Belegt schon ein anderer Server Port 25565? (Danach lauscht dort evtl. die
+    // Erreichbarkeits-Prüfung des neuen Servers selbst.)
+    let port_taken = std::net::TcpStream::connect("127.0.0.1:25565").is_ok();
     schritt!(e, "Neuen Server erstellen", async {
         e.wait("//button[@id='btn-add-server']", 5).await?.click().await?;
         e.click_button("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …").await?;
@@ -149,7 +162,7 @@ async fn rundgang() -> Res<()> {
         // Neue Server haben die Whitelist an – solange sie leer ist, warnt die Übersicht
         e.sees("aber noch leer", 30).await?;
         // Ist Port 25565 schon belegt (z. B. ein anderer Server), bekommt der neue einen freien
-        if std::net::TcpStream::connect("127.0.0.1:25565").is_ok() {
+        if port_taken {
             e.sees("Port 2556", 30).await?;
             e.until("!document.querySelector('section.tab.active').innerText.includes('Port 25565')", 5).await?;
         }
@@ -201,6 +214,9 @@ async fn rundgang() -> Res<()> {
         }
         page(e, "Übersicht").await?;
         e.until("!document.querySelector('section.tab.active').innerText.includes('aber noch leer')", 30).await?;
+        // Bild für die README: laufender Server (Werte der Karten abwarten)
+        e.sees("20,0", 30).await?;
+        e.shot("readme-1-uebersicht").await;
         Ok(())
     });
     schritt!(e, "Backup erstellen", async {
@@ -231,6 +247,7 @@ async fn rundgang() -> Res<()> {
         // Bilder der Einträge laden (vom Modrinth-Server)
         e.until("Array.from(document.querySelectorAll('.catalog-list .hit img')).slice(0, 3).every(i => i.complete && i.naturalWidth > 0)", 30).await?;
         e.shot("07-katalog").await;
+        e.shot("readme-3-mods").await;
         e.click_button("Schließen").await
     });
     schritt!(e, "Freunde einladen", async {
@@ -243,7 +260,23 @@ async fn rundgang() -> Res<()> {
             return fail(format!("Code sieht falsch aus: {v}"));
         }
         code = v;
-        e.click_button("Schließen").await
+        e.click_button("Schließen").await?;
+        // Bild für die README: Einladung einlösen, solange der Server läuft (Modrinth-App als Ziel,
+        // Einstellungen aus der bisherigen Instanz übernehmen)
+        e.click_button("Client").await?;
+        e.type_into("//textarea[@id='cl-code']", &code).await?;
+        e.click_button("Einladung prüfen").await?;
+        e.wait("//span[contains(@class,'pill') and starts-with(normalize-space(),'Online')]", 60).await?;
+        e.wait("//label[input[@name='cl-dest'] and contains(.,'Modrinth-App')]", 10).await?.click().await?;
+        e.wait("//select[@id='cl-take']/option[contains(.,'Modrinth-App: Meine Instanz')]", 20).await?;
+        let inst = modrinth_instance(&e.home, "Meine Instanz");
+        e.select("//select[@id='cl-take']", &inst.to_string_lossy()).await?;
+        e.wait("//div[@class='take-parts']", 10).await?;
+        e.js("document.querySelector('.preview-head').scrollIntoView({block: 'start'}); return 1;").await?;
+        e.shot("readme-2-client").await;
+        e.click_button("Server").await?;
+        e.wait("//div[@class='status-big' and normalize-space()='Läuft']", 10).await?;
+        Ok(())
     });
     schritt!(e, "Server stoppen", async {
         e.click_button("■ Stoppen").await?;
@@ -261,17 +294,10 @@ async fn rundgang() -> Res<()> {
         e.wait("//h2[normalize-space()='Wiederhergestellt']", 180).await?;
         e.click_button("OK").await
     });
-    // Eine Instanz, die der Spieler in der Modrinth-App schon hat
     let inst = modrinth_instance(&e.home, "Meine Instanz");
     let clients = e.home.join(".local/share/vapafane/clients/E2E");
     let pack = clients.join("E2E.mrpack");
     schritt!(e, "Client: Einstellungen aus einer Modrinth-Instanz übernehmen", async {
-        put(&inst, "options.txt", b"version:4189\nguiScale:3\nlang:de_de\n")?;
-        put(&inst, "config/sodium-options.json", b"{\"e2e\":true}")?;
-        put(&inst, "shaderpacks/E2E-Shader.zip", b"zip")?;
-        put(&inst, "saves/Welt/level.dat", b"level")?;
-        put(&inst, "mods/fremd.jar", b"jar")?;
-        put(&inst, "servers.dat", &servers_dat(&[("Freund", "freund.example:25565")]))?;
         e.click_button("Client").await?;
         e.type_into("//textarea[@id='cl-code']", &code).await?;
         e.click_button("Einladung prüfen").await?;
@@ -280,8 +306,6 @@ async fn rundgang() -> Res<()> {
         e.wait("//select[@id='cl-take']/option[contains(.,'Modrinth-App: Meine Instanz')]", 20).await?;
         e.select("//select[@id='cl-take']", &inst.to_string_lossy()).await?;
         // alles außer Welten ist vorausgewählt
-        // Vanilla-Server: keine Mods, also auch keine Shader-Unterstützung
-        e.until("document.querySelector('#cl-shaders') === null", 5).await?;
         e.until("(() => { const l = Array.from(document.querySelectorAll('.take-parts label')); \
             const on = (t) => l.find(x => x.innerText.includes(t)).querySelector('input').checked; \
             return l.length === 5 && on('Optionen') && on('Shader') && on('Server-Liste') && !on('Welten'); })()", 10).await?;
@@ -316,7 +340,9 @@ async fn rundgang() -> Res<()> {
         // Anleitung „Shader & Extras“ für den Launcher
         e.click_button("Shader & Extras – so geht's").await?;
         e.wait("//h2[normalize-space()='Shader & Extras hinzufügen']", 10).await?;
-        e.sees("shaderpacks", 5).await?;
+        // Vanilla-Server: Ressourcenpakete ja, Shader nicht
+        e.sees("resourcepacks", 5).await?;
+        e.sees("aber keine Shader", 5).await?;
         e.shot("08c-extras-launcher").await;
         e.wait("//div[@class='modal-buttons']/button[normalize-space()='Schließen']", 5).await?.click().await?;
         Ok(())
@@ -380,6 +406,15 @@ async fn rundgang() -> Res<()> {
         e.js("document.querySelector('.modal').scrollTop = 0; return 1;").await?;
         e.shot("08d-extras-modrinth").await;
         e.wait("//div[@class='modal-buttons']/button[normalize-space()='Schließen']", 5).await?.click().await?;
+        Ok(())
+    });
+    schritt!(e, "Client: Aktualisieren lädt die gespeicherte Einladung", async {
+        // Textfeld leeren, damit sichtbar wird, dass der Code aus der Einrichtung kommt
+        e.js("const t = document.getElementById('cl-code'); t.value = ''; t.dispatchEvent(new Event('input')); return 1;").await?;
+        e.wait("//div[@class='item'][.//b[normalize-space()='E2E']]//button[normalize-space()='Aktualisieren']", 10).await?.click().await?;
+        e.sees("Gespeicherte Einladung von „E2E“ geladen", 20).await?;
+        e.wait("//span[@class='big' and normalize-space()='E2E']", 60).await?;
+        e.until("document.getElementById('cl-code').value.startsWith('VPF1-')", 5).await?;
         Ok(())
     });
     schritt!(e, "Client entfernen", async {

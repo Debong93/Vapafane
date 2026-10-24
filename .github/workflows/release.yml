@@ -1,5 +1,6 @@
-# Baut bei einem Tag v* (z. B. v0.1.0) die Installer und legt einen Release an:
-# Windows: .exe (NSIS) und .msi – Linux: AppImage und .deb
+# Baut bei einem Tag v* (z. B. v0.9.4) die Installer und legt einen Release an:
+# Windows: Setup (.exe, NSIS) – Linux: .deb
+# (Solange keine Actions-Minuten frei sind, werden Releases lokal gebaut und mit gh hochgeladen.)
 name: Release
 
 on:
@@ -17,9 +18,9 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-24.04
-            bundles: deb,appimage
+            bundles: deb
           - platform: windows-latest
-            bundles: nsis,msi
+            bundles: nsis
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -65,15 +66,15 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Vapafane ${{ github.ref_name }}"
           releaseBody: |
-            Vapafane – eigener Minecraft-Server und Freunde einladen, ganz ohne Befehle.
+            **Was ist neu:** siehe [Änderungsprotokoll](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
 
-            **Windows:** `Vapafane_…_x64-setup.exe` herunterladen und starten. Bei „Der Computer wurde durch Windows geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“.
+            | System | Datei |
+            |---|---|
+            | Windows 10/11 | `Vapafane_…_x64-setup.exe` – bei „Der Computer wurde durch Windows geschützt“ → „Weitere Informationen“ → „Trotzdem ausführen“ |
+            | Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` – doppelklicken oder `sudo apt install ./Vapafane_…_amd64.deb` |
 
-            **Linux:** `.deb` herunterladen und im Dateimanager doppelklicken – oder im Terminal `sudo apt install ~/Downloads/Vapafane_…_amd64.deb`. Alternativ das `.AppImage` ausführbar machen und starten.
-
-            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25).
+            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25). Zum Mitspielen nicht.
 
             Kein offizielles Minecraft-Produkt. Nicht von Mojang oder Microsoft genehmigt und nicht mit ihnen verbunden.
-            Kontakt: https://github.com/Debong93/Vapafane/issues
           releaseDraft: false
           prerelease: false

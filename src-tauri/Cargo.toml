@@ -1,11 +1,14 @@
 [package]
 name = "vapafane"
-version = "0.9.3"
+version = "0.9.4"
 description = "Vapafane-Programm: Tauri-Fenster, Hintergrund-Dienst für den Minecraft-Server und Befehlszeile"
 authors = ["Debong93"]
 license = "MIT"
+repository = "https://github.com/Debong93/Vapafane"
+homepage = "https://github.com/Debong93/Vapafane"
 edition = "2024"
 rust-version = "1.89"
+publish = false
 
 [lib]
 name = "vapafane_lib"

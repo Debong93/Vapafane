@@ -33,6 +33,13 @@ pub fn test_home() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Testmodus: feste Beispiel-Adresse statt der echten im Heimnetz (`VAPAFANE_TEST_IP`), z. B.
+/// für Bildschirmfotos ohne echte Netzdaten. Einladungen bekommen dann `[::1]` als IPv6-Adresse.
+pub fn test_ip() -> Option<String> {
+    test_home()?;
+    std::env::var("VAPAFANE_TEST_IP").ok().filter(|v| !v.is_empty())
+}
+
 pub fn config_dir() -> PathBuf {
     if let Some(h) = test_home() {
         return h.join(".config").join("mc-server-panel");

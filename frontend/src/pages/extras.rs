@@ -76,17 +76,24 @@ fn sketch_browse() -> impl IntoView {
     }
 }
 
-/// Anleitung öffnen. `target`: "modrinth" oder "launcher"; `dir`: Ordner des Clients.
-pub fn show_guide(target: String, name: String, dir: String, shaders: bool) {
+/// Anleitung öffnen. `target`: "modrinth" oder "launcher"; `dir`: Ordner des Clients;
+/// `loader`: Loader des Servers – Shader (Iris) gehen nur mit Fabric oder NeoForge.
+pub fn show_guide(target: String, name: String, dir: String, loader: String) {
     let modrinth = target == "modrinth";
+    let shaders = matches!(loader.as_str(), "fabric" | "neoforge");
     leptos::task::spawn_local(async move {
         let inst = format!("{name} (Vapafane)");
         let body: dialog::BodyFn = Rc::new(move || {
-            let shader_note = if shaders {
-                view! { <p class="hint">"✓ Shader-Unterstützung (Iris) ist eingerichtet – Vapafane hält sie bei Server-Updates passend."</p> }.into_any()
+            let shader_note = if !shaders {
+                view! { <p class="hint">"Shader brauchen die Mod Iris – und die läuft nur auf Servern mit Fabric oder NeoForge. "
+                    "Dieser Server ist ohne Mod-Loader, deshalb gehen hier Ressourcenpakete, aber keine Shader."</p> }.into_any()
+            } else if modrinth {
+                view! { <p class="hint">"Für Shader braucht Minecraft die Mod "<b>"Iris"</b>": In Schritt 4 zuerst "<b>"„Mods“"</b>" wählen und "
+                    <b>"„Iris Shaders“"</b>" installieren (Sodium kommt automatisch mit), danach unter "<b>"„Shaders“"</b>" einen Shader."</p> }.into_any()
             } else {
-                view! { <p class="hint">"Für Shader braucht Minecraft die Mod "<b>"Iris"</b>". Am einfachsten: die Einladung nochmal einlösen und "
-                    <b>"„Shader-Unterstützung mit einrichten“"</b>" anhaken – dann bringt Vapafane Iris passend zur Server-Version mit, auch bei jedem Update."</p> }.into_any()
+                view! { <p class="hint">"Für Shader braucht Minecraft die Mod "<b>"Iris"</b>" (mit Sodium): Beide passend zur Minecraft-Version des Servers auf "
+                    <a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/mod/iris"); }>"modrinth.com/mod/iris"</a>
+                    " herunterladen und in den Ordner "<b>"„mods“"</b>" legen."</p> }.into_any()
             };
             if modrinth {
                 let i1 = inst.clone();
@@ -111,12 +118,21 @@ pub fn show_guide(target: String, name: String, dir: String, shaders: bool) {
                 view! {
                     <p>"Der Spielordner dieses Servers gehört nur ihm: Was du dort hinzufügst, bleibt bei Server-Updates erhalten."</p>
                     {shader_note}
-                    <ol class="steps">
-                        <li>"Shader herunterladen, z. B. auf "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/shaders"); }>"modrinth.com/shaders"</a>
-                            " – die "<b>".zip"</b>"-Datei "<b>"nicht"</b>" entpacken."</li>
-                        <li>"Unten auf "<b>"„Ordner öffnen“"</b>" klicken und die Datei in den Ordner "<b>"„shaderpacks“"</b>" legen. Ressourcenpakete gehören in "<b>"„resourcepacks“"</b>"."</li>
-                        <li>"Im Spiel: Optionen → Grafikeinstellungen → Shader-Pakete → Shader auswählen."</li>
-                    </ol>
+                    {if shaders {
+                        view! { <ol class="steps">
+                            <li>"Shader herunterladen, z. B. auf "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/shaders"); }>"modrinth.com/shaders"</a>
+                                " – die "<b>".zip"</b>"-Datei "<b>"nicht"</b>" entpacken."</li>
+                            <li>"Unten auf "<b>"„Ordner öffnen“"</b>" klicken und die Datei in den Ordner "<b>"„shaderpacks“"</b>" legen. Ressourcenpakete gehören in "<b>"„resourcepacks“"</b>"."</li>
+                            <li>"Im Spiel: Optionen → Grafikeinstellungen → Shader-Pakete → Shader auswählen."</li>
+                        </ol> }.into_any()
+                    } else {
+                        view! { <ol class="steps">
+                            <li>"Ressourcenpaket herunterladen, z. B. auf "<a href="#" on:click=|e| { e.prevent_default(); open_link("https://modrinth.com/resourcepacks"); }>"modrinth.com/resourcepacks"</a>
+                                " – die "<b>".zip"</b>"-Datei "<b>"nicht"</b>" entpacken."</li>
+                            <li>"Unten auf "<b>"„Ordner öffnen“"</b>" klicken und die Datei in den Ordner "<b>"„resourcepacks“"</b>" legen."</li>
+                            <li>"Im Spiel: Optionen → Ressourcenpakete → Paket auswählen."</li>
+                        </ol> }.into_any()
+                    }}
                     <p class="dim small">"Eigene Mods kannst du in den Ordner „mods“ legen – nach einem Minecraft-Update musst du sie aber selbst passend halten."</p>
                 }.into_any()
             }

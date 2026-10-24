@@ -601,6 +601,8 @@ input:not([type=checkbox]):not([type=radio]), select, textarea, #cl-code, #inv-c
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
 input:focus, select:focus, textarea:focus { outline: 3px solid var(--focus); outline-offset: 1px; }
+/* Häkchen und Auswahlknöpfe: Rahmen nur bei Tastatur-Bedienung, nicht nach einem Mausklick */
+input[type="checkbox"]:focus:not(:focus-visible), input[type="radio"]:focus:not(:focus-visible) { outline: none; }
 input::placeholder, textarea::placeholder { color: #9a9a9a; }
 select option { background: var(--input); color: var(--input-text); }
 input[type=checkbox], input[type=radio] { accent-color: var(--pri); width: 16px; height: 16px; }

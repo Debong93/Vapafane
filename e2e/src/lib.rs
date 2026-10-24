@@ -111,6 +111,8 @@ impl Env {
                 .env("XDG_DATA_HOME", home.join(".local/share"))
                 .env("XDG_CACHE_HOME", home.join(".cache"))
                 .env("VAPAFANE_HOME", home)
+                // Beispiel-Adresse statt der echten im Heimnetz (Dokumentations-Bereich 192.0.2.x)
+                .env("VAPAFANE_TEST_IP", "192.0.2.10")
                 .env_remove("DBUS_SESSION_BUS_ADDRESS")
                 .stdout(log.try_clone()?)
                 .stderr(log)

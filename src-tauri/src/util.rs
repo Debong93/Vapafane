@@ -127,6 +127,9 @@ pub fn free_space(path: &Path) -> u64 {
 
 /// IP-Adresse im Heimnetz (es wird nichts gesendet).
 pub fn local_ip() -> String {
+    if let Some(ip) = crate::config::test_ip() {
+        return ip;
+    }
     std::net::UdpSocket::bind("0.0.0.0:0")
         .and_then(|s| {
             s.connect("192.0.2.1:9")?;

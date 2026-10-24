@@ -589,6 +589,11 @@ pub fn has_ipv6() -> bool {
 
 /// IPv6-Adresse mit Port für den Einladungs-Code.
 pub fn invite_v6(dir: &Path) -> Option<String> {
+    // Testmodus mit Beispiel-Adresse: Ausweich-Adresse ist dieser PC, damit Clients im Test
+    // den Server trotzdem erreichen (und keine echte IPv6-Adresse in Code oder Bild landet)
+    if config::test_ip().is_some() {
+        return Some(format!("[::1]:{}", server_port(dir)));
+    }
     if config::test_home().is_some() && std::env::var("VAPAFANE_TEST_REACH").is_ok() {
         return Some(format!("[2001:db8::1]:{}", server_port(dir)));
     }

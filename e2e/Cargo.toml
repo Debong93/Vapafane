@@ -1,8 +1,11 @@
 [package]
 name = "vapafane-e2e"
-version = "0.9.3"
+version = "0.9.4"
 description = "Oberflächen-Tests für Vapafane: bedient das echte Programm per WebDriver (tauri-driver)"
+authors = ["Debong93"]
 license = "MIT"
+repository = "https://github.com/Debong93/Vapafane"
+homepage = "https://github.com/Debong93/Vapafane"
 edition = "2024"
 rust-version = "1.89"
 publish = false

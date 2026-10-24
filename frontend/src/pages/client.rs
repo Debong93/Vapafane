@@ -100,8 +100,8 @@ struct Client {
     take_parts: RwSignal<Vec<String>>,
     /// Modrinth-App: vorhandene Instanz aktualisieren statt neu anlegen
     update: RwSignal<bool>,
-    /// Shader-Unterstützung (Iris) mit einrichten
-    shaders: RwSignal<bool>,
+    /// Hinweis über der Vorschau (z. B. „gespeicherte Einladung geladen“)
+    notice: RwSignal<Option<String>>,
 }
 
 /// Was übernommen werden kann (wie im Backend, transfer::PARTS).
@@ -175,7 +175,6 @@ fn check(c: Client, source: String) {
         });
         let exclude = r.as_ref().map(|p| p.s("default_dir")).unwrap_or_default();
         c.update.set(r.as_ref().is_ok_and(|p| !p.a("modrinth_existing").is_empty()));
-        c.shaders.set(r.as_ref().is_ok_and(|p| p.b("shaders_last")));
         c.preview.set(Some(r));
         c.checking.set(false);
         let sources = tauri::invoke::<Vec<Value>>("client_sources", json!({ "exclude": exclude }))
@@ -283,8 +282,7 @@ fn install(app: AppState, c: Client) {
         let take = (!take_dir.is_empty() && !untrack(move || updating(c)))
             .then(|| json!({ "dir": take_dir, "parts": c.take_parts.get_untracked() }));
         let args = json!({ "source": p.s("source"), "target": c.dir.get_untracked(), "selected": c.selected.get_untracked(),
-            "destination": c.dest.get_untracked(), "take": take, "update": c.update.get_untracked(),
-            "shaders": c.shaders.get_untracked() && p.b("shaders_possible") });
+            "destination": c.dest.get_untracked(), "take": take, "update": c.update.get_untracked() });
         let r = task("client_install", args).await;
         c.installing.set(false);
         if r.is_ok() {
@@ -295,6 +293,60 @@ fn install(app: AppState, c: Client) {
         }
         c.result.set(Some(r));
     });
+}
+
+/// „Aktualisieren“ bei einem eingerichteten Server:
+/// - Server wurde auf eine andere Minecraft-Version gebracht → erklären, dass es dafür einen neuen
+///   Einladungs-Code braucht (Mods und Version stehen nur in der Einladung).
+/// - sonst → gespeicherte Einladung oben laden; „Einrichten“ bringt alles wieder in Ordnung
+///   (fehlende Mods, verschwundenes Profil, gelöschte Instanz).
+fn refresh_client(c: Client, dir: String, name: String, modrinth: bool) {
+    let st = c.status.get_untracked().into_iter().find(|s| s.s("dir") == dir);
+    let updated = st.as_ref().is_some_and(|s| s.b("online") && !s.b("version_ok"));
+    let version = st.map(|s| s.s("ping/version")).unwrap_or_default();
+    leptos::task::spawn_local(async move {
+        if updated {
+            info(
+                "Server wurde aktualisiert",
+                format!(
+                    "„{name}“ läuft jetzt mit Minecraft {version}. Welche Version und welche Mods dazugehören, steht in der Einladung – dafür brauchst du einen neuen Einladungs-Code vom Admin.\n\n\
+                     Füg ihn oben unter „Einladung einlösen“ ein und klick „Einladung prüfen“. {}",
+                    if modrinth {
+                        "Vapafane baut dann ein neues Paket und zeigt, wie du deine Instanz damit aktualisierst – deine Einstellungen, Welten und Shader bleiben."
+                    } else {
+                        "Vapafane tauscht dann die Mods aus – deine Einstellungen und Welten bleiben."
+                    }
+                ),
+            )
+            .await;
+            focus_code();
+            return;
+        }
+        match tauri::invoke::<String>("client_saved_code", json!({ "dir": dir })).await {
+            Ok(code) => {
+                c.code.set(code.clone());
+                check(c, code);
+                c.notice.set(Some(format!(
+                    "Gespeicherte Einladung von „{name}“ geladen. Mit „Einrichten“ wird alles nochmal passend eingerichtet – zum Beispiel, wenn Mods fehlen oder das Profil verschwunden ist. Hat der Admin den Server aktualisiert, brauchst du stattdessen einen neuen Einladungs-Code."
+                )));
+                focus_code();
+            }
+            Err(e) => error("Aktualisieren", e).await,
+        }
+    });
+}
+
+/// Zum Feld für den Einladungs-Code springen.
+fn focus_code() {
+    use wasm_bindgen::JsCast;
+    if let Some(el) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id("cl-code"))
+        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        el.scroll_into_view();
+        let _ = el.focus();
+    }
 }
 
 fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
@@ -329,9 +381,9 @@ fn result_view(c: Client, r: Result<Value, String>) -> AnyView {
     };
     let guide = {
         let (t, d) = (target.clone(), dir.clone());
-        let shaders = c.shaders.get_untracked();
         let name = name.clone();
-        move |_| crate::pages::extras::show_guide(t.clone(), name.clone(), d.clone(), shaders)
+        let loader = c.preview.get_untracked().and_then(|p| p.ok()).map(|p| p.s("invite/l")).unwrap_or_default();
+        move |_| crate::pages::extras::show_guide(t.clone(), name.clone(), d.clone(), loader.clone())
     };
     if modrinth && !update.is_null() {
         let inst = format!("„{}“", update.s("name"));
@@ -455,13 +507,19 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
             }
         }).collect_view().into_any()
     };
-    let warn = if !p.b("launcher") {
-        Some(view! { <p class="hint">"Der offizielle Minecraft-Launcher wurde nicht gefunden. Du kannst trotzdem einrichten; das Profil wird angelegt, sobald der Launcher installiert ist und du hier „Aktualisieren“ drückst. "
-            <a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>"Launcher herunterladen"</a></p> }.into_any())
-    } else if !p.b("profiles") {
-        Some(view! { <p class="hint">"Der Launcher wurde noch nie gestartet. Bitte einmal starten und wieder schließen, dann hier einrichten."</p> }.into_any())
-    } else {
-        None
+    // Hinweise zum Minecraft-Launcher – nur, wenn er auch das Ziel ist
+    let (has_launcher, has_profiles) = (p.b("launcher"), p.b("profiles"));
+    let warn = move || {
+        if c.dest.get() != "launcher" {
+            None
+        } else if !has_launcher {
+            Some(view! { <p class="hint">"Der offizielle Minecraft-Launcher wurde nicht gefunden. Du kannst trotzdem einrichten; das Profil wird angelegt, sobald der Launcher installiert ist und du hier „Aktualisieren“ drückst. "
+                <a href="#" on:click=|e| { e.prevent_default(); open_link("launcher-download"); }>"Launcher herunterladen"</a></p> }.into_any())
+        } else if !has_profiles {
+            Some(view! { <p class="hint">"Der Launcher wurde noch nie gestartet. Bitte einmal starten und wieder schließen, dann hier einrichten."</p> }.into_any())
+        } else {
+            None
+        }
     };
     let default_dir = p.s("default_dir");
     let pick = move |_| {
@@ -476,22 +534,6 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
             }
         })
     };
-    // „Alle auswählen“ für die optionalen Mods
-    let optional: Vec<String> = mods.iter().filter(|m| m.b("optional")).map(|m| m.s("key")).collect();
-    let all_box = (!optional.is_empty()).then(|| {
-        let (o1, o2) = (optional.clone(), optional.clone());
-        let n = optional.len();
-        view! { <label class="check"><input type="checkbox" id="cl-all"
-            prop:checked=move || { let sel = c.selected.get(); o1.iter().all(|k| sel.contains(k)) }
-            on:change=move |e| c.selected.set(if event_target_checked(&e) { o2.clone() } else { vec![] })/>
-            {format!(" Alle optionalen Mods auswählen ({n})")}</label> }
-    });
-    let shader_box = p.b("shaders_possible").then(|| view! {
-        <label class="check"><input type="checkbox" id="cl-shaders" prop:checked=move || c.shaders.get()
-            on:change=move |e| c.shaders.set(event_target_checked(&e))/>
-            <span>" Shader-Unterstützung mit einrichten (Iris & Sodium)"<br/>
-            <span class="dim small">"Damit kannst du Shader benutzen. Vapafane bringt die passende Version mit – auch bei jedem Server-Update."</span></span></label>
-    });
     let ping_version = ping.s("version");
     let existing: Vec<String> = p
         .a("modrinth_existing")
@@ -507,9 +549,7 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
         {(!hint.is_empty()).then(|| view! { <p class="hint">{hint}</p> })}
         {(ping.b("online") && !version_ok).then(|| view! { <p class="hint">{format!("Der Server meldet eine andere Version ({ping_version}). Wahrscheinlich wurde er aktualisiert – bitte beim Admin einen neuen Einladungs-Code holen.")}</p> })}
         {warn}
-        {all_box}
         <div class="table-wrap"><table class="modtable"><thead><tr><th></th><th>"Mod"</th><th>"Version"</th><th>"Größe"</th></tr></thead><tbody>{rows}</tbody></table></div>
-        {shader_box}
         <div class="dest">
             <b>"Einrichten für:"</b>
             <label class="check"><input type="radio" name="cl-dest" prop:checked=move || c.dest.get() == "launcher" on:change=move |_| c.dest.set("launcher".into())/>
@@ -522,9 +562,11 @@ fn preview_view(app: AppState, c: Client, p: Value) -> AnyView {
                 <div class="dest">
                     <b>"In der Modrinth-App:"</b>
                     <label class="check"><input type="radio" name="cl-mr" prop:checked=move || c.update.get() on:change=move |_| c.update.set(true)/>
-                        {format!(" Vorhandene Instanz „{first}“ aktualisieren (empfohlen)")}</label>
+                        <span>{format!(" Vorhandene Instanz „{first}“ aktualisieren (empfohlen)")}<br/>
+                        <span class="dim small">"Alles bleibt in derselben Instanz: Welten, Einstellungen, Shader, Ressourcenpakete und Mods, die du selbst hinzugefügt hast (z. B. Iris). Dafür klickst du in der Modrinth-App kurz „Modpack neu installieren“ – Vapafane zeigt, wie."</span></span></label>
                     <label class="check"><input type="radio" name="cl-mr" prop:checked=move || !c.update.get() on:change=move |_| c.update.set(false)/>
-                        " Neue Instanz anlegen"</label>
+                        <span>" Neue Instanz anlegen"<br/>
+                        <span class="dim small">"Geht automatisch über den Import. Einstellungen, Shader und Ressourcenpakete kannst du unten übernehmen – selbst hinzugefügte Mods nicht. Die alte Instanz bleibt, bis du sie löschst."</span></span></label>
                 </div>
             </Show>
         })}
@@ -566,7 +608,7 @@ pub fn ClientPage() -> impl IntoView {
         take_dir: RwSignal::new(String::new()),
         take_parts: RwSignal::new(vec![]),
         update: RwSignal::new(false),
-        shaders: RwSignal::new(false),
+        notice: RwSignal::new(None),
     };
     Effect::new(move |_| {
         if app.page.get() == Page::Client {
@@ -611,10 +653,15 @@ pub fn ClientPage() -> impl IntoView {
     let row = move |e: Value| {
         let dir = e.s("dir");
         let target = e.s("target");
-        let (d_open, d_rm, d_st, t_rm, t_up) = (dir.clone(), dir.clone(), dir.clone(), target.clone(), target.clone());
+        let (d_open, d_rm, d_st, t_rm) = (dir.clone(), dir.clone(), dir.clone(), target.clone());
         let extras = {
-            let (t, n, d, sh) = (target.clone(), e.s("name"), dir.clone(), e.b("shaders"));
-            move |_| crate::pages::extras::show_guide(t.clone(), n.clone(), d.clone(), sh)
+            let (t, n, d, l) = (target.clone(), e.s("name"), dir.clone(), e.s("loader"));
+            move |_| crate::pages::extras::show_guide(t.clone(), n.clone(), d.clone(), l.clone())
+        };
+        let refresh_btn = {
+            let (d, n) = (dir.clone(), e.s("name"));
+            let modrinth = target == "modrinth";
+            move |_| refresh_client(c, d.clone(), n.clone(), modrinth)
         };
         let name = e.s("name");
         let remove = move |_| {
@@ -648,13 +695,8 @@ pub fn ClientPage() -> impl IntoView {
                     }}</div>
                 </div>
                 <button class="primary" on:click=move |_| play(target.clone())>"Spielen"</button>
-                <button on:click=move |_| { let modrinth = t_up == "modrinth"; leptos::task::spawn_local(async move {
-                    info("Aktualisieren", if modrinth {
-                        "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen. Vapafane baut dann ein neues Paket für deine vorhandene Instanz in der Modrinth-App und zeigt, wie du sie damit aktualisierst – Welten, Optionen und Shader bleiben erhalten."
-                    } else {
-                        "Neuen Einladungs-Code (oder Datei) vom Admin oben einfügen und einlösen – die alten Mods werden dabei sauber ersetzt, deine Einstellungen und Welten bleiben."
-                    }).await;
-                }); }>"Aktualisieren"</button>
+                <button title="Mit der gespeicherten Einladung neu einrichten – oder erklären, was nach einem Server-Update zu tun ist"
+                    on:click=refresh_btn>"Aktualisieren"</button>
                 <button on:click=extras>"Shader & Extras"</button>
                 <button on:click=move |_| { let d = d_open.clone(); leptos::task::spawn_local(async move {
                     if let Err(er) = tauri::invoke::<()>("client_open_folder", json!({ "dir": d })).await { error("Ordner", er).await; }
@@ -671,11 +713,12 @@ pub fn ClientPage() -> impl IntoView {
                 <textarea id="cl-code" rows="3" placeholder="Einladungs-Code hier einfügen (VPF1-…)" spellcheck="false"
                     prop:value=c.code on:input=move |e| c.code.set(event_target_value(&e))></textarea>
                 <div class="row">
-                    <button class="primary" on:click=move |_| { let code = c.code.get_untracked().trim().to_string(); if !code.is_empty() { check(c, code) } }>"Einladung prüfen"</button>
+                    <button class="primary" on:click=move |_| { let code = c.code.get_untracked().trim().to_string(); if !code.is_empty() { c.notice.set(None); check(c, code) } }>"Einladung prüfen"</button>
                     <button on:click=from_file>"Einladungs-Datei öffnen …"</button>
                     <span class="spacer"></span>
                     <span class="small">{launcher}</span>
                 </div>
+                {move || c.notice.get().map(|n| view! { <p class="hint" id="cl-notice">{n}</p> })}
             </div>
             {move || {
                 if c.checking.get() {

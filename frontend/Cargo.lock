@@ -1585,14 +1585,14 @@ dependencies = [
 
 [[package]]
 name = "vapafane-shared"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "vapafane-ui"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "console_error_panic_hook",
  "futures-channel",

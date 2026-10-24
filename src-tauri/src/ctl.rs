@@ -33,11 +33,10 @@ const HELP: &str = "Benutzung: vapafane --ctl <befehl>
   einladung [ADRESSE]               Einladungs-Code für Freunde ausgeben (Adresse = host:port)
   einladung-datei DATEI [ADRESSE]   Einladungs-Datei (.vapafane) schreiben
   einloesen CODE|DATEI [--ordner O] [--alle-optionalen] [--ziel launcher|modrinth]
-            [--einstellungen-von ORDNER] [--neue-instanz] [--shader]
+            [--einstellungen-von ORDNER] [--neue-instanz]
                                     Client für eine Einladung einrichten (Launcher-Profil oder Modrinth-Paket);
                                     Einstellungen (ohne Welten) aus ORDNER übernehmen; mit --neue-instanz wird
-                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert; --shader
-                                    richtet Shader-Unterstützung (Iris) mit ein
+                                    eine vorhandene Instanz in der Modrinth-App nicht aktualisiert
   clients                           eingerichtete Clients anzeigen
   client-entfernen ORDNER           Client und sein Launcher-Profil entfernen
   ping ADRESSE                      Server-Status abfragen (wie die Serverliste im Spiel)
@@ -443,8 +442,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                         .collect(),
                 });
             let update = !args.iter().any(|a| a == "--neue-instanz");
-            let shaders = args.iter().any(|a| a == "--shader");
-            let choices = crate::client::Choices { selected, take: take.as_ref(), shaders };
+            let choices = crate::client::Choices { selected, take: take.as_ref() };
             let r = if modrinth {
                 crate::client::install_mrpack(&inv, zip, &choices, update, true, &print)?
             } else {
