@@ -832,6 +832,7 @@ ctl-hilfe = Użycie: vapafane --ctl <polecenie>
       mods              pokaż mody i datapacki ze stanem wł./wył.
       mod-an ŚCIEŻKA    włącz mod (ŚCIEŻKA jak w „mods”, np. mods/x.jar)
       mod-aus ŚCIEŻKA   wyłącz mod (staje się .jar.disabled)
+      mod-entfernen ŚCIEŻKA  usuń mod/datapack na stałe
       aufraeumen [--ja] pokazuje stare pozostałości; z --ja są usuwane (serwer zatrzymany)
       mod-suche [FRAZA] [--datapack]    szukaj na Modrinth pasujących modów/pluginów (lub datapacków)
       mod-install PROJEKT [--datapack]  zainstaluj mod/plugin/datapack z wymaganymi zależnościami

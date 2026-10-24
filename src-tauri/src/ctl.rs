@@ -176,7 +176,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             };
             println!("{}", serde_json::to_string_pretty(&r)?);
         }
-        "mods" | "mod-an" | "mod-aus" | "aufraeumen" => {
+        "mods" | "mod-an" | "mod-aus" | "mod-entfernen" | "aufraeumen" => {
             let cfg = Config::load();
             let dir = cfg
                 .active_path()
@@ -193,9 +193,9 @@ fn run_inner(args: &[String]) -> Result<()> {
                         println!(
                             "{:<4} {:<45} {}{}",
                             if m["enabled"].as_bool().unwrap_or(false) {
-                                "an"
+                                crate::sprache::t!("set-an")
                             } else {
-                                "AUS"
+                                crate::sprache::t!("set-aus").to_uppercase()
                             },
                             m["rel"].as_str().unwrap_or(""),
                             m["version"].as_str().unwrap_or(""),
@@ -208,7 +208,14 @@ fn run_inner(args: &[String]) -> Result<()> {
                         .get(1)
                         .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-pfad")))?;
                     crate::mods::set_enabled(&dir, rel, cmd == "mod-an")?;
-                    println!("{rel}: {}", if cmd == "mod-an" { "an" } else { "aus" });
+                    println!("{rel}: {}", if cmd == "mod-an" { crate::sprache::t!("set-an") } else { crate::sprache::t!("set-aus") });
+                }
+                "mod-entfernen" => {
+                    let rel = args
+                        .get(1)
+                        .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-pfad")))?;
+                    crate::mods::remove(&dir, rel)?;
+                    println!("{}", crate::sprache::t!("mods-ev-entfernt", name = rel.to_string()));
                 }
                 _ => {
                     let items = crate::cleanup::candidates(&dir);

@@ -169,6 +169,12 @@ fn post(path: &str, body: &Value) -> Result<Value> {
     request(&k, "POST", path, &[], Some(body))
 }
 
+/// Mehrere Projekte auf einmal abfragen (für Symbole und Links in der Mod-Liste).
+pub fn mods_info(ids: &[u64]) -> Result<Vec<Value>> {
+    let v = post("/v1/mods", &json!({ "modIds": ids }))?;
+    Ok(v.get("data").and_then(|d| d.as_array()).cloned().unwrap_or_default())
+}
+
 /// Schlüssel ausprobieren (vor dem Speichern).
 pub fn test_key(k: &str) -> Result<()> {
     request(k.trim(), "GET", "/v1/games", &[("pageSize", "1".into())], None).map(|_| ())

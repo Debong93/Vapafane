@@ -832,6 +832,7 @@ ctl-hilfe = Uso: vapafane --ctl <comando>
       mods              mostra mod e datapack con stato attivo/disattivo
       mod-an PERCORSO   attiva una mod (PERCORSO come in «mods», ad es. mods/x.jar)
       mod-aus PERCORSO  disattiva una mod (diventa .jar.disabled)
+      mod-entfernen PERCORSO  elimina definitivamente una mod/datapack
       aufraeumen [--ja] mostra i vecchi resti; con --ja vengono eliminati (server fermo)
       mod-suche [TERMINE] [--datapack]  cerca su Modrinth mod/plugin (o datapack) compatibili
       mod-install PROGETTO [--datapack] installa una mod/plugin/datapack con le dipendenze necessarie

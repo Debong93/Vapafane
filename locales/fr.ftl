@@ -832,6 +832,7 @@ ctl-hilfe = Utilisation : vapafane --ctl <commande>
       mods              afficher mods et datapacks avec leur état activé/désactivé
       mod-an CHEMIN     activer un mod (CHEMIN comme dans « mods », p. ex. mods/x.jar)
       mod-aus CHEMIN    désactiver un mod (devient .jar.disabled)
+      mod-entfernen CHEMIN  supprimer définitivement un mod/datapack
       aufraeumen [--ja] montre les anciens restes ; avec --ja ils sont supprimés (serveur arrêté)
       mod-suche [TERME] [--datapack]    chercher sur Modrinth des mods/plugins (ou datapacks) adaptés
       mod-install PROJET [--datapack]   installer un mod/plugin/datapack avec ses dépendances requises

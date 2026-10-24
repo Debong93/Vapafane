@@ -336,7 +336,7 @@ pub fn install(dir: &Path, what: What, project: &str, progress: Progress) -> Res
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            sources.push((name.clone(), json!({"source": "modrinth", "id": pid})));
+            sources.push((name.clone(), json!({"source": "modrinth", "id": pid, "dep": !is_root})));
             planned.push((title, vnum, name));
             have.insert(pid);
             for dep in version
@@ -402,8 +402,8 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
     fs::create_dir_all(&staging)?;
     let mut queue = vec![(root, true)];
     let mut seen = HashSet::new();
-    // (Titel, Version, Datei, Mod-ID, Datei-ID)
-    let mut planned: Vec<(String, String, String, u64, u64)> = vec![];
+    // (Titel, Version, Datei, Mod-ID, Datei-ID, als Abhängigkeit?)
+    let mut planned: Vec<(String, String, String, u64, u64, bool)> = vec![];
     let (mut skipped, mut missing, mut manual) = (vec![], vec![], vec![]);
     let mut root_title = String::new();
     let res = (|| -> Result<()> {
@@ -457,18 +457,18 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
                 .and_then(|d| d.as_str())
                 .unwrap_or(&name)
                 .to_string();
-            planned.push((title, shown, name, id, fid));
+            planned.push((title, shown, name, id, fid, !is_root));
             for dep in curseforge::required_deps(&file) {
                 queue.push((dep, false));
             }
         }
         progress(0.9, &crate::sprache::t!("fort-sortiere"));
-        for (_, _, name, mid, fid) in &planned {
+        for (_, _, name, mid, fid, dep) in &planned {
             fs::rename(staging.join(name), dest_dir.join(name))?;
             mods::set_source(
                 dir,
                 &format!("{}/{name}", t.sub),
-                Some(json!({"source": "curseforge", "id": mid, "file": fid})),
+                Some(json!({"source": "curseforge", "id": mid, "file": fid, "dep": dep})),
             )?;
         }
         Ok(())
@@ -481,7 +481,7 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
         "source": "curseforge",
         "installed": planned
             .iter()
-            .map(|(t, v, f, _, _)| json!({"title": t, "version": v, "file": f}))
+            .map(|(t, v, f, _, _, _)| json!({"title": t, "version": v, "file": f}))
             .collect::<Vec<_>>(),
         "skipped": skipped,
         "missing": missing,

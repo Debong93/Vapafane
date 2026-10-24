@@ -832,6 +832,7 @@ ctl-hilfe = Gebruik: vapafane --ctl <commando>
       mods              mods en datapacks tonen met status aan/uit
       mod-an PAD        mod inschakelen (PAD zoals bij „mods”, bijv. mods/x.jar)
       mod-aus PAD       mod uitschakelen (wordt .jar.disabled)
+      mod-entfernen PAD  mod/datapack definitief verwijderen
       aufraeumen [--ja] toont oude resten; met --ja worden ze gewist (server gestopt)
       mod-suche [TERM] [--datapack]     op Modrinth passende mods/plugins (of datapacks) zoeken
       mod-install PROJECT [--datapack]  mod/plugin/datapack met vereiste afhankelijkheden installeren

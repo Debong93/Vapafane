@@ -254,6 +254,50 @@ pub async fn mod_set_enabled(rel: String, on: bool) -> Cmd<Value> {
     .await
 }
 
+/// Zusatz-Infos zur Mod-Liste: Symbol, Kurzbeschreibung, Link, Bibliothek?, gebraucht von.
+/// Schlägt beim ersten Mal im Internet nach – danach kommt alles aus dem Server-Ordner.
+#[tauri::command]
+pub async fn mods_details() -> Cmd<Value> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        Ok(mods::details(&dir))
+    })
+    .await
+}
+
+/// Vor dem Entfernen oder Ausschalten: Wer braucht die Datei, welche Helfer blieben übrig?
+#[tauri::command]
+pub async fn mod_check(rel: String) -> Cmd<Value> {
+    blocking(move || {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        Ok(mods::check(&dir, &rel))
+    })
+    .await
+}
+
+/// Mods, Plugins oder Datapacks endgültig entfernen. Läuft der Server, wirkt es erst
+/// nach einem Neustart (unter Windows lässt sich eine geladene Mod gar nicht löschen).
+#[tauri::command]
+pub async fn mod_remove(rels: Vec<String>) -> Cmd<Value> {
+    blocking(move || {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let running = !matches!(state().as_str(), "stopped" | "failed" | "none");
+        for rel in &rels {
+            if let Err(e) = mods::remove(&dir, rel) {
+                if running {
+                    return err(format!("{e}\n{}", crate::sprache::t!("err-erst-stoppen")));
+                }
+                return Err(e);
+            }
+        }
+        Ok(json!({"restart_needed": running}))
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn cleanup_preview() -> Cmd<Value> {
     blocking(|| {

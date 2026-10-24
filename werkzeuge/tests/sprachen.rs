@@ -45,7 +45,7 @@ fn aufgerufene_schluessel() -> BTreeSet<String> {
     for datei in quelldateien() {
         let Ok(text) = fs::read_to_string(&datei) else { continue };
         let text = flach(&text);
-        for pat in ["t!(", "::text("] {
+        for pat in ["t!(", "::text(", "grund("] {
             let mut rest = text.as_str();
             while let Some(i) = rest.find(pat) {
                 rest = &rest[i + pat.len()..];

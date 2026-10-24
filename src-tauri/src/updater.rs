@@ -566,16 +566,16 @@ pub fn apply(
             "missing" if disable_missing && !m.disabled => mods::disable(
                 dir,
                 &m.rel,
-                &crate::sprache::t!("upd-grund-fehlt", mc = plan.target.clone()),
+                mods::grund("upd-grund-fehlt", &[("mc", &plan.target)]),
             )?,
             "unknown" if disable_unknown && !m.disabled => {
-                mods::disable(dir, &m.rel, "nicht auf Modrinth – passende Version unklar")?
+                mods::disable(dir, &m.rel, mods::grund("mods-grund-unbekannt", &[]))?
             }
             "reenable" => mods::set_enabled(dir, &m.rel, true)?,
             "duplicate" => mods::disable(
                 dir,
                 &m.rel,
-                &format!("doppelt – „{}“ ist schon als Mod installiert", m.title),
+                mods::grund("mods-grund-doppelt", &[("name", &m.title)]),
             )?,
             _ => {}
         }

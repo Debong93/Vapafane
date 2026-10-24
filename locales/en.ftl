@@ -833,6 +833,7 @@ ctl-hilfe = Usage: vapafane --ctl <command>
       mods              show mods and datapacks with their on/off state
       mod-an PATH       enable a mod (PATH as in “mods”, e.g. mods/x.jar)
       mod-aus PATH      disable a mod (becomes .jar.disabled)
+      mod-entfernen PATH  delete a mod/datapack for good
       aufraeumen [--ja] shows old leftovers; with --ja they are deleted (server must be off)
       mod-suche [TERM] [--datapack]     search Modrinth for matching mods/plugins (or datapacks)
       mod-install PROJECT [--datapack]  install a mod/plugin/datapack with required dependencies
@@ -974,3 +975,12 @@ ctl-fehlt-zieldatei = Please give a target file.
 ctl-dienst-ende = Stopping the background service.
 gem-zitat = “{ $text }”
 spi-entfernt = { $name } removed.
+
+## Mods: entfernen, Abhängigkeiten, Infos
+mods-err-name-belegt = There's already an enabled file with this name.
+mods-err-ordner-aus = Datapack folders can't be switched off – only ZIP datapacks. You can remove them, though.
+mods-err-weg = The file no longer exists.
+mods-grund-hand = switched off by hand
+mods-grund-unbekannt = not on Modrinth – matching version unclear
+mods-grund-doppelt = duplicate – “{ $name }” is already installed as a mod
+mods-ev-entfernt = { $name } removed

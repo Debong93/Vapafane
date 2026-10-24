@@ -833,6 +833,7 @@ ctl-hilfe = Benutzung: vapafane --ctl <befehl>
       mods              Mods und Datapacks mit An/Aus-Zustand anzeigen
       mod-an PFAD       Mod einschalten (PFAD wie in „mods“, z. B. mods/x.jar)
       mod-aus PFAD      Mod ausschalten (wird zu .jar.disabled)
+      mod-entfernen PFAD  Mod/Datapack endgültig löschen
       aufraeumen [--ja] zeigt alte Reste; mit --ja werden sie gelöscht (Server muss aus sein)
       mod-suche [BEGRIFF] [--datapack]   Modrinth nach passenden Mods/Plugins (bzw. Datapacks) durchsuchen
       mod-install PROJEKT [--datapack]  Mod/Plugin/Datapack samt Pflicht-Abhängigkeiten installieren
@@ -974,3 +975,12 @@ ctl-fehlt-zieldatei = Bitte eine Zieldatei angeben.
 ctl-dienst-ende = Der Hintergrund-Dienst wird beendet.
 gem-zitat = „{ $text }“
 spi-entfernt = { $name } entfernt.
+
+## Mods: entfernen, Abhängigkeiten, Infos
+mods-err-name-belegt = Es gibt schon eine eingeschaltete Datei mit diesem Namen.
+mods-err-ordner-aus = Datapack-Ordner lassen sich nicht ausschalten – nur ZIP-Datapacks. Entfernen geht aber.
+mods-err-weg = Die Datei gibt es nicht mehr.
+mods-grund-hand = von Hand ausgeschaltet
+mods-grund-unbekannt = nicht auf Modrinth – passende Version unklar
+mods-grund-doppelt = doppelt – „{ $name }“ ist schon als Mod installiert
+mods-ev-entfernt = { $name } entfernt

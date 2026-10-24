@@ -832,6 +832,7 @@ ctl-hilfe = Kullanım: vapafane --ctl <komut>
       mods              modları ve datapack’leri açık/kapalı durumuyla göster
       mod-an YOL        bir modu aç (YOL „mods” içindeki gibi, örn. mods/x.jar)
       mod-aus YOL       bir modu kapat (.jar.disabled olur)
+      mod-entfernen YOL  bir modu/datapack’i kalıcı olarak sil
       aufraeumen [--ja] eski kalıntıları gösterir; --ja ile silinir (sunucu durmuş olmalı)
       mod-suche [TERİM] [--datapack]    Modrinth’te uygun modları/eklentileri (veya datapack’leri) ara
       mod-install PROJE [--datapack]    bir modu/eklentiyi/datapack’i gerekli bağımlılıklarıyla kur
