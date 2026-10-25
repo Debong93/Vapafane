@@ -360,7 +360,7 @@ pub fn resolve(inv: &Invite, zip: Option<&Path>) -> Result<Vec<Resolved>> {
         let (pid, fid) = m.id.split_once('/').unwrap_or((&m.id, "0"));
         let mut r = Resolved {
             title: if m.title.is_empty() {
-                format!("CurseForge-Mod {pid}")
+                crate::sprache::t!("cf-mod-ersatz", id = pid.to_string())
             } else {
                 m.title.clone()
             },
@@ -1085,7 +1085,7 @@ pub fn install_mrpack(
     let mut manual = vec![];
     let total = all.len().max(1) as f64;
     for (i, m) in all.iter().enumerate() {
-        progress(0.1 + 0.7 * i as f64 / total, &format!("Bereite {} vor …", m.title));
+        progress(0.1 + 0.7 * i as f64 / total, &crate::sprache::t!("fort-bereite-vor", name = m.title.clone()));
         let name = updater::safe_filename(&m.file).unwrap_or_default();
         match m.source.as_str() {
             // Modrinth: nur Verweis mit Prüfsummen – die App lädt selbst

@@ -117,7 +117,8 @@ impl Rcon {
             if self.sock.is_none()
                 && let Err(e) = self.connect()
             {
-                if e.0.contains("Passwort") || e.0.contains("ausgeschaltet") {
+                // Falsches Passwort oder RCON aus: Nochmal versuchen hilft nicht
+                if e.0 == crate::sprache::t!("err-rcon-passwort") || e.0 == crate::sprache::t!("err-rcon-aus") {
                     return Err(e);
                 }
                 last = e;

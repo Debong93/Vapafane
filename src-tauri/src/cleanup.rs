@@ -87,7 +87,7 @@ fn old_libraries(dir: &Path, mc_version: &str, loader: &str) -> Vec<Candidate> {
         // Fabric-Zwischen-Mappings gehören genau zu einer Minecraft-Version
         if artifact.ends_with("net/fabricmc/intermediary") && !mc_version.is_empty() {
             for v in versions.iter().filter(|v| name(v) != mc_version) {
-                out.push(cand(dir, v.clone(), "Fabric-Mappings einer alten Minecraft-Version"));
+                out.push(cand(dir, v.clone(), &crate::sprache::t!("aufr-fabric-mappings")));
             }
             continue;
         }
@@ -127,7 +127,7 @@ fn old_version_files(dir: &Path, version: &str, loader: &str) -> Vec<Candidate> 
         let current =
             n == format!("minecraft-{version}-{loader}") || (loader.is_empty() && n.contains(&format!("-{version}-")));
         if !current {
-            out.push(cand(dir, v, "Fabric-Zwischenspeicher einer alten Version"));
+            out.push(cand(dir, v, &crate::sprache::t!("aufr-fabric-cache")));
         }
     }
     if let Ok(rd) = fs::read_dir(fabric.join("server")) {

@@ -247,7 +247,7 @@ fn handle_client(stream: std::net::TcpStream, sup: &Sup, token: &str) {
         },
         _ => Response {
             ok: false,
-            error: Some("Nicht erlaubt".into()),
+            error: Some(crate::sprache::t!("err-nicht-erlaubt")),
             data: Value::Null,
         },
     };

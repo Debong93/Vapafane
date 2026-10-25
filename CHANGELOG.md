@@ -17,13 +17,24 @@ All notable changes to Vapafane. The format follows
   explanation in your language and an "Install all recommended" button; in search results
   they carry a "Recommended" badge.
 
+### Changed
+
+- Release files are now built on GitHub from the tagged source code; `SHA256SUMS.txt` and
+  the short link `Vapafane_amd64.deb` are created from exactly these files. (In 0.9.4 to
+  0.11.0 the checksum file did not match the versioned `.deb` and `.exe`; it has been
+  corrected.)
+
 ### Fixed
 
-- A few remaining German texts are now translated too: the title of a running mod
-  installation, the "Save modpack" dialog, a progress message while checking mods, the
-  reason for browser-only downloads, the "something is already running" note, an archive
-  error and some command line output. The language test now catches such texts more
+- Texts that still appeared in German when another language was set are now translated:
+  the backup date, progress messages during backups, updates and client setup, the names of
+  the sources when taking over settings, the cleanup list, the theme names, the description
+  of exported modpacks, the "Save modpack" dialog, the title of a running mod installation,
+  the reason for browser-only downloads, the "something is already running" note, some error
+  messages and the command line output. The language test now catches such texts more
   reliably.
+- A wrong RCON password is now recognized in every language – before, only in German, which
+  led to a pointless second connection attempt.
 
 ## [0.11.0] – 2026-10-25
 

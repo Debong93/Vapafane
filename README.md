@@ -83,8 +83,8 @@ Modrinth App, Java), Vapafane tells you and shows where to get it.
 on Windows e.g. [Temurin from adoptium.net](https://adoptium.net), on Linux
 `sudo apt install openjdk-25-jre-headless`. Joining friends needs no Java at all.
 
-Every release ships a `SHA256SUMS.txt` with checksums in case you want to verify the
-download.
+Every release is built on GitHub from the published source code and ships a
+`SHA256SUMS.txt` with checksums in case you want to verify the download.
 
 ## How to use Vapafane
 

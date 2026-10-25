@@ -723,7 +723,7 @@ pub fn export_mrpack(dir: &Path, dest: &Path, name: &str) -> Result<(usize, usiz
         "game": "minecraft",
         "versionId": chrono::Local::now().format("%Y.%m.%d").to_string(),
         "name": name,
-        "summary": format!("Mods vom Server {name}"),
+        "summary": crate::sprache::t!("upd-pack-zusammenfassung", name = name.to_string()),
         "files": files,
         "dependencies": {"minecraft": info.version, loader_key: loader},
     });

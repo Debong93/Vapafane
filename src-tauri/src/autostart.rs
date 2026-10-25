@@ -159,9 +159,10 @@ mod linux {
         let path = desktop_autostart_path();
         if on {
             let text = format!(
-                "[Desktop Entry]\nType=Application\nName=Vapafane\nComment=Minecraft-Serververwaltung\n\
+                "[Desktop Entry]\nType=Application\nName=Vapafane\nComment={}\n\
                  Exec={}\nIcon=vapafane\nTerminal=false\nX-GNOME-Autostart-enabled=true\n\
                  X-GNOME-Autostart-Delay=5\n",
+                crate::sprache::t!("autostart-kommentar"),
                 quoted_exe()
             );
             util::write_atomic(&path, text.as_bytes())?;

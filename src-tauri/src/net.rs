@@ -169,7 +169,7 @@ pub struct Expect<'a> {
 pub fn download(url: &str, dest: &Path, expect: Expect, progress: &dyn Fn(f64)) -> Result<()> {
     let test_local = crate::config::test_home().is_some() && url.starts_with("http://127.0.0.1:");
     if !url.starts_with("https://") && !test_local {
-        return err(format!("Unsichere Download-Adresse: {url}"));
+        return err(crate::sprache::t!("err-unsichere-adresse", url = url.to_string()));
     }
     let mut resp = ok_status(send_polite(url, || AGENT.get(url).call())?)?;
     let total: u64 = resp

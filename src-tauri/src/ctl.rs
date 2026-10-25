@@ -110,7 +110,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                 return err(crate::sprache::t!("err-umschalten-laeuft"));
             }
             cfg.set_active(Some(std::path::Path::new(&entry.path)))?;
-            println!("Aktiv: {} ({})", entry.name, entry.path);
+            println!("{}", crate::sprache::t!("ctl-aktiv", name = entry.name.clone(), pfad = entry.path.clone()));
         }
         "neu" => {
             let (Some(kind), Some(name), Some(version)) = (args.get(1), args.get(2), args.get(3)) else {
@@ -227,7 +227,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                         println!("{:>10}  {:<55} {}", crate::util::fmt_bytes(c.size), c.rel, c.what);
                     }
                     let total: u64 = items.iter().map(|c| c.size).sum();
-                    println!("Zusammen: {}", crate::util::fmt_bytes(total));
+                    println!("{}", crate::sprache::t!("ctl-zusammen", groesse = crate::util::fmt_bytes(total)));
                     if args.get(1).map(String::as_str) == Some("--ja") {
                         if !matches!(state().as_str(), "stopped" | "failed" | "none") {
                             return err(crate::sprache::t!("cln-err-laeuft"));
@@ -322,7 +322,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let mut k = String::new();
             std::io::stdin().read_line(&mut k)?;
             crate::curseforge::save_key(&k)?;
-            println!("Gespeichert ({}).", crate::curseforge::masked().unwrap_or_default());
+            println!("{}", crate::sprache::t!("ctl-gespeichert", schluessel = crate::curseforge::masked().unwrap_or_default()));
         }
         "curseforge-test" => {
             let k = crate::curseforge::key()
@@ -373,7 +373,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                         );
                     }
                     let code = crate::invite::encode(&built.invite)?;
-                    eprintln!("{} Mods, {} Zeichen", built.invite.mods.len(), code.len());
+                    eprintln!("{}", crate::sprache::t!("ctl-code-laenge", mods = built.invite.mods.len(), zeichen = code.len()));
                     println!("{code}");
                 }
             }
@@ -433,7 +433,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                     dir: std::path::PathBuf::from(d),
                     parts: crate::transfer::PARTS
                         .iter()
-                        .map(|(k, _)| k.to_string())
+                        .map(|k| k.to_string())
                         .filter(|k| k != "worlds")
                         .collect(),
                 });
@@ -462,7 +462,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .get(1)
                 .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-ordner")))?;
             crate::client::remove(std::path::Path::new(d))?;
-            println!("Entfernt.");
+            println!("{}", crate::sprache::t!("ctl-entfernt"));
         }
         "ping" => {
             let a = args

@@ -1,6 +1,8 @@
-# Baut bei einem Tag v* (z. B. v0.9.5) die Installer und legt einen Release an:
-# Windows: Setup (.exe, NSIS) – Linux: .deb
-# (Solange keine Actions-Minuten frei sind, werden Releases lokal gebaut und mit gh hochgeladen.)
+# Baut bei einem Tag v* (z. B. v0.11.1) die offiziellen Installer auf GitHub:
+# Windows: Setup (.exe, NSIS) – Linux: .deb.
+# Liegt zum Tag schon ein Release-Entwurf mit Text bereit, landen die Dateien dort; sonst wird
+# ein Entwurf angelegt. Zum Schluss kommen der Kurz-Link Vapafane_amd64.deb und SHA256SUMS.txt
+# dazu – berechnet aus genau den hochgeladenen Dateien –, erst dann wird veröffentlicht.
 name: Release
 
 on:
@@ -12,7 +14,32 @@ permissions:
   contents: write
 
 jobs:
+  draft:
+    name: Release draft
+    # Nur für Tags (beim Start von Hand den Tag auswählen)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    outputs:
+      id: ${{ steps.release.outputs.id }}
+    steps:
+      - name: Find or create the draft
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          finde() { gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1; }
+          id=$(finde)
+          if [ -z "$id" ]; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --verify-tag --title "Vapafane $TAG" \
+              --notes "See the [changelog](https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md)."
+            id=$(finde)
+          fi
+          test -n "$id"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: draft
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Linux-Bibliotheken installieren
+      - name: Install Linux libraries
         if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
@@ -46,37 +73,39 @@ jobs:
             ./src-tauri -> target
             ./frontend -> target
 
-      - name: Oberfläche bauen
+      - name: Build the interface
         working-directory: frontend
         run: trunk build --release
 
-      - name: Tauri-Werkzeug installieren
+      - name: Install the Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
       - name: Tests
         working-directory: src-tauri
         run: cargo test --locked
 
+      # Lädt die Installer in den Entwurf von oben hoch
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tauriScript: cargo tauri
           args: --bundles ${{ matrix.bundles }}
-          tagName: ${{ github.ref_name }}
-          releaseName: "Vapafane ${{ github.ref_name }}"
-          releaseBody: |
-            **What's new:** see the [changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
-            **Was ist neu:** siehe [Änderungsprotokoll](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) (deutsche Anleitung: [README.de.md](https://github.com/${{ github.repository }}/blob/main/README.de.md)).
+          releaseId: ${{ needs.draft.outputs.id }}
 
-            | System | File / Datei |
-            |---|---|
-            | Windows 10/11 | `Vapafane_…_x64-setup.exe` – on "Windows protected your PC" → "More info" → "Run anyway" |
-            | Linux (Ubuntu, Debian, Mint …) | `Vapafane_…_amd64.deb` – double-click or `sudo apt install ./Vapafane_…_amd64.deb` |
-
-            Running your own server needs Java (Minecraft 26.x: Java 25); joining friends does not.
-            Für einen eigenen Server wird Java gebraucht (Minecraft 26.x: Java 25), zum Mitspielen nicht.
-
-            Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
-          releaseDraft: false
-          prerelease: false
+  publish:
+    name: Checksums and publish
+    needs: [draft, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Short link, SHA256SUMS.txt, publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "Vapafane_*_amd64.deb" -p "Vapafane_*_x64-setup.exe"
+          cp Vapafane_*_amd64.deb Vapafane_amd64.deb
+          sha256sum Vapafane_*_amd64.deb Vapafane_*_x64-setup.exe Vapafane_amd64.deb > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" Vapafane_amd64.deb SHA256SUMS.txt --clobber
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest

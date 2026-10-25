@@ -90,8 +90,8 @@ Modrinth-App, Java), sagt Vapafane es dir und zeigt, wo du es bekommst.
 Java 25): Windows z. B. [Temurin von adoptium.net](https://adoptium.net), Linux
 `sudo apt install openjdk-25-jre-headless`. Zum Mitspielen bei Freunden ist kein Java nötig.
 
-Zu jeder Version gibt es eine Datei `SHA256SUMS.txt` mit Prüfsummen, falls du den Download
-prüfen möchtest.
+Jede Version wird auf GitHub aus dem veröffentlichten Quelltext gebaut. Die Datei
+`SHA256SUMS.txt` enthält Prüfsummen, falls du den Download prüfen möchtest.
 
 ## So benutzt du Vapafane
 

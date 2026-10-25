@@ -114,7 +114,7 @@ pub fn backup_server(dir: &Path, name: &str, cfg: &Config, progress: Progress) -
             done += len;
             progress(
                 done as f64 / total as f64,
-                &format!("Sichere {}", short(&rel.to_string_lossy())),
+                &crate::sprache::t!("fort-sichere", datei = short(&rel.to_string_lossy())),
             );
         }
         let mut out = z.finish()?;
@@ -143,6 +143,18 @@ fn zip_time(t: SystemTime) -> Option<zip::DateTime> {
         dt.second().min(58) as u8,
     )
     .ok()
+}
+
+/// Datum und Uhrzeit so, wie man es in der eingestellten Sprache schreibt.
+fn datum_text([jahr, monat, tag, stunde, minute]: [&str; 5]) -> String {
+    crate::sprache::t!(
+        "zeit-datum",
+        jahr = jahr.to_string(),
+        monat = monat.to_string(),
+        tag = tag.to_string(),
+        stunde = stunde.to_string(),
+        minute = minute.to_string()
+    )
 }
 
 fn short(s: &str) -> String {
@@ -403,14 +415,14 @@ pub fn backup_label(path: &Path) -> String {
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     if let Some(c) = RE.as_ref().and_then(|r| r.captures(&name)) {
-        return format!("{}.{}.{}  {}:{} Uhr", &c[3], &c[2], &c[1], &c[4], &c[5]);
+        return datum_text([&c[1], &c[2], &c[3], &c[4], &c[5]]);
     }
     fs::metadata(path)
         .and_then(|m| m.modified())
         .map(|t| {
-            chrono::DateTime::<chrono::Local>::from(t)
-                .format("%d.%m.%Y  %H:%M Uhr")
-                .to_string()
+            let t = chrono::DateTime::<chrono::Local>::from(t);
+            let teil = |f: &str| t.format(f).to_string();
+            datum_text([&teil("%Y"), &teil("%m"), &teil("%d"), &teil("%H"), &teil("%M")])
         })
         .unwrap_or_default()
 }

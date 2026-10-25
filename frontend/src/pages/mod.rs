@@ -61,11 +61,11 @@ pub fn SkinChoice() -> impl IntoView {
         <div class="skins" role="radiogroup" aria-label=crate::sprache::t!("skin-titel")>
             <label class="skin-choice"><span class="swatch grass"></span>
                 <span><input type="radio" name="skin" value="grass" prop:checked=move || !obsidian()
-                    on:change=move |_| set_skin(&app, "grass")/>" Grasblock"</span>
+                    on:change=move |_| set_skin(&app, "grass")/>" "{crate::sprache::t!("skin-grass")}</span>
                 <span class="dim small">{crate::sprache::t!("skin-grass-sub")}</span></label>
             <label class="skin-choice"><span class="swatch obsidian"></span>
                 <span><input type="radio" name="skin" value="obsidian" prop:checked=obsidian
-                    on:change=move |_| set_skin(&app, "obsidian")/>" Crying Obsidian"</span>
+                    on:change=move |_| set_skin(&app, "obsidian")/>" "{crate::sprache::t!("skin-obsidian")}</span>
                 <span class="dim small">{crate::sprache::t!("skin-obsidian-sub")}</span></label>
         </div>
     }

@@ -1,6 +1,6 @@
 # Prüft bei jedem Push, ob alles baut und die Tests laufen – nur unter Linux, um
 # Actions-Minuten zu sparen. Windows wird beim Release (release.yml) gebaut und getestet.
-name: Prüfen
+name: Check
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Linux-Bibliotheken installieren
+      - name: Install Linux libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
@@ -37,19 +37,19 @@ jobs:
             ./frontend -> target
 
       # Die Oberfläche (Rust/WebAssembly) muss vor dem Backend gebaut sein – Tauri bettet sie ein
-      - name: Oberfläche bauen
+      - name: Build the interface
         working-directory: frontend
         run: trunk build --release
 
-      - name: Clippy Oberfläche
+      - name: Clippy (interface)
         working-directory: frontend
         run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
 
-      - name: Tests gemeinsame Typen
+      - name: Tests (shared types and languages)
         working-directory: shared
         run: cargo test --locked
 
-      - name: Tests Werkzeuge (Texturen)
+      - name: Tests (tools and language check)
         working-directory: werkzeuge
         run: cargo test --locked
 

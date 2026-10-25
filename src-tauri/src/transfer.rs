@@ -17,15 +17,8 @@ use crate::client;
 use crate::config;
 use crate::util::{self, Result, err};
 
-/// Was übernommen werden kann: (Schlüssel, Bezeichnung).
-pub const PARTS: [(&str, &str); 6] = [
-    ("options", "Optionen & Tastenbelegung"),
-    ("config", "Mod-Einstellungen"),
-    ("shaders", "Shader"),
-    ("resourcepacks", "Ressourcenpakete"),
-    ("servers", "Server-Liste"),
-    ("worlds", "Welten"),
-];
+/// Was übernommen werden kann (die Bezeichnungen stehen in der Oberfläche).
+pub const PARTS: [&str; 6] = ["options", "config", "shaders", "resourcepacks", "servers", "worlds"];
 
 /// Dateien und Ordner (relativ zum Spielordner), die zu einem Teil gehören.
 fn members(part: &str) -> (&'static [&'static str], &'static [&'static str]) {
@@ -157,7 +150,7 @@ fn last_used(dir: &Path) -> u64 {
 pub fn part_sizes(dir: &Path) -> BTreeMap<&'static str, u64> {
     PARTS
         .iter()
-        .filter_map(|(key, _)| {
+        .filter_map(|key| {
             let (files, dirs) = members(key);
             let mut size = 0u64;
             let (mut file_any, mut dir_any) = (false, false);
@@ -221,13 +214,13 @@ pub fn sources(exclude: Option<&Path>) -> Vec<Value> {
     let mut found: Vec<(&str, String, PathBuf)> = vec![];
     for p in modrinth_profile_dirs() {
         for d in subdirs(&p) {
-            found.push(("modrinth", format!("Modrinth-App: {}", folder_name(&d)), d));
+            found.push(("modrinth", crate::sprache::t!("quelle-modrinth", name = folder_name(&d)), d));
         }
     }
     for l in client::launcher_dirs() {
-        found.push(("launcher", "Minecraft-Launcher (Standard)".into(), l.clone()));
+        found.push(("launcher", crate::sprache::t!("quelle-launcher-standard"), l.clone()));
         for (name, d) in launcher_profile_dirs(&l) {
-            found.push(("launcher", format!("Minecraft-Launcher: {name}"), d));
+            found.push(("launcher", crate::sprache::t!("quelle-launcher", name = name.to_string()), d));
         }
     }
     for c in client::list() {
@@ -292,7 +285,7 @@ pub fn gather(take: &Take) -> Result<BTreeMap<String, PathBuf>> {
     }
     let mut out = BTreeMap::new();
     for part in &take.parts {
-        if !PARTS.iter().any(|(k, _)| k == part) {
+        if !PARTS.iter().any(|k| k == part) {
             return err(crate::sprache::t!("err-teil-unbekannt", teil = part.to_string()));
         }
         let (files, dirs) = members(part);
@@ -404,10 +397,10 @@ pub fn label(dir: &Path) -> String {
         .iter()
         .any(|p| c.starts_with(util::canonical(p)))
     {
-        return format!("Modrinth-App: {}", folder_name(dir));
+        return crate::sprache::t!("quelle-modrinth", name = folder_name(dir));
     }
     if client::launcher_dirs().iter().any(|l| util::canonical(l) == c) {
-        return "Minecraft-Launcher (Standard)".into();
+        return crate::sprache::t!("quelle-launcher-standard");
     }
     folder_name(dir)
 }
@@ -470,7 +463,7 @@ mod tests {
         instance(&d);
         let all = Take {
             dir: d.clone(),
-            parts: PARTS.iter().map(|(k, _)| k.to_string()).collect(),
+            parts: PARTS.iter().map(|k| k.to_string()).collect(),
         };
         let files = gather(&all).unwrap();
         let keys: Vec<&str> = files.keys().map(String::as_str).collect();

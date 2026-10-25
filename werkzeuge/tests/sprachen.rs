@@ -168,7 +168,9 @@ fn klingt_deutsch(s: &str) -> bool {
         "entfernt", "gestartet", "gestoppt", "ausgeschaltet", "eingeschaltet", "aktualisiert",
         "gespeichert", "angelegt", "fehlt", "Importiere", "Erstelle", "Richte", "Installiere",
         "installieren", "speichern", "Speichern", "Frage", "den", "dem", "von", "nur", "im",
-        "Aufgabe", "Befehlszeile", "Probelauf", "eingepackt", "direkt",
+        "Aufgabe", "Befehlszeile", "Probelauf", "eingepackt", "direkt", "Sichere", "Bereite",
+        "Uhr", "Zusammen", "Gespeichert", "Zeichen", "Entfernt", "Unsichere", "erlaubt", "startet",
+        "einer", "alten", "vom", "Aktiv", "Grasblock",
     ];
     s.chars().any(|c| ZEICHEN.contains(&c))
         || s.split(|c: char| !c.is_alphanumeric()).any(|w| WOERTER.contains(&w))

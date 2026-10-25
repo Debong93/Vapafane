@@ -129,7 +129,8 @@ fn start_and_wait(progress: Progress, from: f64) -> Result<()> {
             .and_then(|o| o.as_array())
             .and_then(|o| o.last())
             .and_then(|l| l.as_str())
-            .unwrap_or("Server startet …");
+            .map(str::to_string)
+            .unwrap_or_else(|| crate::sprache::t!("fort-server-startet"));
         progress(
             from,
             &last
@@ -171,7 +172,7 @@ pub fn do_update(
     let what = if plan.change_version {
         format!("Minecraft {} → {}", plan.current, plan.target)
     } else {
-        "Mods aktualisieren".into()
+        crate::sprache::t!("upd-was-mods")
     };
     let st = state();
     if st == "external" {
