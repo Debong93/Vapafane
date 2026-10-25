@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Un aiuto di cui altre mod hanno bisogno
 mods-seite = Pagina
 mods-seite-tipp = Apri la pagina della mod nel browser – spiega cosa fa
 mods-suche = Cerca nell’elenco …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Consigliata
+empf-badge-tipp = Consigliata da Vapafane: collaudata per prestazioni migliori, non cambia il gameplay
+empf-titel = Mod consigliate per prestazioni migliori
+empf-text = Queste mod rendono il server più veloce e leggero senza cambiare il gameplay. Funzionano solo sul server – i tuoi amici non devono installare nulla.
+empf-alle = Installa tutte le consigliate
+empf-mitinstallieren = Installa anche le mod di prestazioni consigliate
+empf-sucht = Ricerca delle mod di prestazioni adatte …
+empf-paper = Paper include già le proprie ottimizzazioni delle prestazioni – non servono plugin aggiuntivi.
+empf-lithium = Logica di gioco più veloce (mob, redstone, blocchi)
+empf-ferritecore = Molta meno memoria
+empf-krypton = Alleggerisce la connessione di rete con i giocatori
+empf-c2me = Carica e genera il mondo più velocemente (usa più core del processore)
+empf-scalablelux = Calcolo dell’illuminazione più veloce, soprattutto durante l’esplorazione
+empf-modernfix = Avvio più rapido, meno memoria
+empf-ev = Mod consigliate installate: { $namen }
+empf-installiert = Installate (in «{ $ordner }»): { $namen }.
+empf-err-titel = Non tutte le mod consigliate sono state installate
+empf-err-text = Il server è pronto, ma queste mod consigliate non si sono potute installare: { $namen }. Puoi aggiungerle più tardi in «Mods» → «Aggiungi Mods».
+fort-suche-empf = Ricerca delle mod consigliate …
+task-empf = Installazione delle mod consigliate
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Installazione di { $name }
+fort-frage-modrinth = Interrogazione di Modrinth per le mod …
+upd-export-speichern = Salva modpack
+upd-export-filter = Modpack Modrinth
+task-backup-ctl = Backup (riga di comando)
+task-mod-installieren = Installazione di una mod
+cli-grund-browser = Download solo nel browser (CurseForge)
+err-archiv-pfad = Percorso non sicuro nell’archivio: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mod ({ $dateien } inclusi direttamente)

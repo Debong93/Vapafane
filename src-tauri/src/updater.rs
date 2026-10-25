@@ -306,7 +306,7 @@ pub fn check(dir: &Path, target: &str, progress: Progress) -> Result<Plan> {
         })
         .collect();
     let hashes: Vec<String> = mods.iter().chain(&off).filter_map(|m| m.sha1.clone()).collect();
-    progress(0.2, "Frage Modrinth nach den Mods …");
+    progress(0.2, &crate::sprache::t!("fort-frage-modrinth"));
     let known = version_files(&hashes)?;
     let updates = version_updates(&hashes, loaders, target)?;
     classify(&mut mods, &known, &updates);

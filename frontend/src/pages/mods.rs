@@ -408,6 +408,9 @@ struct Catalog {
     total: RwSignal<u64>,
     loading: RwSignal<bool>,
     seq: RwSignal<u32>,
+    /// Empfohlene Leistungs-Mods, die es für diesen Server fertig gibt
+    empf: RwSignal<Vec<Value>>,
+    empf_busy: RwSignal<bool>,
 }
 
 fn load(c: Catalog, word: &'static str, reset: bool) {
@@ -473,8 +476,12 @@ fn load(c: Catalog, word: &'static str, reset: bool) {
 
 fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
     let id = h.s("id");
+    let id_empf = id.clone();
     let busy = RwSignal::new(false);
     let is_in = Memo::new(move |_| c.installed.get().contains(&id));
+    // Empfohlen? Dann mit Abzeichen und der übersetzten Kurzbeschreibung statt der englischen
+    let empf = Memo::new(move |_| c.empf.get().iter().find(|e| e.s("id") == id_empf).map(|e| e.s("why")));
+    let desc = h.s("description");
     let side = if h.s("source") == "curseforge" {
         view! { <span class="badge src-cf">"CurseForge"</span> }.into_any()
     } else if h.b("client_required") {
@@ -520,8 +527,9 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
         <div class="hit">
             {if icon.is_empty() { view! { <div class="noicon"></div> }.into_any() } else { view! { <img src=icon alt="" loading="lazy"/> }.into_any() }}
             <div class="txt">
-                <div class="t">{titel} " " {side}</div>
-                <div class="d">{h.s("description")}</div>
+                <div class="t">{titel} " " {side}
+                    {move || empf.get().map(|_| view! { <span class="badge empf" title=crate::sprache::t!("empf-badge-tipp")>{crate::sprache::t!("empf-badge")}</span> })}</div>
+                <div class="d">{move || empf.get().unwrap_or_else(|| desc.clone())}</div>
                 <div class="meta">{crate::sprache::t!("kat-meta", downloads = fmt_count(h.f("downloads").unwrap_or(0.0)), autor = if h.s("author").is_empty() { "?".into() } else { h.s("author") })}</div>
             </div>
             <button class=move || if is_in.get() { "badge ok" } else { "primary" } disabled=move || is_in.get() || busy.get() on:click=install>
@@ -535,6 +543,9 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
 fn install_msg(app: AppState, r: Value) -> AnyView {
     if !r.s("error").is_empty() {
         return view! { <p class="hint">{crate::sprache::t!("kat-err-install", fehler = r.s("error"))}</p> }.into_any();
+    }
+    if r.b("many") {
+        return empf_msg(app, r);
     }
     let folder = r.s("folder");
     let installed = r.a("installed");
@@ -575,6 +586,48 @@ fn install_msg(app: AppState, r: Value) -> AnyView {
     }.into_any()
 }
 
+/// Meldung nach „Alle empfohlenen installieren“.
+fn empf_msg(app: AppState, r: Value) -> AnyView {
+    let installed = texte(&r.a("installed"));
+    let missing = texte(&r.a("missing"));
+    let failed: Vec<String> = r.a("failed").iter().map(|x| format!("{} ({})", x.s("title"), x.s("error"))).collect();
+    let restart = r.b("restart_needed") && !installed.is_empty();
+    view! {
+        <div class="hint">
+            {(!installed.is_empty()).then(|| view! { <p>{crate::sprache::t!("empf-installiert", namen = installed.join(", "), ordner = r.s("folder"))}</p> })}
+            {(!missing.is_empty()).then(|| view! { <p>{crate::sprache::t!("kat-fehlende", namen = missing.join(", "))}</p> })}
+            {(!failed.is_empty()).then(|| view! { <p>{crate::sprache::t!("kat-err-install", fehler = failed.join(", "))}</p> })}
+            {restart.then(|| view! {
+                <p>{crate::sprache::t!("kat-neustart")}" "
+                    <button on:click=move |_| { dialog::close(""); crate::pages::overview::ask_stop(app, true); }>{crate::sprache::t!("kat-jetzt-neustarten")}</button></p>
+            })}
+        </div>
+    }
+    .into_any()
+}
+
+/// Alle empfohlenen Mods, die noch fehlen, in einem Rutsch installieren.
+fn install_empf(app: AppState, c: Catalog) {
+    c.empf_busy.set(true);
+    leptos::task::spawn_local(async move {
+        let r = task("catalog_install_recommended", json!({})).await;
+        if let Ok(list) = tauri::call::<Vec<String>>("catalog_installed").await {
+            c.installed.set(list);
+        }
+        c.empf_busy.set(false);
+        match r {
+            Ok(r) => {
+                let namen = texte(&r.a("installed"));
+                if !namen.is_empty() {
+                    app.add_event(crate::sprache::t!("empf-ev", namen = namen.join(", ")));
+                }
+                c.msg.set(Some(r));
+            }
+            Err(e) => c.msg.set(Some(json!({ "error": e }))),
+        }
+    });
+}
+
 fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'static) {
     let vanilla = app.details.get_untracked().s("info/type") == "vanilla";
     let word: &'static str = if vanilla {
@@ -598,6 +651,14 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
         total: RwSignal::new(0),
         loading: RwSignal::new(false),
         seq: RwSignal::new(0),
+        empf: RwSignal::new(vec![]),
+        empf_busy: RwSignal::new(false),
+    };
+    // Empfehlungen nur ohne Suchbegriff und nicht bei Datapacks
+    let zeige_empf = move || c.query.get().trim().is_empty() && !c.datapacks.get() && !c.empf.get().is_empty();
+    let alle_da = move || {
+        let da = c.installed.get();
+        c.empf.get().iter().all(|e| da.contains(&e.s("id")))
     };
     let body: dialog::BodyFn = Rc::new(move || {
         let timer = RwSignal::new(0u32);
@@ -624,11 +685,26 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
                     </select>
                 })}
             </div>
-            <div class="dim small">{move || c.info.get()}</div>
             {move || c.msg.get().map(|m| install_msg(app, m))}
+            <Show when=zeige_empf>
+                <div class="empf-block">
+                    <h3>{crate::sprache::t!("empf-titel")}</h3>
+                    <p class="dim small">{crate::sprache::t!("empf-text")}</p>
+                    <div class="catalog-list">{move || c.empf.get().into_iter().map(|h| hit_row(app, c, h)).collect_view()}</div>
+                    <Show when=move || !alle_da()>
+                        <div class="row">
+                            <button class="primary" disabled=move || c.empf_busy.get() on:click=move |_| install_empf(app, c)>
+                                {move || if c.empf_busy.get() { crate::sprache::t!("kat-laedt") } else { crate::sprache::t!("empf-alle") }}</button>
+                        </div>
+                    </Show>
+                </div>
+            </Show>
+            <div class="dim small">{move || c.info.get()}</div>
             <div class="catalog-list">
                 {move || {
-                    let hits = c.hits.get();
+                    // Was oben schon empfohlen steht, nicht doppelt zeigen
+                    let doppelt: Vec<String> = if zeige_empf() { c.empf.get().iter().map(|e| e.s("id")).collect() } else { vec![] };
+                    let hits: Vec<Value> = c.hits.get().into_iter().filter(|h| !doppelt.contains(&h.s("id"))).collect();
                     if hits.is_empty() {
                         let t = if c.loading.get() { crate::sprache::t!("kat-sucht") } else { crate::sprache::t!("kat-nichts") };
                         view! { <div class="empty">{t}</div> }.into_any()
@@ -659,6 +735,13 @@ fn open_catalog(app: AppState, mods_info: Value, reload: impl Fn() + Copy + 'sta
                 .unwrap_or_default(),
         );
         load(c, word, true);
+        if !vanilla {
+            leptos::task::spawn_local(async move {
+                if let Ok(liste) = tauri::call::<Vec<Value>>("catalog_recommended").await {
+                    c.empf.set(liste);
+                }
+            });
+        }
         ask_view(
             crate::sprache::t!("mods-hinzufuegen-titel", wort = word),
             body,

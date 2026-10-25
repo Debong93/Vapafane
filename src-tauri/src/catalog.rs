@@ -126,26 +126,8 @@ pub fn search(dir: &Path, what: What, query: &str, offset: u32, cf_offset: Optio
         .and_then(|h| h.as_array())
         .cloned()
         .unwrap_or_default()
-        .into_iter()
-        .map(|h| {
-            let client = h.get("client_side").and_then(|c| c.as_str()).unwrap_or("");
-            json!({
-                "id": h.get("project_id"),
-                "slug": h.get("slug"),
-                "page": h.get("slug").and_then(|s| s.as_str()).map(|s| {
-                    let typ = h.get("project_type").and_then(|t| t.as_str()).unwrap_or("mod");
-                    format!("https://modrinth.com/{typ}/{s}")
-                }),
-                "title": h.get("title"),
-                "description": h.get("description"),
-                "icon": h.get("icon_url"),
-                "downloads": h.get("downloads"),
-                "author": h.get("author"),
-                // Brauchen die Spieler die Mod auch selbst?
-                "client_required": client == "required",
-                "source": "modrinth",
-            })
-        })
+        .iter()
+        .map(hit_json)
         .collect();
     let mut out = json!({
         "hits": hits,
@@ -167,6 +149,131 @@ pub fn search(dir: &Path, what: What, query: &str, offset: u32, cf_offset: Optio
         }
     }
     Ok(out)
+}
+
+/// Ein Modrinth-Suchtreffer so, wie die Oberfläche ihn anzeigt.
+fn hit_json(h: &Value) -> Value {
+    let client = h.get("client_side").and_then(|c| c.as_str()).unwrap_or("");
+    json!({
+        "id": h.get("project_id"),
+        "slug": h.get("slug"),
+        "page": h.get("slug").and_then(|s| s.as_str()).map(|s| {
+            let typ = h.get("project_type").and_then(|t| t.as_str()).unwrap_or("mod");
+            format!("https://modrinth.com/{typ}/{s}")
+        }),
+        "title": h.get("title"),
+        "description": h.get("description"),
+        "icon": h.get("icon_url"),
+        "downloads": h.get("downloads"),
+        "author": h.get("author"),
+        // Brauchen die Spieler die Mod auch selbst?
+        "client_required": client == "required",
+        "source": "modrinth",
+    })
+}
+
+// ---------------------------------------------------------------- Empfohlene Mods
+
+/// Bewährte Mods für bessere Leistung (Modrinth-Projekt-IDs) mit dem Sprach-Schlüssel ihrer
+/// Kurzbeschreibung. Alle laufen allein auf dem Server, ändern nichts am Spielablauf und
+/// vertragen sich untereinander. Welche davon passen, hängt von Loader und Version ab.
+pub const EMPFOHLEN: [(&str, &str); 6] = [
+    ("gvQqBUqZ", "empf-lithium"),
+    ("uXXizFIs", "empf-ferritecore"),
+    ("fQEb0iXm", "empf-krypton"),
+    ("VSNURh3q", "empf-c2me"),
+    ("Ps1zyz6x", "empf-scalablelux"),
+    ("nmDcB62a", "empf-modernfix"),
+];
+
+/// Empfohlen wird nur eine fertige Version – Alpha- und Beta-Versionen nicht.
+fn fertig(version: Option<&Value>) -> bool {
+    version.and_then(|v| v.get("version_type")).and_then(|t| t.as_str()) == Some("release")
+}
+
+/// Die empfohlenen Mods, die es für diesen Server-Typ und diese Minecraft-Version als
+/// fertige Version gibt – wie Suchtreffer, dazu die Kurzbeschreibung („why“).
+pub fn empfohlen(kind: Kind, mc: &str) -> Result<Vec<Value>> {
+    if !matches!(kind, Kind::Fabric | Kind::NeoForge) || mc.is_empty() {
+        return Ok(vec![]);
+    }
+    let loaders = kind.loaders();
+    // Je Mod eine Anfrage – gleichzeitig, damit der Dialog nicht lange wartet
+    let pruefungen: Vec<Result<bool>> = std::thread::scope(|s| {
+        let laeufe: Vec<_> = EMPFOHLEN
+            .iter()
+            .map(|(id, _)| s.spawn(move || updater::newest_for_project(id, loaders, mc).map(|v| fertig(v.as_ref()))))
+            .collect();
+        // Bricht eine Prüfung ab, wird die Mod eben nicht empfohlen
+        laeufe.into_iter().map(|l| l.join().unwrap_or(Ok(false))).collect()
+    });
+    let mut passend: Vec<&str> = vec![];
+    let mut fehler = None;
+    for ((id, _), p) in EMPFOHLEN.iter().zip(pruefungen) {
+        match p {
+            Ok(true) => passend.push(id),
+            Ok(false) => {}
+            Err(e) => fehler = fehler.or(Some(e)),
+        }
+    }
+    if passend.is_empty() {
+        // Ohne Verbindung lieber den Fehler melden als „nichts passt“
+        return fehler.map_or(Ok(vec![]), Err);
+    }
+    // Name, Symbol, Beschreibung und Autor: eine Suchanfrage für alle
+    let facets = json!([passend.iter().map(|id| format!("project_id:{id}")).collect::<Vec<_>>()]);
+    let v = net::get_json_query(
+        &format!("{API}/search"),
+        &[("facets", facets.to_string()), ("limit", EMPFOHLEN.len().to_string())],
+    )?;
+    let hits = v.get("hits").and_then(|h| h.as_array()).cloned().unwrap_or_default();
+    Ok(EMPFOHLEN
+        .iter()
+        .filter(|(id, _)| passend.contains(id))
+        .filter_map(|(id, key)| {
+            let h = hits
+                .iter()
+                .find(|h| h.get("project_id").and_then(|p| p.as_str()) == Some(id))?;
+            let mut treffer = hit_json(h);
+            treffer["why"] = json!(crate::sprache::text(key, None));
+            Some(treffer)
+        })
+        .collect())
+}
+
+/// Installiert mehrere Projekte nacheinander (Treffer mit „id“ und „title“). Klappt eines
+/// nicht, geht es mit den übrigen weiter – was fehlschlug, steht in „failed“.
+pub fn install_many(dir: &Path, projekte: &[Value], progress: Progress) -> Value {
+    let text = |v: &Value, k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let have = installed_projects(dir).unwrap_or_default();
+    let offen: Vec<&Value> = projekte.iter().filter(|p| !have.contains(&text(p, "id"))).collect();
+    let (mut installed, mut missing, mut failed) = (vec![], vec![], vec![]);
+    let mut folder = String::new();
+    let n = offen.len().max(1) as f64;
+    for (i, p) in offen.iter().enumerate() {
+        let teil = |anteil: f64, msg: &str| progress((i as f64 + anteil) / n, msg);
+        match install(dir, What::Mods, &text(p, "id"), &teil) {
+            Ok(r) => {
+                folder = text(&r, "folder");
+                installed.extend(r["installed"].as_array().into_iter().flatten().map(|x| text(x, "title")));
+                missing.extend(r["missing"].as_array().into_iter().flatten().cloned());
+            }
+            Err(e) => failed.push(json!({"title": text(p, "title"), "error": e.0})),
+        }
+    }
+    json!({"many": true, "folder": folder, "installed": installed, "missing": missing, "failed": failed})
+}
+
+/// Die empfohlenen Mods installieren, die für Typ und Version fertig vorliegen.
+pub fn install_recommended(dir: &Path, kind: Kind, mc: &str, progress: Progress) -> Value {
+    progress(0.0, &crate::sprache::t!("fort-suche-empf"));
+    match empfohlen(kind, mc) {
+        Ok(liste) => install_many(dir, &liste, progress),
+        Err(e) => json!({
+            "many": true, "installed": [], "missing": [],
+            "failed": [{"title": crate::sprache::t!("empf-titel"), "error": e.0}],
+        }),
+    }
 }
 
 fn norm(s: &str) -> String {
@@ -491,4 +598,45 @@ fn install_cf(dir: &Path, t: &Target, root: u64, progress: Progress) -> Result<V
         "missing": missing,
         "manual": manual,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::flavor::Kind;
+    use serde_json::json;
+
+    #[test]
+    fn nur_fertige_versionen() {
+        assert!(super::fertig(Some(&json!({"version_type": "release"}))));
+        assert!(!super::fertig(Some(&json!({"version_type": "alpha"}))));
+        assert!(!super::fertig(Some(&json!({"version_type": "beta"}))));
+        assert!(!super::fertig(None));
+    }
+
+    #[test]
+    fn empfehlungen_haben_texte() {
+        let de = vapafane_shared::sprache::Uebersetzer::neu("de");
+        let mut ids = std::collections::HashSet::new();
+        for (id, key) in super::EMPFOHLEN {
+            assert!(ids.insert(id), "doppelt: {id}");
+            assert_ne!(de.text(key, None), key, "fehlt in de.ftl: {key}");
+        }
+    }
+
+    #[test]
+    fn paper_und_vanilla_ohne_empfehlung() {
+        // Für diese Typen wird Modrinth gar nicht erst gefragt
+        assert!(super::empfohlen(Kind::Paper, "26.3").is_ok_and(|l| l.is_empty()));
+        assert!(super::empfohlen(Kind::Vanilla, "26.3").is_ok_and(|l| l.is_empty()));
+    }
+
+    /// Fragt Modrinth – nur auf Wunsch: `cargo test -- --ignored`
+    #[test]
+    #[ignore]
+    fn empfehlungen_fuer_fabric() {
+        let liste = super::empfohlen(Kind::Fabric, "1.21.11").unwrap();
+        let titel: Vec<String> = liste.iter().map(|h| h["title"].as_str().unwrap_or("").to_string()).collect();
+        assert!(titel.iter().any(|t| t == "Lithium"), "{titel:?}");
+        assert!(liste.iter().all(|h| !h["why"].as_str().unwrap_or("").is_empty()));
+    }
 }

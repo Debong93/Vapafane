@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Een hulpje dat andere mods nodig hebben
 mods-seite = Pagina
 mods-seite-tipp = De pagina van de mod in de browser openen – daar staat wat hij doet
 mods-suche = In de lijst zoeken …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Aanbevolen
+empf-badge-tipp = Aanbevolen door Vapafane: beproefd voor betere prestaties, verandert niets aan de gameplay
+empf-titel = Aanbevolen voor betere prestaties
+empf-text = Deze mods maken de server sneller en zuiniger, zonder iets aan de gameplay te veranderen. Ze draaien alleen op de server – je vrienden hoeven niets te installeren.
+empf-alle = Alle aanbevolen installeren
+empf-mitinstallieren = Aanbevolen prestatie-mods meteen meeïnstalleren
+empf-sucht = Passende prestatie-mods zoeken …
+empf-paper = Paper heeft al eigen prestatie-optimalisaties – extra plugins zijn daarvoor niet nodig.
+empf-lithium = Snellere spellogica (mobs, redstone, blokken)
+empf-ferritecore = Duidelijk minder werkgeheugen
+empf-krypton = Ontlast de netwerkverbinding met de spelers
+empf-c2me = Laadt en genereert de wereld sneller (gebruikt meerdere processorkernen)
+empf-scalablelux = Snellere lichtberekening, vooral tijdens het verkennen
+empf-modernfix = Snellere start, minder werkgeheugen
+empf-ev = Aanbevolen mods geïnstalleerd: { $namen }
+empf-installiert = Geïnstalleerd (in „{ $ordner }”): { $namen }.
+empf-err-titel = Niet alle aanbevolen mods geïnstalleerd
+empf-err-text = De server is klaar, maar deze aanbevolen mods konden niet worden geïnstalleerd: { $namen }. Je kunt ze later toevoegen via „Mods” → „Mods toevoegen”.
+fort-suche-empf = Aanbevolen mods zoeken …
+task-empf = Aanbevolen mods installeren
+
+## Programm-Meldungen (Teil 4)
+task-installiere = { $name } installeren
+fort-frage-modrinth = Modrinth raadplegen voor de mods …
+upd-export-speichern = Modpack opslaan
+upd-export-filter = Modrinth-modpack
+task-backup-ctl = Back-up (opdrachtregel)
+task-mod-installieren = Mod installeren
+cli-grund-browser = Downloaden alleen in de browser (CurseForge)
+err-archiv-pfad = Onveilig pad in het archief: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mods ({ $dateien } direct ingepakt)

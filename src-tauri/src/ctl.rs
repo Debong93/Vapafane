@@ -82,7 +82,7 @@ fn run_inner(args: &[String]) -> Result<()> {
             let dir = cfg
                 .active_path()
                 .ok_or_else(|| crate::util::Error(crate::sprache::t!("err-kein-server")))?;
-            let _lock = ops::JobLock::acquire("Backup (Befehlszeile)")?;
+            let _lock = ops::JobLock::acquire(&crate::sprache::t!("task-backup-ctl"))?;
             let running = state() == "running";
             let progress = |_: f64, _: &str| {};
             let path = ops::backup_with_save(&dir, &cfg, running, &progress)?;
@@ -168,7 +168,11 @@ fn run_inner(args: &[String]) -> Result<()> {
             if !plan.java_ok || !plan.space_ok {
                 return err(crate::sprache::t!("ctl-java-platz"));
             }
-            let _lock = ops::JobLock::acquire(if cmd == "trial" { "Probelauf" } else { "Update" })?;
+            let _lock = ops::JobLock::acquire(&if cmd == "trial" {
+                crate::sprache::t!("upd-trial")
+            } else {
+                crate::sprache::t!("task-update")
+            })?;
             let r = if cmd == "trial" {
                 crate::updates_gui::do_trial(&dir, &plan, true, false, &print)?
             } else {
@@ -272,11 +276,15 @@ fn run_inner(args: &[String]) -> Result<()> {
                         h["title"].as_str().unwrap_or(""),
                         h["downloads"],
                         if h["client_required"].as_bool().unwrap_or(false) {
-                            "Server + Client"
+                            crate::sprache::t!("kat-beides")
                         } else {
-                            "nur Server"
+                            crate::sprache::t!("kat-nur-server")
                         },
-                        if have.contains(id) { "  [installiert]" } else { "" }
+                        if have.contains(id) {
+                            format!("  [{}]", crate::sprache::t!("kat-installiert"))
+                        } else {
+                            String::new()
+                        }
                     );
                 }
                 for h in r["cf_hits"].as_array().into_iter().flatten() {
@@ -299,7 +307,7 @@ fn run_inner(args: &[String]) -> Result<()> {
                 let project = rest
                     .first()
                     .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-projekt")))?;
-                let _lock = ops::JobLock::acquire("Mod installieren")?;
+                let _lock = ops::JobLock::acquire(&crate::sprache::t!("task-mod-installieren"))?;
                 let print = |f: f64, t: &str| eprintln!("[{:>3.0} %] {t}", f * 100.0);
                 let r = crate::catalog::install(&dir, what, project, &print)?;
                 println!("{}", serde_json::to_string_pretty(&r)?);
@@ -346,7 +354,15 @@ fn run_inner(args: &[String]) -> Result<()> {
             match dest {
                 Some(d) => {
                     let inv = crate::invite::write_file(&built, std::path::Path::new(&d))?;
-                    println!("{d}: {} Mods ({} eingepackt)", inv.mods.len(), built.files.len());
+                    println!(
+                        "{}",
+                        crate::sprache::t!(
+                            "ctl-einladung-gespeichert",
+                            datei = d.clone(),
+                            mods = inv.mods.len(),
+                            dateien = built.files.len()
+                        )
+                    );
                 }
                 None => {
                     if !built.files.is_empty() {
@@ -464,7 +480,11 @@ fn run_inner(args: &[String]) -> Result<()> {
                 .ok_or_else(|| crate::util::Error(crate::sprache::t!("ctl-fehlt-zieldatei")))?;
             let (files, overrides) =
                 crate::updater::export_mrpack(&dir, std::path::Path::new(dest), &cfg.name_of(&dir))?;
-            println!("{dest}: {files} Mods von Modrinth, {overrides} direkt eingepackt");
+            println!(
+                "{dest}: {}, {}",
+                crate::sprache::t!("upd-export-mods", anzahl = files),
+                crate::sprache::t!("upd-export-eingepackt", anzahl = overrides)
+            );
         }
         "quit-service" => {
             ipc::call("quit", Value::Null)?;

@@ -598,10 +598,10 @@ pub async fn export_mrpack(app: AppHandle) -> Cmd<Option<Value>> {
         let Some(dest) = app
             .dialog()
             .file()
-            .set_title("Modpack speichern")
+            .set_title(crate::sprache::t!("upd-export-speichern"))
             .set_directory(crate::config::home())
             .set_file_name(&file)
-            .add_filter("Modrinth-Modpack", &["mrpack"])
+            .add_filter(crate::sprache::t!("upd-export-filter"), &["mrpack"])
             .blocking_save_file()
             .and_then(|p| p.into_path().ok())
         else {
@@ -645,10 +645,40 @@ pub async fn catalog_installed() -> Cmd<Vec<String>> {
 
 #[tauri::command]
 pub fn catalog_install(app: AppHandle, project: String, title: String, datapacks: bool) -> Cmd<()> {
-    run_task(&app, &format!("Installiere {title}"), move |progress| {
+    run_task(&app, &crate::sprache::t!("task-installiere", name = title), move |progress| {
         let cfg = Config::load();
         let dir = active_dir(&cfg)?;
         let mut r = catalog::install(&dir, what_of(datapacks), &project, progress)?;
+        r["restart_needed"] = json!(!matches!(state().as_str(), "stopped" | "failed" | "none"));
+        Ok(r)
+    })
+    .map_err(|e| e.0)
+}
+
+/// Empfohlene Leistungs-Mods für den aktiven Server (leer bei Paper und Vanilla).
+#[tauri::command]
+pub async fn catalog_recommended() -> Cmd<Vec<Value>> {
+    blocking(|| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let info = server::detect_server(&dir);
+        let Some(kind) = crate::flavor::Kind::parse(&info.kind) else {
+            return Ok(vec![]);
+        };
+        catalog::empfohlen(kind, &info.version)
+    })
+    .await
+}
+
+/// Alle passenden empfohlenen Mods auf einmal installieren.
+#[tauri::command]
+pub fn catalog_install_recommended(app: AppHandle) -> Cmd<()> {
+    run_task(&app, &crate::sprache::t!("task-empf"), move |progress| {
+        let cfg = Config::load();
+        let dir = active_dir(&cfg)?;
+        let info = server::detect_server(&dir);
+        let kind = crate::flavor::Kind::parse(&info.kind).ok_or_else(|| Error(crate::sprache::t!("kat-err-typ")))?;
+        let mut r = catalog::install_recommended(&dir, kind, &info.version, progress);
         r["restart_needed"] = json!(!matches!(state().as_str(), "stopped" | "failed" | "none"));
         Ok(r)
     })

@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Pomocnik, którego potrzebują inne mody
 mods-seite = Strona
 mods-seite-tipp = Otwórz stronę moda w przeglądarce – tam jest opisane, co robi
 mods-suche = Szukaj na liście …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Polecany
+empf-badge-tipp = Polecany przez Vapafane: sprawdzony sposób na lepszą wydajność, nie zmienia rozgrywki
+empf-titel = Polecane dla lepszej wydajności
+empf-text = Te mody przyspieszają serwer i oszczędzają zasoby, nie zmieniając rozgrywki. Działają tylko na serwerze – znajomi nie muszą niczego instalować.
+empf-alle = Zainstaluj wszystkie polecane
+empf-mitinstallieren = Zainstaluj też polecane mody wydajnościowe
+empf-sucht = Szukanie pasujących modów wydajnościowych …
+empf-paper = Paper ma już własne optymalizacje wydajności – dodatkowe pluginy nie są do tego potrzebne.
+empf-lithium = Szybsza logika gry (moby, redstone, bloki)
+empf-ferritecore = Znacznie mniej pamięci RAM
+empf-krypton = Odciąża połączenie sieciowe z graczami
+empf-c2me = Szybciej wczytuje i generuje świat (używa wielu rdzeni procesora)
+empf-scalablelux = Szybsze obliczanie oświetlenia, zwłaszcza podczas eksploracji
+empf-modernfix = Szybszy start, mniej pamięci
+empf-ev = Zainstalowano polecane mody: { $namen }
+empf-installiert = Zainstalowano (w „{ $ordner }”): { $namen }.
+empf-err-titel = Nie wszystkie polecane mody zostały zainstalowane
+empf-err-text = Serwer jest gotowy, ale tych polecanych modów nie udało się zainstalować: { $namen }. Możesz je dodać później w „Mods” → „Dodaj Mods”.
+fort-suche-empf = Szukanie polecanych modów …
+task-empf = Instalowanie polecanych modów
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Instalowanie { $name }
+fort-frage-modrinth = Pytanie Modrinth o mody …
+upd-export-speichern = Zapisz modpack
+upd-export-filter = Modpack Modrinth
+task-backup-ctl = Kopia zapasowa (wiersz poleceń)
+task-mod-installieren = Instalowanie moda
+cli-grund-browser = Pobieranie tylko w przeglądarce (CurseForge)
+err-archiv-pfad = Niebezpieczna ścieżka w archiwum: { $pfad }
+ctl-einladung-gespeichert = { $datei }: modów: { $mods } (dołączonych bezpośrednio: { $dateien })

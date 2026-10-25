@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Une aide dont d’autres mods ont besoin
 mods-seite = Page
 mods-seite-tipp = Ouvrir la page du mod dans le navigateur – elle explique ce qu’il fait
 mods-suche = Rechercher dans la liste …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Recommandé
+empf-badge-tipp = Recommandé par Vapafane : éprouvé pour de meilleures performances, ne change rien au gameplay
+empf-titel = Recommandés pour de meilleures performances
+empf-text = Ces mods rendent le serveur plus rapide et plus économe, sans rien changer au gameplay. Ils tournent uniquement sur le serveur – tes amis n’ont rien à installer.
+empf-alle = Installer tous les recommandés
+empf-mitinstallieren = Installer aussi les mods de performance recommandés
+empf-sucht = Recherche des mods de performance adaptés …
+empf-paper = Paper intègre déjà ses propres optimisations de performance – aucun plugin supplémentaire n’est nécessaire.
+empf-lithium = Logique de jeu plus rapide (mobs, redstone, blocs)
+empf-ferritecore = Nettement moins de mémoire vive
+empf-krypton = Allège la connexion réseau avec les joueurs
+empf-c2me = Charge et génère le monde plus vite (utilise plusieurs cœurs du processeur)
+empf-scalablelux = Calcul de l’éclairage plus rapide, surtout en exploration
+empf-modernfix = Démarrage plus rapide, moins de mémoire
+empf-ev = Mods recommandés installés : { $namen }
+empf-installiert = Installé (dans « { $ordner } ») : { $namen }.
+empf-err-titel = Tous les mods recommandés n’ont pas pu être installés
+empf-err-text = Le serveur est prêt, mais ces mods recommandés n’ont pas pu être installés : { $namen }. Tu peux les ajouter plus tard sous « Mods » → « Ajouter des Mods ».
+fort-suche-empf = Recherche des mods recommandés …
+task-empf = Installation des mods recommandés
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Installation de { $name }
+fort-frage-modrinth = Interrogation de Modrinth pour les mods …
+upd-export-speichern = Enregistrer le modpack
+upd-export-filter = Modpack Modrinth
+task-backup-ctl = Sauvegarde (ligne de commande)
+task-mod-installieren = Installation d’un mod
+cli-grund-browser = Téléchargement uniquement dans le navigateur (CurseForge)
+err-archiv-pfad = Chemin non sûr dans l’archive : { $pfad }
+ctl-einladung-gespeichert = { $datei } : { $mods } mods ({ $dateien } inclus directement)

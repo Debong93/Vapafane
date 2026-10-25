@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Un ayudante que otros mods necesitan
 mods-seite = Página
 mods-seite-tipp = Abrir la página del mod en el navegador: explica lo que hace
 mods-suche = Buscar en la lista …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Recomendado
+empf-badge-tipp = Recomendado por Vapafane: probado para un mejor rendimiento, no cambia la jugabilidad
+empf-titel = Recomendados para un mejor rendimiento
+empf-text = Estos mods hacen el servidor más rápido y ligero sin cambiar la jugabilidad. Solo funcionan en el servidor: tus amigos no tienen que instalar nada.
+empf-alle = Instalar todos los recomendados
+empf-mitinstallieren = Instalar también los mods de rendimiento recomendados
+empf-sucht = Buscando mods de rendimiento adecuados …
+empf-paper = Paper ya incluye sus propias optimizaciones de rendimiento: no hacen falta plugins adicionales.
+empf-lithium = Lógica del juego más rápida (mobs, redstone, bloques)
+empf-ferritecore = Mucha menos memoria
+empf-krypton = Aligera la conexión de red con los jugadores
+empf-c2me = Carga y genera el mundo más rápido (usa varios núcleos del procesador)
+empf-scalablelux = Cálculo de la iluminación más rápido, sobre todo al explorar
+empf-modernfix = Arranque más rápido, menos memoria
+empf-ev = Mods recomendados instalados: { $namen }
+empf-installiert = Instalado (en «{ $ordner }»): { $namen }.
+empf-err-titel = No se instalaron todos los mods recomendados
+empf-err-text = El servidor está listo, pero estos mods recomendados no se pudieron instalar: { $namen }. Puedes añadirlos más tarde en «Mods» → «Añadir Mods».
+fort-suche-empf = Buscando los mods recomendados …
+task-empf = Instalando mods recomendados
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Instalando { $name }
+fort-frage-modrinth = Consultando a Modrinth por los mods …
+upd-export-speichern = Guardar modpack
+upd-export-filter = Modpack de Modrinth
+task-backup-ctl = Copia de seguridad (línea de comandos)
+task-mod-installieren = Instalando un mod
+cli-grund-browser = Descarga solo en el navegador (CurseForge)
+err-archiv-pfad = Ruta insegura en el archivo comprimido: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mods ({ $dateien } incluidos directamente)

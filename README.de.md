@@ -40,6 +40,9 @@
 **Eigener Server**
 
 - Server anlegen mit *Vanilla*, *Paper*, *Fabric* oder *NeoForge* – Version wählen, fertig
+- Empfohlene Leistungs-Mods: Für Fabric und NeoForge bietet Vapafane eine kleine Auswahl
+  bewährter Mods wie Lithium und FerriteCore an – sie laufen nur auf dem Server, ändern
+  nichts am Spielablauf und werden nur als fertige Version für deine Minecraft-Version angeboten
 - Starten und Stoppen mit einem Klick; der Server läuft im Hintergrund weiter, auch wenn das
   Fenster zu ist, und startet nach einem Absturz neu
 - Konsole, Spieler und Whitelist, Mods, Plugins und Datapacks von Modrinth (und CurseForge) –
@@ -103,8 +106,9 @@ und dunkel.
 2. Auf **„+“** klicken (es leuchtet, solange es noch keinen Server gibt) und
    **„Neuen Server erstellen“** wählen. Typ aussuchen – *Vanilla* (ohne Mods),
    *Fabric* oder *NeoForge* (mit Mods), *Paper* (mit Plugins) –, Minecraft-Version und
-   Namen angeben und die Minecraft-EULA bestätigen. Einen vorhandenen Server-Ordner oder
-   ein Backup fügst du über dasselbe Menü hinzu.
+   Namen angeben und die Minecraft-EULA bestätigen. Bei *Fabric* und *NeoForge* sind die
+   empfohlenen Leistungs-Mods schon angehakt – wer sie nicht möchte, nimmt das Häkchen
+   heraus. Einen vorhandenen Server-Ordner oder ein Backup fügst du über dasselbe Menü hinzu.
 3. Unter **„Spieler“** deinen Minecraft-Namen und die deiner Freunde eintragen: Neue Server
    haben die **Whitelist** an – nur wer dort steht, kommt rein. Das schützt vor Fremden.
 4. In der **Übersicht** auf **„▶ Starten“** klicken. Das Fenster darf danach zu – der

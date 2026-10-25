@@ -998,3 +998,36 @@ mods-bibliothek-tipp = A helper that other mods need
 mods-seite = Page
 mods-seite-tipp = Open the mod's page in the browser – it explains what the mod does
 mods-suche = Search the list …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Recommended
+empf-badge-tipp = Recommended by Vapafane: proven for better performance, doesn't change gameplay
+empf-titel = Recommended for better performance
+empf-text = These mods make the server faster and lighter without changing gameplay. They only run on the server – your friends don't need to install anything.
+empf-alle = Install all recommended
+empf-mitinstallieren = Also install recommended performance mods
+empf-sucht = Looking for matching performance mods …
+empf-paper = Paper already comes with its own performance optimizations – no extra plugins needed.
+empf-lithium = Faster game logic (mobs, redstone, blocks)
+empf-ferritecore = Much lower memory usage
+empf-krypton = Lighter network traffic to the players
+empf-c2me = Loads and generates the world faster (uses several CPU cores)
+empf-scalablelux = Faster lighting calculation, especially while exploring
+empf-modernfix = Faster startup, less memory
+empf-ev = Recommended mods installed: { $namen }
+empf-installiert = Installed (in “{ $ordner }”): { $namen }.
+empf-err-titel = Not all recommended mods were installed
+empf-err-text = The server is ready, but these recommended mods could not be installed: { $namen }. You can add them later under “Mods” → “Add Mods”.
+fort-suche-empf = Looking up the recommended mods …
+task-empf = Installing recommended mods
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Installing { $name }
+fort-frage-modrinth = Asking Modrinth about the mods …
+upd-export-speichern = Save modpack
+upd-export-filter = Modrinth modpack
+task-backup-ctl = Backup (command line)
+task-mod-installieren = Installing a mod
+cli-grund-browser = Download only in the browser (CurseForge)
+err-archiv-pfad = Unsafe path in the archive: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mods ({ $dateien } packed in directly)

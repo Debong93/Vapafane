@@ -152,10 +152,19 @@ async fn rundgang() -> Res<()> {
         e.click_button("Neuen Server erstellen (Fabric, Paper, NeoForge, Vanilla) …").await?;
         e.wait("//h2[normalize-space()='Neuen Server erstellen']", 10).await?;
         e.type_into("//div[@id='modal-body']/input", "E2E").await?;
+        // Fabric: Die empfohlenen Leistungs-Mods stehen schon angehakt im Dialog
+        e.select("(//div[@id='modal-body']//select)[1]", "fabric").await?;
+        e.wait("//div[@class='empf-box']//b[contains(.,'Lithium')]", 90).await?;
+        e.until("document.querySelector('.empf-box input[type=checkbox]').checked", 5).await?;
+        e.shot("02a-empfohlene-mods").await;
+        // Paper bringt eigene Optimierungen mit, Vanilla hat keine Mods
+        e.select("(//div[@id='modal-body']//select)[1]", "paper").await?;
+        e.sees("Paper bringt schon eigene Leistungs-Optimierungen mit", 10).await?;
         e.select("(//div[@id='modal-body']//select)[1]", "vanilla").await?;
+        e.until("!document.querySelector('.empf-box')", 10).await?;
         e.until("(() => { const s = document.querySelectorAll('#modal-body select')[1]; return s && s.value && s.value !== ''; })()", 60).await?;
         e.until("document.querySelector('#modal-body code') && document.querySelector('#modal-body code').textContent.length > 0", 15).await?;
-        e.wait("//div[@id='modal-body']//input[@type='checkbox']", 5).await?.click().await?;
+        e.wait("//div[@id='modal-body']//label[contains(.,'EULA')]/input[@type='checkbox']", 5).await?.click().await?;
         e.click_button("Weiter").await?;
         e.until("Array.from(document.querySelectorAll('#server-select option')).some(o => o.textContent === 'E2E')", 600).await?;
         e.shot("02-server-angelegt").await;

@@ -143,8 +143,27 @@ pub async fn server_versions(kind: String) -> Cmd<Vec<String>> {
     .await
 }
 
+/// Empfohlene Leistungs-Mods für einen neuen Server (Typ und Minecraft-Version).
 #[tauri::command]
-pub fn create_server(app: AppHandle, kind: String, name: String, version: String, target: Option<String>) -> Cmd<()> {
+pub async fn recommended_mods(kind: String, version: String) -> Cmd<Vec<Value>> {
+    blocking(move || {
+        let k = Kind::parse(&kind).ok_or_else(|| Error(crate::sprache::t!("err-typ-unbekannt")))?;
+        crate::catalog::empfohlen(k, &version)
+    })
+    .await
+}
+
+/// Neuen Server anlegen – auf Wunsch gleich mit den empfohlenen Leistungs-Mods.
+/// Klappt das bei einer Mod nicht, ist der Server trotzdem fertig (Liste in „mods“).
+#[tauri::command]
+pub fn create_server(
+    app: AppHandle,
+    kind: String,
+    name: String,
+    version: String,
+    target: Option<String>,
+    recommended: Option<bool>,
+) -> Cmd<()> {
     let k = Kind::parse(&kind).ok_or_else(|| crate::sprache::t!("err-typ-unbekannt"))?;
     run_task(
         &app,
@@ -154,8 +173,17 @@ pub fn create_server(app: AppHandle, kind: String, name: String, version: String
                 Some(t) => PathBuf::from(t),
                 None => default_dir(&name)?,
             };
-            let path = flavor::create_server(k, &name, &version, &target, progress)?;
-            Ok(json!({"path": path}))
+            let mit_mods = recommended == Some(true) && matches!(k, Kind::Fabric | Kind::NeoForge);
+            // Mit Mods: drei Viertel des Fortschritts für den Server, der Rest für die Mods
+            let anteil = if mit_mods { 0.75 } else { 1.0 };
+            let server_teil = |p: f64, msg: &str| progress(p * anteil, msg);
+            let path = flavor::create_server(k, &name, &version, &target, &server_teil)?;
+            let mut r = json!({"path": path});
+            if mit_mods {
+                let mod_teil = |p: f64, msg: &str| progress(anteil + p * (1.0 - anteil), msg);
+                r["mods"] = crate::catalog::install_recommended(&path, k, &version, &mod_teil);
+            }
+            Ok(r)
         },
     )
     .map_err(|e| e.0)

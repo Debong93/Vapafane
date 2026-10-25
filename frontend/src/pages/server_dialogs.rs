@@ -29,6 +29,10 @@ struct Form {
     custom_dir: RwSignal<bool>,
     dir_hint: RwSignal<String>,
     eula: RwSignal<bool>,
+    /// Empfohlene Leistungs-Mods für Typ und Version (None = wird gerade gesucht)
+    empf: RwSignal<Option<Vec<Value>>>,
+    empf_an: RwSignal<bool>,
+    empf_seq: RwSignal<u32>,
 }
 
 struct Details {
@@ -37,6 +41,8 @@ struct Details {
     version: String,
     target: String,
     eula: bool,
+    /// Empfohlene Mods mitinstallieren (Namen für spätere Hinweise)
+    empf: Vec<String>,
 }
 
 fn suggest(f: Form) {
@@ -61,6 +67,9 @@ fn suggest(f: Form) {
 fn load_versions(f: Form) {
     f.versions.set(Ok(vec![]));
     f.version.set(String::new());
+    // Empfehlungen des vorigen Typs nicht stehen lassen, bis die Versionen da sind
+    f.empf_seq.update(|s| *s += 1);
+    f.empf.set(None);
     let kind = f.kind.get_untracked();
     leptos::task::spawn_local(async move {
         match tauri::invoke::<Vec<String>>("server_versions", json!({ "kind": kind })).await {
@@ -68,10 +77,63 @@ fn load_versions(f: Form) {
                 let v: Vec<String> = v.into_iter().take(40).collect();
                 f.version.set(v.first().cloned().unwrap_or_default());
                 f.versions.set(Ok(v));
+                load_empf(f);
             }
             Err(e) => f.versions.set(Err(e)),
         }
     });
+}
+
+/// Welche empfohlenen Leistungs-Mods gibt es fertig für Typ und Version?
+fn load_empf(f: Form) {
+    let (kind, version) = (f.kind.get_untracked(), f.version.get_untracked());
+    let seq = f.empf_seq.get_untracked() + 1;
+    f.empf_seq.set(seq);
+    if !matches!(kind.as_str(), "fabric" | "neoforge") || version.is_empty() {
+        f.empf.set(Some(vec![]));
+        return;
+    }
+    f.empf.set(None);
+    leptos::task::spawn_local(async move {
+        let r = tauri::invoke::<Vec<Value>>("recommended_mods", json!({ "kind": kind, "version": version })).await;
+        // Inzwischen einen anderen Typ oder eine andere Version gewählt? Dann gilt die neuere Suche.
+        if f.empf_seq.try_get_untracked() == Some(seq) {
+            let _ = f.empf.try_set(Some(r.unwrap_or_default()));
+        }
+    });
+}
+
+/// Abschnitt „Empfohlene Leistungs-Mods mitinstallieren“ im Dialog für neue Server.
+fn empf_view(f: Form) -> Option<AnyView> {
+    if f.kind.get() == "paper" {
+        return Some(view! { <p class="dim small">{crate::sprache::t!("empf-paper")}</p> }.into_any());
+    }
+    match f.empf.get() {
+        None if matches!(f.kind.get().as_str(), "fabric" | "neoforge") => {
+            Some(view! { <p class="dim small">{crate::sprache::t!("empf-sucht")}</p> }.into_any())
+        }
+        Some(liste) if !liste.is_empty() => {
+            // Namen in einer Zeile (der Dialog soll ohne Scrollen passen), Erklärung als Tooltip
+            let n = liste.len();
+            let namen = liste
+                .into_iter()
+                .enumerate()
+                .map(|(i, m)| view! { <b title=m.s("why")>{m.s("title")}</b>{(i + 1 < n).then_some(", ")} })
+                .collect_view();
+            Some(
+                view! {
+                    <div class="empf-box">
+                        <label class="check"><input type="checkbox" prop:checked=f.empf_an on:change=move |e| f.empf_an.set(event_target_checked(&e))/>
+                            " "{crate::sprache::t!("empf-mitinstallieren")}" "<span class="badge empf">{crate::sprache::t!("empf-badge")}</span></label>
+                        <div class="empf-namen">{namen}</div>
+                        <div class="dim small">{crate::sprache::t!("empf-text")}</div>
+                    </div>
+                }
+                .into_any(),
+            )
+        }
+        _ => None,
+    }
 }
 
 /// Dialog: Name, evtl. Server-Typ und Version, evtl. Ordner, evtl. EULA-Häkchen.
@@ -91,6 +153,9 @@ async fn ask_details(
         custom_dir: RwSignal::new(false),
         dir_hint: RwSignal::new(String::new()),
         eula: RwSignal::new(false),
+        empf: RwSignal::new(None),
+        empf_an: RwSignal::new(true),
+        empf_seq: RwSignal::new(0),
     };
     if kinds {
         load_versions(f);
@@ -144,13 +209,14 @@ async fn ask_details(
                 {KINDS.iter().map(|(k, l)| view! { <option value=*k>{crate::sprache::text(l, None)}</option> }).collect_view()}
             </select>
             <label>{crate::sprache::t!("srv-version-label")}</label>
-            <select prop:value=f.version on:change=move |e| f.version.set(event_target_value(&e))>
+            <select prop:value=f.version on:change=move |e| { f.version.set(event_target_value(&e)); load_empf(f); }>
                 {move || match f.versions.get() {
                     Ok(v) if v.is_empty() => view! { <option value="">{crate::sprache::t!("srv-laedt")}</option> }.into_any(),
                     Ok(v) => v.into_iter().map(|x| view! { <option value=x.clone()>{x.clone()}</option> }).collect_view().into_any(),
                     Err(e) => view! { <option value="">{crate::sprache::t!("srv-keine-verbindung", fehler = e)}</option> }.into_any(),
                 }}
             </select>
+            {move || empf_view(f)}
         })}
         {folder.then(|| view! {
             <label>{crate::sprache::t!("gem-ordner")}</label>
@@ -180,12 +246,17 @@ async fn ask_details(
     {
         return None;
     }
+    let empf = match f.empf.get_untracked() {
+        Some(liste) if kinds && f.empf_an.get_untracked() => liste.iter().map(|m| m.s("title")).collect(),
+        _ => vec![],
+    };
     Some(Details {
         name: f.name.get_untracked().trim().to_string(),
         kind: f.kind.get_untracked(),
         version: f.version.get_untracked(),
         target: f.dir.get_untracked(),
         eula: f.eula.get_untracked(),
+        empf,
     })
 }
 
@@ -327,7 +398,7 @@ pub fn add_new() {
         };
         let r = match task(
             "create_server",
-            json!({ "kind": d.kind, "name": d.name, "version": d.version, "target": d.target }),
+            json!({ "kind": d.kind, "name": d.name, "version": d.version, "target": d.target, "recommended": !d.empf.is_empty() }),
         )
         .await
         {
@@ -335,7 +406,29 @@ pub fn add_new() {
             Err(e) => return error(crate::sprache::t!("srv-err-erstellen"), e).await,
         };
         add(app, r.s("path"), d.name, true).await;
+        empf_ergebnis(app, &r.o("mods")).await;
     });
+}
+
+/// Nach dem Anlegen mit empfohlenen Mods: Ereignis eintragen; hat etwas nicht geklappt,
+/// sagen, wo es sich nachholen lässt.
+async fn empf_ergebnis(app: AppState, m: &Value) {
+    let installed: Vec<String> = m.a("installed").iter().filter_map(|x| x.as_str().map(String::from)).collect();
+    if !installed.is_empty() {
+        app.add_event(crate::sprache::t!("empf-ev", namen = installed.join(", ")));
+    }
+    let failed: Vec<String> = m
+        .a("failed")
+        .iter()
+        .map(|x| format!("{} ({})", x.s("title"), x.s("error")))
+        .collect();
+    if !failed.is_empty() {
+        info(
+            crate::sprache::t!("empf-err-titel"),
+            crate::sprache::t!("empf-err-text", namen = failed.join(", ")),
+        )
+        .await;
+    }
 }
 
 pub fn remove_server() {

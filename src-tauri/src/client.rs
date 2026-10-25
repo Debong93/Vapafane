@@ -670,7 +670,7 @@ pub fn install(
             continue;
         }
         let Some(url) = &m.url else {
-            manual.push(json!({"title": m.title, "page": m.page, "file": m.file, "reason": "Download nur im Browser (CurseForge)"}));
+            manual.push(json!({"title": m.title, "page": m.page, "file": m.file, "reason": crate::sprache::t!("cli-grund-browser")}));
             continue;
         };
         net::download(
@@ -1115,7 +1115,7 @@ pub fn install_mrpack(
                     overrides.push((format!("overrides/mods/{name}"), fs::read(&tmp)?));
                     let _ = fs::remove_file(&tmp);
                 }
-                None => manual.push(json!({"title": m.title, "page": m.page, "file": m.file, "reason": "Download nur im Browser (CurseForge)"})),
+                None => manual.push(json!({"title": m.title, "page": m.page, "file": m.file, "reason": crate::sprache::t!("cli-grund-browser")})),
             },
         }
     }

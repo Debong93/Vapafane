@@ -998,3 +998,36 @@ mods-bibliothek-tipp = Ein Helfer, den andere Mods brauchen
 mods-seite = Seite
 mods-seite-tipp = Seite der Mod im Browser öffnen – dort steht, was sie macht
 mods-suche = In der Liste suchen …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Empfohlen
+empf-badge-tipp = Von Vapafane empfohlen: bewährt für bessere Leistung, ändert nichts am Spielablauf
+empf-titel = Empfohlen für bessere Leistung
+empf-text = Diese Mods machen den Server schneller und sparsamer, ohne am Spielablauf etwas zu ändern. Sie laufen nur auf dem Server – deine Freunde müssen dafür nichts installieren.
+empf-alle = Alle empfohlenen installieren
+empf-mitinstallieren = Empfohlene Leistungs-Mods mitinstallieren
+empf-sucht = Suche passende Leistungs-Mods …
+empf-paper = Paper bringt schon eigene Leistungs-Optimierungen mit – dafür sind keine zusätzlichen Plugins nötig.
+empf-lithium = Schnellere Spiellogik (Mobs, Redstone, Blöcke)
+empf-ferritecore = Deutlich weniger Arbeitsspeicher
+empf-krypton = Entlastet die Netzwerkverbindung zu den Spielern
+empf-c2me = Lädt und erzeugt die Welt schneller (nutzt mehrere Prozessorkerne)
+empf-scalablelux = Schnellere Lichtberechnung, besonders beim Erkunden
+empf-modernfix = Schnellerer Start, weniger Arbeitsspeicher
+empf-ev = Empfohlene Mods installiert: { $namen }
+empf-installiert = Installiert (in „{ $ordner }“): { $namen }.
+empf-err-titel = Nicht alle empfohlenen Mods installiert
+empf-err-text = Der Server ist fertig, nur diese empfohlenen Mods ließen sich nicht installieren: { $namen }. Du kannst sie später unter „Mods“ → „Mods hinzufügen“ nachholen.
+fort-suche-empf = Suche die empfohlenen Mods …
+task-empf = Installiere empfohlene Mods
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Installiere { $name }
+fort-frage-modrinth = Frage Modrinth nach den Mods …
+upd-export-speichern = Modpack speichern
+upd-export-filter = Modrinth-Modpack
+task-backup-ctl = Backup (Befehlszeile)
+task-mod-installieren = Mod installieren
+cli-grund-browser = Download nur im Browser (CurseForge)
+err-archiv-pfad = Unsichere Pfadangabe im Archiv: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } Mods ({ $dateien } direkt eingepackt)

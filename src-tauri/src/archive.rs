@@ -271,7 +271,7 @@ fn extract_zip(archive: &Path, dest: &Path, progress: Progress) -> Result<()> {
         let mut f = z.by_index(i)?;
         let raw_name = f.name().to_string();
         let Some(rel) = safe_relative(Path::new(&raw_name.replace('\\', "/"))) else {
-            return err(format!("Unsichere Pfadangabe im Archiv: {raw_name}"));
+            return err(crate::sprache::t!("err-archiv-pfad", pfad = raw_name.clone()));
         };
         let target = dest.join(&rel);
         if f.is_dir() {
@@ -306,7 +306,7 @@ fn extract_tar(reader: Box<dyn Read>, dest: &Path, _total: u64, progress: Progre
         let mut entry = entry?;
         let path = entry.path()?.into_owned();
         let Some(rel) = safe_relative(&path) else {
-            return err(format!("Unsichere Pfadangabe im Archiv: {}", path.display()));
+            return err(crate::sprache::t!("err-archiv-pfad", pfad = path.display().to_string()));
         };
         let target = dest.join(&rel);
         match entry.header().entry_type() {

@@ -56,7 +56,7 @@ pub fn current_job() -> Option<String> {
         return None;
     }
     let t = fs::read_to_string(job_text_path()).unwrap_or_default();
-    Some(if t.trim().is_empty() { "Aufgabe".into() } else { t })
+    Some(if t.trim().is_empty() { crate::sprache::t!("err-andere-aufgabe") } else { t })
 }
 
 /// Backup, auch während der Server läuft: Speichern kurz pausieren.

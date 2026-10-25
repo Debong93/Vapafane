@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Başka modların ihtiyaç duyduğu bir yardımcı
 mods-seite = Sayfa
 mods-seite-tipp = Modun sayfasını tarayıcıda aç – ne yaptığı orada anlatılıyor
 mods-suche = Listede ara …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Önerilen
+empf-badge-tipp = Vapafane’in önerisi: daha iyi performans için kendini kanıtlamış, oynanışı değiştirmez
+empf-titel = Daha iyi performans için önerilenler
+empf-text = Bu modlar oynanışı değiştirmeden sunucuyu daha hızlı ve tutumlu yapar. Yalnızca sunucuda çalışırlar – arkadaşlarının hiçbir şey kurması gerekmez.
+empf-alle = Önerilenlerin hepsini kur
+empf-mitinstallieren = Önerilen performans modlarını da kur
+empf-sucht = Uygun performans modları aranıyor …
+empf-paper = Paper zaten kendi performans iyileştirmeleriyle gelir – bunun için ek eklenti gerekmez.
+empf-lithium = Daha hızlı oyun mantığı (moblar, kızıltaş, bloklar)
+empf-ferritecore = Belirgin şekilde daha az bellek
+empf-krypton = Oyuncularla ağ bağlantısını rahatlatır
+empf-c2me = Dünyayı daha hızlı yükler ve oluşturur (birden çok işlemci çekirdeği kullanır)
+empf-scalablelux = Daha hızlı ışık hesaplaması, özellikle keşfederken
+empf-modernfix = Daha hızlı başlangıç, daha az bellek
+empf-ev = Önerilen modlar kuruldu: { $namen }
+empf-installiert = Kuruldu („{ $ordner }” içinde): { $namen }.
+empf-err-titel = Önerilen modların hepsi kurulamadı
+empf-err-text = Sunucu hazır, ancak şu önerilen modlar kurulamadı: { $namen }. Bunları daha sonra „Mods” → „Mods ekle” altından ekleyebilirsin.
+fort-suche-empf = Önerilen modlar aranıyor …
+task-empf = Önerilen modlar kuruluyor
+
+## Programm-Meldungen (Teil 4)
+task-installiere = { $name } kuruluyor
+fort-frage-modrinth = Modlar için Modrinth’e soruluyor …
+upd-export-speichern = Mod paketini kaydet
+upd-export-filter = Modrinth mod paketi
+task-backup-ctl = Yedekleme (komut satırı)
+task-mod-installieren = Mod kuruluyor
+cli-grund-browser = Yalnızca tarayıcıda indirilebilir (CurseForge)
+err-archiv-pfad = Arşivde güvenli olmayan yol: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mod ({ $dateien } doğrudan eklendi)

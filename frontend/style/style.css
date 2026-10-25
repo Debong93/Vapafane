@@ -898,3 +898,15 @@ select { -webkit-appearance: none; appearance: none; padding-right: 30px;
 .badge.lib { background: color-mix(in srgb, var(--blue) 15%, transparent); color: var(--blue); }
 .mods-filter { width: 100%; margin: 4px 0 8px; }
 .hint.warn { border-color: var(--amber); }
+
+/* Empfohlene Leistungs-Mods (Katalog und Dialog „Neuen Server erstellen“) */
+.badge.empf { background: var(--purple); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .badge.empf { color: #1f1a14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.empf { color: #1f1a14; } }
+.empf-box { margin: 10px 0 2px; }
+.empf-box > div { margin-left: 26px; }
+.empf-namen { font-size: 13px; margin: 2px 0; }
+.empf-namen b[title] { cursor: help; }
+.empf-block { margin-bottom: 10px; }
+.empf-block h3 { margin-top: 4px; }
+.empf-block .row { margin-top: 8px; }

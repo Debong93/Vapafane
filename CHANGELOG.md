@@ -4,6 +4,27 @@ All notable changes to Vapafane. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version numbers follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.1] – 2026-10-25
+
+### New
+
+- **Recommended performance mods.** When you create a Fabric or NeoForge server, Vapafane
+  offers a small set of well-established performance mods, for example Lithium, FerriteCore
+  and Krypton. They are pre-selected, run on the server only and don't change gameplay –
+  friends don't need to install anything. Only mods with a finished release (no alpha or
+  beta) for the chosen Minecraft version are suggested.
+- In the mod search, these mods have their own **"Recommended"** section with a short
+  explanation in your language and an "Install all recommended" button; in search results
+  they carry a "Recommended" badge.
+
+### Fixed
+
+- A few remaining German texts are now translated too: the title of a running mod
+  installation, the "Save modpack" dialog, a progress message while checking mods, the
+  reason for browser-only downloads, the "something is already running" note, an archive
+  error and some command line output. The language test now catches such texts more
+  reliably.
+
 ## [0.11.0] – 2026-10-25
 
 ### New
@@ -152,6 +173,7 @@ Combines the unpublished test versions 0.9.1 to 0.9.3.
 
 Downloads are available from version 0.9.0 on; older downloads have been removed.
 
+[0.11.1]: ../../releases/tag/v0.11.1
 [0.11.0]: ../../releases/tag/v0.11.0
 [0.10.0]: ../../releases/tag/v0.10.0
 [0.9.5]: ../../releases/tag/v0.9.5

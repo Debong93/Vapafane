@@ -997,3 +997,36 @@ mods-bibliothek-tipp = Um ajudante de que outros mods precisam
 mods-seite = Página
 mods-seite-tipp = Abrir a página do mod no navegador – lá explica o que ele faz
 mods-suche = Buscar na lista …
+
+## Empfohlene Leistungs-Mods
+empf-badge = Recomendado
+empf-badge-tipp = Recomendado pelo Vapafane: comprovado para um melhor desempenho, não muda a jogabilidade
+empf-titel = Recomendados para um melhor desempenho
+empf-text = Estes mods deixam o servidor mais rápido e leve sem mudar a jogabilidade. Só rodam no servidor – os seus amigos não precisam instalar nada.
+empf-alle = Instalar todos os recomendados
+empf-mitinstallieren = Instalar também os mods de desempenho recomendados
+empf-sucht = Buscando mods de desempenho adequados …
+empf-paper = O Paper já traz otimizações de desempenho próprias – não são necessários plugins extras.
+empf-lithium = Lógica de jogo mais rápida (mobs, redstone, blocos)
+empf-ferritecore = Bem menos memória
+empf-krypton = Alivia a conexão de rede com os jogadores
+empf-c2me = Carrega e gera o mundo mais rápido (usa vários núcleos do processador)
+empf-scalablelux = Cálculo de iluminação mais rápido, sobretudo ao explorar
+empf-modernfix = Início mais rápido, menos memória
+empf-ev = Mods recomendados instalados: { $namen }
+empf-installiert = Instalado (em «{ $ordner }»): { $namen }.
+empf-err-titel = Nem todos os mods recomendados foram instalados
+empf-err-text = O servidor está pronto, mas estes mods recomendados não puderam ser instalados: { $namen }. Você pode adicioná-los depois em «Mods» → «Adicionar Mods».
+fort-suche-empf = Buscando os mods recomendados …
+task-empf = Instalando mods recomendados
+
+## Programm-Meldungen (Teil 4)
+task-installiere = Instalando { $name }
+fort-frage-modrinth = Consultando o Modrinth pelos mods …
+upd-export-speichern = Salvar modpack
+upd-export-filter = Modpack do Modrinth
+task-backup-ctl = Backup (linha de comando)
+task-mod-installieren = Instalando um mod
+cli-grund-browser = Download só no navegador (CurseForge)
+err-archiv-pfad = Caminho inseguro no arquivo compactado: { $pfad }
+ctl-einladung-gespeichert = { $datei }: { $mods } mods ({ $dateien } incluídos diretamente)

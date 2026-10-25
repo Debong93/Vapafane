@@ -39,6 +39,9 @@
 **Your own server**
 
 - Create a server with *Vanilla*, *Paper*, *Fabric* or *NeoForge* – pick a version, done
+- Recommended performance mods: for Fabric and NeoForge, Vapafane offers a small set of
+  well-established mods such as Lithium and FerriteCore – server-side only, no gameplay
+  changes, and only finished releases for your Minecraft version
 - Start and stop with one click; the server keeps running in the background even with the
   window closed, and restarts after a crash
 - Console, players and whitelist, mods, plugins and datapacks from Modrinth (and CurseForge) –
@@ -95,8 +98,9 @@ the settings of the current area; the button next to it toggles light and dark.
 2. Click **"+"** (it glows as long as there is no server yet) and choose
    **"Create a new server"**. Pick the type – *Vanilla* (no mods), *Fabric* or *NeoForge*
    (with mods), *Paper* (with plugins) –, choose the Minecraft version and a name, and
-   confirm the Minecraft EULA. An existing server folder or a backup is added through the
-   same menu.
+   confirm the Minecraft EULA. For *Fabric* and *NeoForge*, the recommended performance
+   mods are already ticked – untick the box if you don't want them. An existing server
+   folder or a backup is added through the same menu.
 3. Under **"Players"**, add your Minecraft name and your friends' names: new servers come
    with the **whitelist** switched on – only listed players get in. That keeps strangers
    out.
