@@ -248,7 +248,7 @@ pub fn client_settings() -> Value {
 #[tauri::command]
 pub fn set_client_target(target: String) -> Cmd<()> {
     if !matches!(target.as_str(), "launcher" | "modrinth") {
-        return Err(crate::sprache::t!("err-ziel-unbekannt").into());
+        return Err(crate::sprache::t!("err-ziel-unbekannt"));
     }
     let mut cfg = Config::load();
     cfg.client_target = Some(target);
@@ -276,7 +276,7 @@ pub fn client_open_folder(app: AppHandle, dir: String) -> Cmd<()> {
     use tauri_plugin_opener::OpenerExt;
     let p = PathBuf::from(&dir);
     if !p.join("vapafane-client.json").is_file() {
-        return Err(crate::sprache::t!("cli-err-kein-client").into());
+        return Err(crate::sprache::t!("cli-err-kein-client"));
     }
     app.opener().open_path(dir, None::<&str>).map_err(|e| e.to_string())
 }

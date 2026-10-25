@@ -41,7 +41,9 @@
 - Create a server with *Vanilla*, *Paper*, *Fabric* or *NeoForge* – pick a version, done
 - Start and stop with one click; the server keeps running in the background even with the
   window closed, and restarts after a crash
-- Console, players and whitelist, mods, plugins and datapacks from Modrinth (and CurseForge)
+- Console, players and whitelist, mods, plugins and datapacks from Modrinth (and CurseForge) –
+  add, switch off or remove them; every entry shows its icon, a short description and a link
+  to its page, and Vapafane warns before you remove something other mods still need
 - Updates with a dry run, daily backups, one-click restore
 - Traffic light for reachability from outside (IPv4 and IPv6, detects DS-Lite)
 

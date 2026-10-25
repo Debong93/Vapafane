@@ -42,7 +42,9 @@
 - Server anlegen mit *Vanilla*, *Paper*, *Fabric* oder *NeoForge* – Version wählen, fertig
 - Starten und Stoppen mit einem Klick; der Server läuft im Hintergrund weiter, auch wenn das
   Fenster zu ist, und startet nach einem Absturz neu
-- Konsole, Spieler und Whitelist, Mods, Plugins und Datapacks von Modrinth (und CurseForge)
+- Konsole, Spieler und Whitelist, Mods, Plugins und Datapacks von Modrinth (und CurseForge) –
+  hinzufügen, ausschalten oder entfernen; jeder Eintrag zeigt Symbol, Kurzbeschreibung und einen
+  Link zu seiner Seite, und Vapafane warnt, bevor du etwas entfernst, das andere Mods noch brauchen
 - Updates mit Probelauf, tägliche Backups, Wiederherstellen mit einem Klick
 - Ampel für die Erreichbarkeit von außen (IPv4 und IPv6, erkennt DS-Lite)
 

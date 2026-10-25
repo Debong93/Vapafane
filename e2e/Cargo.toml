@@ -1,6 +1,6 @@
 [package]
 name = "vapafane-e2e"
-version = "0.10.0"
+version = "0.11.0"
 description = "Oberflächen-Tests für Vapafane: bedient das echte Programm per WebDriver (tauri-driver)"
 authors = ["Debong93"]
 license = "MIT"

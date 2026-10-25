@@ -240,7 +240,7 @@ async fn rundgang() -> Res<()> {
         e.wait("//span[starts-with(normalize-space(),'Geprüft um')]", 60).await?;
         Ok(())
     });
-    schritt!(e, "Datapack-Katalog", async {
+    schritt!(e, "Datapack installieren und entfernen", async {
         page(e, "Mods/Plugins").await?;
         e.click_button("Datapacks hinzufügen …").await?;
         e.wait("//div[contains(@class,'catalog-list')]//div[@class='hit']", 60).await?;
@@ -248,7 +248,24 @@ async fn rundgang() -> Res<()> {
         e.until("Array.from(document.querySelectorAll('.catalog-list .hit img')).slice(0, 3).every(i => i.complete && i.naturalWidth > 0)", 30).await?;
         e.shot("07-katalog").await;
         e.shot("readme-3-mods").await;
-        e.click_button("Schließen").await
+        // Der Titel führt zur Seite der Mod
+        e.wait("(//div[contains(@class,'catalog-list')]//div[@class='hit'])[1]//div[@class='t']/a[contains(.,'↗')]", 10).await?;
+        e.click_button("Installieren").await?;
+        e.wait("//button[normalize-space()='Installiert']", 90).await?;
+        e.click_button("Schließen").await?;
+        // Neue Zeile mit Symbol, Kurzbeschreibung und Link zur Seite
+        let zeile = "//section[@id='tab-mods']//div[contains(@class,'mod-row')]";
+        e.wait(zeile, 20).await?;
+        e.until("(() => { const i = document.querySelector('#tab-mods .mod-row img.mod-icon'); return i && i.complete && i.naturalWidth > 0; })()", 60).await?;
+        e.wait(&format!("{zeile}//button[contains(.,'Seite')]"), 20).await?;
+        e.until("(document.querySelector('#tab-mods .mod-row .mod-desc')?.innerText || '').length > 10", 20).await?;
+        e.shot("07b-mods-liste").await;
+        // Endgültig entfernen
+        e.js("document.querySelector('#tab-mods .mod-row button[aria-label]').click()").await?;
+        e.sees("entfernen?", 15).await?;
+        e.shot("07c-entfernen").await;
+        e.click_button("Entfernen").await?;
+        e.sees("Keine Datapacks in der Welt.", 20).await
     });
     schritt!(e, "Freunde einladen", async {
         page(e, "Übersicht").await?;

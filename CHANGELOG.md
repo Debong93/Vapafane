@@ -4,6 +4,36 @@ All notable changes to Vapafane. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version numbers follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] – 2026-10-25
+
+### New
+
+- **Remove mods, plugins and datapacks for good** with the trash button – also switched-off
+  ones and datapack folders. Vapafane warns if other mods still need the file, and offers to
+  remove helper mods that nothing needs anymore afterwards.
+- **A more informative mod list:** every entry shows its icon, a short description and a
+  "Page ↗" button that opens the mod's page on Modrinth or CurseForge. Helper mods are marked
+  as "Library" and show which mods need them. The information is looked up once (also for
+  mods copied in by hand, via the file's fingerprint) and remembered in the server folder.
+- Search field above long mod lists (e.g. modpacks).
+- In the mod search, the title opens the mod's page – so you can read what it does first.
+- Command line: `mod-entfernen PATH`.
+
+### Changed
+
+- Switching off a mod that others need asks first.
+- Datapacks show their real name instead of the file name.
+- Vanilla servers only show datapacks – no empty mod list anymore.
+- Every remaining program message (errors, progress, command line, reasons for switched-off
+  mods) is now translated into all 9 languages; reasons follow a language switch. A new test
+  makes sure no fixed German text slips in again.
+
+### Fixed
+
+- The buttons at the bottom of large dialogs (e.g. "Close" in the mod search) no longer get
+  cut off in small windows.
+- The "(off)" label next to switched-off mods was always German.
+
 ## [0.10.0] – 2026-10-24
 
 ### New
@@ -122,6 +152,7 @@ Combines the unpublished test versions 0.9.1 to 0.9.3.
 
 Downloads are available from version 0.9.0 on; older downloads have been removed.
 
+[0.11.0]: ../../releases/tag/v0.11.0
 [0.10.0]: ../../releases/tag/v0.10.0
 [0.9.5]: ../../releases/tag/v0.9.5
 [0.9.4]: ../../releases/tag/v0.9.4

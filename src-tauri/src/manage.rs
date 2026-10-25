@@ -177,7 +177,7 @@ pub fn get_language() -> Value {
 pub fn set_language(language: String) -> Cmd<String> {
     let wunsch = language.trim().to_ascii_lowercase();
     if wunsch != "system" && !vapafane_shared::sprache::SPRACHEN.iter().any(|(c, ..)| *c == wunsch) {
-        return Err(crate::sprache::t!("err-sprache-unbekannt").into());
+        return Err(crate::sprache::t!("err-sprache-unbekannt"));
     }
     let mut cfg = Config::load();
     cfg.language = (wunsch != "system").then_some(wunsch);

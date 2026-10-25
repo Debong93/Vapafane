@@ -361,7 +361,8 @@ mod tests {
         let a = "HTTP/1.1 429 Too Many Requests\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
         let (url, h) = serve(vec![a, a, a, a]);
         let e = super::get_json(&url).unwrap_err();
-        assert!(e.0.contains("zu viele Anfragen"), "{}", e.0);
+        let host = super::host_of(&url);
+        assert_eq!(e.0, crate::sprache::t!("err-zu-viele-anfragen", host = host.to_string()));
         assert_eq!(h.join().unwrap(), 4);
     }
 

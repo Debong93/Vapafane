@@ -651,7 +651,7 @@ pub fn open_folder(app: AppHandle, which: String) -> Cmd<()> {
         "datapacks" => dir.join(crate::updater::level_name(&dir)).join("datapacks"),
         "backups" => cfg.backup_dir_for(&cfg.name_of(&dir)),
         "logs" => dir.join("logs"),
-        _ => return Err(crate::sprache::t!("err-ordner-unbekannt").into()),
+        _ => return Err(crate::sprache::t!("err-ordner-unbekannt")),
     };
     let _ = fs::create_dir_all(&path);
     app.opener()

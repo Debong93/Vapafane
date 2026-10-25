@@ -692,6 +692,7 @@ fn modrinth_info(p: &Value) -> Value {
     let typ = p.get("project_type").and_then(|t| t.as_str()).unwrap_or("mod");
     let slug = p.get("slug").and_then(|s| s.as_str()).unwrap_or("");
     json!({
+        "title": p.get("title"),
         "icon": p.get("icon_url"),
         "desc": p.get("description"),
         "page": (!slug.is_empty()).then(|| format!("https://modrinth.com/{typ}/{slug}")),
@@ -701,6 +702,7 @@ fn modrinth_info(p: &Value) -> Value {
 
 fn curseforge_info(m: &Value) -> Value {
     json!({
+        "title": m.get("name"),
         "icon": m.pointer("/logo/thumbnailUrl"),
         "desc": m.get("summary"),
         "page": m.pointer("/links/websiteUrl"),
@@ -811,6 +813,7 @@ pub fn details(dir: &Path) -> Value {
         out.insert(
             rel.clone(),
             json!({
+                "title": i.get("title"),
                 "icon": i.get("icon"),
                 "desc": i.get("desc"),
                 "page": i.get("page"),

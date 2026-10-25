@@ -132,6 +132,10 @@ pub fn search(dir: &Path, what: What, query: &str, offset: u32, cf_offset: Optio
             json!({
                 "id": h.get("project_id"),
                 "slug": h.get("slug"),
+                "page": h.get("slug").and_then(|s| s.as_str()).map(|s| {
+                    let typ = h.get("project_type").and_then(|t| t.as_str()).unwrap_or("mod");
+                    format!("https://modrinth.com/{typ}/{s}")
+                }),
                 "title": h.get("title"),
                 "description": h.get("description"),
                 "icon": h.get("icon_url"),

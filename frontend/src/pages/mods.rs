@@ -11,13 +11,137 @@ use crate::tasks::task;
 use crate::tauri;
 use crate::util::{J, fmt_bytes, fmt_count, open_folder, open_link, thousands};
 
+/// Texte aus einer JSON-Liste (z. B. Namen der Mods, die eine Datei brauchen).
+fn texte(v: &[Value]) -> Vec<String> {
+    v.iter().filter_map(|x| x.as_str().map(String::from)).collect()
+}
+
+/// Symbol der Mod: Bild von Modrinth/CurseForge oder Platzhalter mit den Anfangsbuchstaben.
+fn mod_icon(icon: String, title: &str) -> AnyView {
+    if icon.is_empty() {
+        let kurz: String = title.chars().filter(|c| c.is_alphanumeric()).take(2).collect();
+        view! { <div class="mod-icon none" aria-hidden="true">{kurz}</div> }.into_any()
+    } else {
+        view! { <img class="mod-icon" src=icon alt="" loading="lazy"/> }.into_any()
+    }
+}
+
+/// Schalter umlegen. Vor dem Ausschalten warnen, wenn andere eingeschaltete Mods ihn brauchen.
+fn umschalten(app: AppState, rel: String, title: String, on: bool, reload: impl Fn() + Copy + 'static, hint: RwSignal<String>) {
+    leptos::task::spawn_local(async move {
+        if !on {
+            let c = tauri::invoke::<Value>("mod_check", json!({ "rel": rel })).await.unwrap_or(Value::Null);
+            let needed = texte(&c.a("needed_by"));
+            if !needed.is_empty() {
+                let text = crate::sprache::t!("mods-gebraucht-warnung", namen = needed.join(", "));
+                let body: dialog::BodyFn = Rc::new(move || view! { <p class="hint warn">{text.clone()}</p> }.into_any());
+                let wahl = ask_view(
+                    crate::sprache::t!("mods-aus-frage", name = title.clone()),
+                    body,
+                    vec![
+                        Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+                        Btn::primary(crate::sprache::t!("mods-aus-knopf"), "ok"),
+                    ],
+                    false,
+                )
+                .await;
+                if wahl != "ok" {
+                    return reload(); // Schalter zurückstellen
+                }
+            }
+        }
+        match tauri::invoke::<Value>("mod_set_enabled", json!({ "rel": rel, "on": on })).await {
+            Ok(r) => {
+                app.add_event(if on {
+                    crate::sprache::t!("mods-ev-an", name = title)
+                } else {
+                    crate::sprache::t!("mods-ev-aus", name = title)
+                });
+                hint.set(if r.b("restart_needed") {
+                    crate::sprache::t!("mods-neustart-noetig")
+                } else {
+                    String::new()
+                });
+            }
+            Err(e) => error(crate::sprache::t!("hdr-err-umschalten"), e).await,
+        }
+        reload();
+    });
+}
+
+/// Endgültig entfernen – mit Warnung, wenn andere Mods die Datei brauchen, und dem
+/// Angebot, Helfer mitzunehmen, die danach kein anderer Mod mehr braucht.
+fn entfernen(app: AppState, rel: String, title: String, reload: impl Fn() + Copy + 'static, hint: RwSignal<String>) {
+    leptos::task::spawn_local(async move {
+        let c = tauri::invoke::<Value>("mod_check", json!({ "rel": rel })).await.unwrap_or(Value::Null);
+        let needed = texte(&c.a("needed_by"));
+        // (Datei, Name, Häkchen) – vorausgewählt nur, was als Abhängigkeit mitkam
+        let helfer: Vec<(String, String, RwSignal<bool>)> = c
+            .a("orphans")
+            .iter()
+            .map(|o| (o.s("rel"), o.s("title"), RwSignal::new(o.b("suggest"))))
+            .collect();
+        let h2 = helfer.clone();
+        let body: dialog::BodyFn = Rc::new(move || {
+            let warnung = (!needed.is_empty())
+                .then(|| crate::sprache::t!("mods-gebraucht-warnung", namen = needed.join(", ")));
+            view! {
+                <p>{crate::sprache::t!("mods-entfernen-text")}</p>
+                {warnung.map(|w| view! { <p class="hint warn">{w}</p> })}
+                {(!h2.is_empty()).then(|| view! {
+                    <p>{crate::sprache::t!("mods-waisen-frage")}</p>
+                    {h2.iter().map(|(_, name, an)| {
+                        let an = *an;
+                        view! {
+                            <label class="check">
+                                <input type="checkbox" prop:checked=move || an.get() on:change=move |e| an.set(event_target_checked(&e))/>
+                                " " {name.clone()}
+                            </label>
+                        }
+                    }).collect_view()}
+                })}
+            }
+            .into_any()
+        });
+        let wahl = ask_view(
+            crate::sprache::t!("mods-entfernen-frage", name = title.clone()),
+            body,
+            vec![
+                Btn::new(crate::sprache::t!("gem-abbrechen"), ""),
+                Btn::primary(crate::sprache::t!("gem-entfernen"), "ok"),
+            ],
+            false,
+        )
+        .await;
+        if wahl != "ok" {
+            return;
+        }
+        let mut rels = vec![rel];
+        rels.extend(helfer.iter().filter(|(_, _, an)| an.get_untracked()).map(|(r, _, _)| r.clone()));
+        match tauri::invoke::<Value>("mod_remove", json!({ "rels": rels })).await {
+            Ok(r) => {
+                app.add_event(crate::sprache::t!("mods-ev-entfernt", name = title));
+                hint.set(if r.b("restart_needed") {
+                    crate::sprache::t!("mods-neustart-noetig")
+                } else {
+                    String::new()
+                });
+            }
+            Err(e) => error(crate::sprache::t!("mods-err-entfernen"), e).await,
+        }
+        reload();
+    });
+}
+
 fn mod_row(
     app: AppState,
     m: Value,
+    d: Value,
     reload: impl Fn() + Copy + 'static,
     hint: RwSignal<String>,
 ) -> AnyView {
     let enabled = m.b("enabled");
+    let folder = m.b("folder");
     let src = m.s("source/source");
     let sub = [
         if m.s("version").is_empty() {
@@ -31,47 +155,46 @@ fn mod_row(
     .filter(|s| !s.is_empty())
     .collect::<Vec<_>>()
     .join(" · ");
+    // Kurzbeschreibung von Modrinth/CurseForge, sonst aus der Mod-Datei
+    let desc = Some(d.s("desc")).filter(|x| !x.is_empty()).unwrap_or_else(|| m.s("desc"));
+    let needed = texte(&d.a("needed_by"));
+    let page = d.s("page");
     let reason = m.s("reason");
-    let (rel, title) = (m.s("rel"), m.s("title"));
-    let toggle = move |e: leptos::ev::Event| {
-        let on = event_target_checked(&e);
-        let (rel, title) = (rel.clone(), title.clone());
-        leptos::task::spawn_local(async move {
-            match tauri::invoke::<Value>("mod_set_enabled", json!({ "rel": rel, "on": on })).await {
-                Ok(r) => {
-                    app.add_event(if on {
-                        crate::sprache::t!("mods-ev-an", name = title)
-                    } else {
-                        crate::sprache::t!("mods-ev-aus", name = title)
-                    });
-                    hint.set(if r.b("restart_needed") {
-                        crate::sprache::t!("mods-neustart-noetig")
-                    } else {
-                        String::new()
-                    });
-                }
-                Err(e) => error(crate::sprache::t!("hdr-err-umschalten"), e).await,
-            }
-            reload();
-        });
-    };
+    let title = if m.s("kind") == "datapack" && !d.s("title").is_empty() { d.s("title") } else { m.s("title") };
+    let rel = m.s("rel");
+    let (rel2, title2) = (rel.clone(), title.clone());
+    let anzeige = title.clone();
+    let toggle = move |e: leptos::ev::Event| umschalten(app, rel.clone(), title.clone(), event_target_checked(&e), reload, hint);
+    let remove = move |_| entfernen(app, rel2.clone(), title2.clone(), reload, hint);
     view! {
-        <div class="item" class:off=!enabled>
+        <div class="item mod-row" class:off=!enabled>
+            {mod_icon(d.s("icon"), &anzeige)}
             <div class="grow">
-                <div>{m.s("title")}
+                <div class="mod-title">{anzeige.clone()}
+                    {(!enabled).then(|| view! { <span class="badge">{crate::sprache::t!("set-aus")}</span> })}
+                    {d.b("lib").then(|| view! { <span class="badge lib" title=crate::sprache::t!("mods-bibliothek-tipp")>{crate::sprache::t!("mods-bibliothek")}</span> })}
                     {m.b("client_only").then(|| view! { <span class="badge">{crate::sprache::t!("mods-nur-client")}</span> })}
-                    {m.b("folder").then(|| view! { <span class="badge">{crate::sprache::t!("gem-ordner")}</span> })}
+                    {folder.then(|| view! { <span class="badge">{crate::sprache::t!("gem-ordner")}</span> })}
                     {(src == "curseforge").then(|| view! { <span class="badge src-cf">"CurseForge"</span> })}
                     {(src == "modrinth").then(|| view! { <span class="badge src-mr">"Modrinth"</span> })}
                 </div>
+                {(!desc.is_empty()).then(|| view! { <div class="mod-desc">{desc.clone()}</div> })}
                 <div class="sub">{sub}</div>
+                {(!needed.is_empty()).then(|| view! { <div class="sub needed">{crate::sprache::t!("mods-gebraucht-von", namen = needed.join(", "))}</div> })}
                 {(!enabled && !reason.is_empty()).then(|| view! { <div class="reason">{crate::sprache::t!("mods-aus-grund", grund = reason.clone())}</div> })}
             </div>
-            {(!m.b("folder")).then(|| view! {
+            {(!page.is_empty()).then(|| view! {
+                <button class="linkbtn" title=crate::sprache::t!("mods-seite-tipp") on:click=move |_| open_link(page.clone())>
+                    {crate::sprache::t!("mods-seite")}" ↗"</button>
+            })}
+            {(!folder).then(|| view! {
                 <label class="switch" title=if enabled { crate::sprache::t!("mods-an-tipp") } else { crate::sprache::t!("mods-aus-tipp") }>
                     <input type="checkbox" prop:checked=enabled on:change=toggle/><span></span>
                 </label>
             })}
+            <button class="icon-btn" title=crate::sprache::t!("mods-entfernen-tipp") aria-label=crate::sprache::t!("mods-entfernen-tipp") on:click=remove>
+                <span class="px-ico ico-trash"></span>
+            </button>
         </div>
     }.into_any()
 }
@@ -80,6 +203,9 @@ fn mod_row(
 pub fn Mods() -> impl IntoView {
     let app = use_app();
     let list = RwSignal::new(Value::Null);
+    // Datei → Symbol, Kurzbeschreibung, Link, Bibliothek?, gebraucht von (kommt kurz nach der Liste)
+    let details = RwSignal::new(Value::Null);
+    let filter = RwSignal::new(String::new());
     let hint = RwSignal::new(String::new());
     let reload = move || {
         leptos::task::spawn_local(async move {
@@ -88,6 +214,9 @@ pub fn Mods() -> impl IntoView {
                     .await
                     .unwrap_or(Value::Null),
             );
+            if let Ok(d) = tauri::call::<Value>("mods_details").await {
+                details.set(d);
+            }
         });
     };
     Effect::new(move |_| {
@@ -106,6 +235,9 @@ pub fn Mods() -> impl IntoView {
     let vanilla = move || app.details.get().s("info/type") == "vanilla";
     let count = move || {
         let l = list.get();
+        if vanilla() {
+            return crate::sprache::t!("mods-datapacks-anzahl", anzahl = l.a("datapacks").len() as u32);
+        }
         let mods = l.a("mods");
         let on = mods.iter().filter(|m| m.b("enabled")).count();
         let packs = l.a("datapacks").len();
@@ -119,6 +251,11 @@ pub fn Mods() -> impl IntoView {
             }
         )
     };
+    // Suchfeld erst bei längeren Listen (z. B. Modpacks)
+    let viele = move || {
+        let l = list.get();
+        l.a("mods").len() + l.a("datapacks").len() >= 8
+    };
     let rows = move |key: &'static str| {
         let l = list.get();
         let items = l.a(key);
@@ -130,9 +267,25 @@ pub fn Mods() -> impl IntoView {
             };
             return view! { <div class="empty">{empty}</div> }.into_any();
         }
-        items
+        let d = details.get();
+        let f = filter.get().trim().to_lowercase();
+        let passt = |m: &Value| {
+            let beschreibung = d.get(m.s("rel")).map(|x| x.s("desc")).unwrap_or_default();
+            f.is_empty()
+                || [m.s("title"), m.s("file"), m.s("desc"), beschreibung]
+                    .iter()
+                    .any(|t| t.to_lowercase().contains(&f))
+        };
+        let treffer: Vec<Value> = items.into_iter().filter(passt).collect();
+        if treffer.is_empty() {
+            return view! { <div class="empty">{crate::sprache::t!("kat-nichts")}</div> }.into_any();
+        }
+        treffer
             .into_iter()
-            .map(|m| mod_row(app, m, reload, hint))
+            .map(|m| {
+                let info = d.get(m.s("rel")).cloned().unwrap_or(Value::Null);
+                mod_row(app, m, info, reload, hint)
+            })
             .collect_view()
             .into_any()
     };
@@ -144,12 +297,19 @@ pub fn Mods() -> impl IntoView {
                 <span class="spacer"></span>
                 <button class="primary" on:click=move |_| open_catalog(app, list.get_untracked(), reload)>
                     {move || crate::sprache::t!("mods-hinzufuegen", wort = if vanilla() { "Datapacks" } else { word() })}</button>
-                <button on:click=|_| open_folder("mods")>{crate::sprache::t!("mods-ordner-oeffnen")}</button>
+                <button on:click=move |_| open_folder(if vanilla() { "datapacks" } else { "mods" })>
+                    {move || if vanilla() { crate::sprache::t!("kat-dp-ordner") } else { crate::sprache::t!("mods-ordner-oeffnen") }}</button>
                 <button title=crate::sprache::t!("mods-aufraeumen-tipp") on:click=move |_| cleanup(app, reload)>{crate::sprache::t!("mods-aufraeumen")}</button>
             </div>
             {move || (!hint.get().is_empty()).then(|| view! { <p class="hint">{hint.get()}</p> })}
-            <h3>{word}</h3>
-            <div class="list">{move || rows("mods")}</div>
+            <Show when=viele>
+                <input type="search" class="mods-filter" placeholder=crate::sprache::t!("mods-suche") autocomplete="off" spellcheck="false"
+                    prop:value=filter on:input=move |e| filter.set(event_target_value(&e))/>
+            </Show>
+            <Show when=move || !vanilla()>
+                <h3>{word}</h3>
+                <div class="list">{move || rows("mods")}</div>
+            </Show>
             <h3>{crate::sprache::t!("mods-datapacks-titel")}</h3>
             <div class="list">{move || rows("datapacks")}</div>
         </section>
@@ -323,6 +483,18 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
         view! { <span class="badge">{crate::sprache::t!("kat-nur-server")}</span> }.into_any()
     };
     let icon = h.s("icon");
+    // Titel öffnet die Mod-Seite – so lässt sich vor dem Installieren nachlesen, was die Mod macht
+    let page = h.s("page");
+    let titel = if page.is_empty() {
+        view! { <span>{h.s("title")}</span> }.into_any()
+    } else {
+        view! {
+            <a href="#" title=crate::sprache::t!("mods-seite-tipp")
+                on:click=move |e: leptos::ev::MouseEvent| { e.prevent_default(); open_link(page.clone()); }>
+                {h.s("title")}" ↗"</a>
+        }
+        .into_any()
+    };
     let hh = h.clone();
     let install = move |_| {
         let h = hh.clone();
@@ -348,7 +520,7 @@ fn hit_row(app: AppState, c: Catalog, h: Value) -> AnyView {
         <div class="hit">
             {if icon.is_empty() { view! { <div class="noicon"></div> }.into_any() } else { view! { <img src=icon alt="" loading="lazy"/> }.into_any() }}
             <div class="txt">
-                <div class="t">{h.s("title")} " " {side}</div>
+                <div class="t">{titel} " " {side}</div>
                 <div class="d">{h.s("description")}</div>
                 <div class="meta">{crate::sprache::t!("kat-meta", downloads = fmt_count(h.f("downloads").unwrap_or(0.0)), autor = if h.s("author").is_empty() { "?".into() } else { h.s("author") })}</div>
             </div>
